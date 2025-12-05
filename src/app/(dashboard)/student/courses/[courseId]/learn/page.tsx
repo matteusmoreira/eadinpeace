@@ -35,6 +35,9 @@ import { Id } from "@convex/_generated/dataModel";
 import { useUser } from "@clerk/nextjs";
 import { toast } from "sonner";
 
+// Cast ReactPlayer to any to avoid type errors
+const ReactPlayerAny = ReactPlayer as any;
+
 function formatDuration(seconds: number): string {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -199,7 +202,7 @@ export default function CoursePlayerPage() {
     const [videoProgress, setVideoProgress] = useState(0);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isMarkingComplete, setIsMarkingComplete] = useState(false);
-    const playerRef = useRef<ReactPlayer>(null);
+    const playerRef = useRef<any>(null);
 
     // Get Convex user
     const convexUser = useQuery(api.users.getByClerkId, {
@@ -373,7 +376,7 @@ export default function CoursePlayerPage() {
                 {/* Video Player */}
                 <div className="flex-1 relative bg-black">
                     {currentLesson?.videoUrl ? (
-                        <ReactPlayer
+                        <ReactPlayerAny
                             ref={playerRef}
                             url={currentLesson.videoUrl}
                             width="100%"

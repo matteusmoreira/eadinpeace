@@ -36,13 +36,13 @@ interface LessonCommentsProps {
 
 export function LessonComments({ lessonId, userId, userRole }: LessonCommentsProps) {
     const [newComment, setNewComment] = useState("");
-    const [replyingTo, setReplyingTo] = useState<Id<"comments"> | null>(null);
+    const [replyingTo, setReplyingTo] = useState<Id<"lessonComments"> | null>(null);
     const [replyContent, setReplyContent] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const comments = useQuery(api.comments.getByLesson, { lessonId });
     const createComment = useMutation(api.comments.create);
-    const likeComment = useMutation(api.comments.like);
+    const likeComment = useMutation(api.comments.toggleLike);
     const toggleResolved = useMutation(api.comments.toggleResolved);
     const togglePinned = useMutation(api.comments.togglePinned);
     const removeComment = useMutation(api.comments.remove);
@@ -67,7 +67,7 @@ export function LessonComments({ lessonId, userId, userRole }: LessonCommentsPro
         }
     };
 
-    const handleReply = async (parentId: Id<"comments">) => {
+    const handleReply = async (parentId: Id<"lessonComments">) => {
         if (!replyContent.trim()) return;
 
         setIsSubmitting(true);
@@ -222,14 +222,14 @@ export function LessonComments({ lessonId, userId, userRole }: LessonCommentsPro
 interface CommentItemProps {
     comment: any;
     formatDate: (timestamp: number) => string;
-    getRoleBadge: (role: string) => JSX.Element | null;
+    getRoleBadge: (role: string) => React.ReactNode | null;
     canModerate: boolean;
     userId: Id<"users">;
-    replyingTo: Id<"comments"> | null;
-    setReplyingTo: (id: Id<"comments"> | null) => void;
+    replyingTo: Id<"lessonComments"> | null;
+    setReplyingTo: (id: Id<"lessonComments"> | null) => void;
     replyContent: string;
     setReplyContent: (content: string) => void;
-    handleReply: (parentId: Id<"comments">) => void;
+    handleReply: (parentId: Id<"lessonComments">) => void;
     isSubmitting: boolean;
     likeComment: any;
     toggleResolved: any;

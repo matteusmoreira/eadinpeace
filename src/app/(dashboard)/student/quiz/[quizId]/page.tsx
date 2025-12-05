@@ -64,7 +64,7 @@ export default function QuizPage() {
     const submitAttempt = useMutation(api.quizzes.submitAttempt);
 
     // Use the quiz data that's available
-    const quizData = quiz || (directQuiz && directQuiz[0]);
+    const quizData: any = quiz || (directQuiz && directQuiz[0]);
     const questions = quizData?.questions || [];
     const currentQuestion = questions[currentQuestionIndex];
     const isLastQuestion = currentQuestionIndex === questions.length - 1;
@@ -404,7 +404,7 @@ export default function QuizPage() {
                                     onValueChange={setSelectedOption}
                                     disabled={showFeedback}
                                 >
-                                    {currentQuestion.options?.map((option, index) => {
+                                    {currentQuestion.options?.map((option: string, index: number) => {
                                         const optionId = String.fromCharCode(97 + index); // a, b, c, d...
                                         const isSelected = selectedOption === option;
                                         const isCorrect = option === currentQuestion.correctAnswer;
