@@ -226,23 +226,7 @@ export default defineSchema({
         .index("by_user", ["userId"])
         .index("by_quiz_user", ["quizId", "userId"]),
 
-    // Notifications
-    notifications: defineTable({
-        userId: v.id("users"),
-        title: v.string(),
-        message: v.string(),
-        type: v.union(
-            v.literal("info"),
-            v.literal("success"),
-            v.literal("warning"),
-            v.literal("achievement")
-        ),
-        isRead: v.boolean(),
-        link: v.optional(v.string()),
-        createdAt: v.number(),
-    })
-        .index("by_user", ["userId"])
-        .index("by_user_unread", ["userId", "isRead"]),
+
 
     // Comments (Módulo 13: Comunicação)
     comments: defineTable({
@@ -377,7 +361,8 @@ export default defineSchema({
             v.literal("quiz_result"),
             v.literal("enrollment_confirmed"),
             v.literal("announcement"),
-            v.literal("reminder")
+            v.literal("reminder"),
+            v.literal("achievement")
         ),
         title: v.string(),
         message: v.string(),
