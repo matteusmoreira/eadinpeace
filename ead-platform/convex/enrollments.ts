@@ -262,3 +262,14 @@ export const updateStreak = mutation({
         }
     },
 });
+
+// Get study streak
+export const getStreak = query({
+    args: { userId: v.id("users") },
+    handler: async (ctx, args) => {
+        return await ctx.db
+            .query("studyStreaks")
+            .withIndex("by_user", (q) => q.eq("userId", args.userId))
+            .first();
+    },
+});

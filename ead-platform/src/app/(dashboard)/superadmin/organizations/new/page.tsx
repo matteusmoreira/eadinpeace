@@ -16,6 +16,10 @@ import {
     Users,
     BookOpen,
     Sparkles,
+    Lock,
+    Eye,
+    EyeOff,
+    RefreshCw,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import Link from "next/link";
@@ -72,6 +76,7 @@ const plans = [
 export default function NewOrganizationPage() {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
     const [formData, setFormData] = useState({
         name: "",
         slug: "",
@@ -81,10 +86,21 @@ export default function NewOrganizationPage() {
         adminFirstName: "",
         adminLastName: "",
         adminEmail: "",
+        adminPassword: "",
     });
 
     // Convex
     const createOrganization = useMutation(api.organizations.create);
+
+    // Gerar senha aleatória
+    const generatePassword = () => {
+        const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%";
+        let password = "";
+        for (let i = 0; i < 12; i++) {
+            password += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        setFormData((prev) => ({ ...prev, adminPassword: password }));
+    };
 
     // Auto-generate slug from name
     useEffect(() => {
@@ -102,6 +118,31 @@ export default function NewOrganizationPage() {
         setIsLoading(true);
 
         try {
+            let adminClerkId: string | undefined;
+
+            // Se informou dados do admin com senha, criar usuário no Clerk primeiro
+            if (formData.adminEmail && formData.adminPassword && formData.adminFirstName && formData.adminLastName) {
+                const response = await fetch("/api/users/create", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        email: formData.adminEmail,
+                        password: formData.adminPassword,
+                        firstName: formData.adminFirstName,
+                        lastName: formData.adminLastName,
+                    }),
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.error || "Erro ao criar administrador");
+                }
+
+                adminClerkId = result.clerkId;
+                toast.success("Administrador criado com sucesso!");
+            }
+
             await createOrganization({
                 name: formData.name,
                 slug: formData.slug,
@@ -110,6 +151,7 @@ export default function NewOrganizationPage() {
                 adminEmail: formData.adminEmail || undefined,
                 adminFirstName: formData.adminFirstName || undefined,
                 adminLastName: formData.adminLastName || undefined,
+                adminClerkId: adminClerkId,
             });
 
             toast.success("Organização criada com sucesso!");
@@ -277,9 +319,12 @@ export default function NewOrganizationPage() {
                     {/* Admin Account */}
                     <Card>
                         <CardHeader>
-                            <CardTitle>Administrador Inicial (Opcional)</CardTitle>
+                            <CardTitle className="flex items-center gap-2">
+                                <Lock className="h-5 w-5" />
+                                Administrador Inicial (Opcional)
+                            </CardTitle>
                             <CardDescription>
-                                Crie a conta do primeiro administrador da organização
+                                Crie a conta do primeiro administrador da organização com acesso imediato
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
@@ -307,21 +352,60 @@ export default function NewOrganizationPage() {
                                     />
                                 </div>
                             </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="adminEmail">Email</Label>
-                                <Input
-                                    id="adminEmail"
-                                    type="email"
-                                    placeholder="admin@organizacao.com"
-                                    value={formData.adminEmail}
-                                    onChange={(e) =>
-                                        setFormData((prev) => ({ ...prev, adminEmail: e.target.value }))
-                                    }
-                                />
-                                <p className="text-xs text-muted-foreground">
-                                    Um convite será enviado para este email
-                                </p>
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <div className="space-y-2">
+                                    <Label htmlFor="adminEmail">Email</Label>
+                                    <Input
+                                        id="adminEmail"
+                                        type="email"
+                                        placeholder="admin@organizacao.com"
+                                        value={formData.adminEmail}
+                                        onChange={(e) =>
+                                            setFormData((prev) => ({ ...prev, adminEmail: e.target.value }))
+                                        }
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="adminPassword">Senha</Label>
+                                    <div className="flex gap-2">
+                                        <div className="relative flex-1">
+                                            <Input
+                                                id="adminPassword"
+                                                type={showPassword ? "text" : "password"}
+                                                placeholder="Senha do administrador"
+                                                value={formData.adminPassword}
+                                                onChange={(e) =>
+                                                    setFormData((prev) => ({ ...prev, adminPassword: e.target.value }))
+                                                }
+                                                className="pr-10"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPassword(!showPassword)}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                            >
+                                                {showPassword ? (
+                                                    <EyeOff className="h-4 w-4" />
+                                                ) : (
+                                                    <Eye className="h-4 w-4" />
+                                                )}
+                                            </button>
+                                        </div>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="icon"
+                                            onClick={generatePassword}
+                                            title="Gerar senha aleatória"
+                                        >
+                                            <RefreshCw className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                </div>
                             </div>
+                            <p className="text-xs text-muted-foreground">
+                                O administrador poderá fazer login imediatamente com o email e senha definidos
+                            </p>
                         </CardContent>
                     </Card>
 

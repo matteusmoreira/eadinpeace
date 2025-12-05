@@ -21,126 +21,58 @@ import {
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-
-interface Question {
-    id: string;
-    text: string;
-    options: { id: string; text: string }[];
-    correctOptionId: string;
-    explanation?: string;
-}
-
-interface Quiz {
-    id: string;
-    title: string;
-    description: string;
-    courseId: string;
-    courseName: string;
-    lessonId?: string;
-    lessonName?: string;
-    passingScore: number; // percentage
-    timeLimit?: number; // minutes
-    questions: Question[];
-}
-
-// Mock quiz data
-const mockQuiz: Quiz = {
-    id: "quiz1",
-    title: "Fundamentos de JavaScript",
-    description: "Teste seus conhecimentos sobre os fundamentos do JavaScript",
-    courseId: "1",
-    courseName: "JavaScript do Zero",
-    lessonName: "Variáveis e Tipos de Dados",
-    passingScore: 70,
-    timeLimit: 10,
-    questions: [
-        {
-            id: "q1",
-            text: "Qual keyword é usada para declarar uma variável que não pode ser reatribuída em JavaScript?",
-            options: [
-                { id: "a", text: "var" },
-                { id: "b", text: "let" },
-                { id: "c", text: "const" },
-                { id: "d", text: "static" },
-            ],
-            correctOptionId: "c",
-            explanation: "const é usada para declarar constantes - valores que não podem ser reatribuídos após a inicialização.",
-        },
-        {
-            id: "q2",
-            text: "O que o operador === faz em JavaScript?",
-            options: [
-                { id: "a", text: "Atribuição de valor" },
-                { id: "b", text: "Comparação de valor apenas" },
-                { id: "c", text: "Comparação de valor e tipo" },
-                { id: "d", text: "Negação" },
-            ],
-            correctOptionId: "c",
-            explanation: "O operador === (igualdade estrita) compara tanto o valor quanto o tipo dos operandos.",
-        },
-        {
-            id: "q3",
-            text: "Qual é o resultado de typeof null em JavaScript?",
-            options: [
-                { id: "a", text: '"null"' },
-                { id: "b", text: '"undefined"' },
-                { id: "c", text: '"object"' },
-                { id: "d", text: '"boolean"' },
-            ],
-            correctOptionId: "c",
-            explanation: "Por razões históricas, typeof null retorna 'object'. Este é um bug conhecido do JavaScript.",
-        },
-        {
-            id: "q4",
-            text: "Como você declara uma função arrow em JavaScript?",
-            options: [
-                { id: "a", text: "function => {}" },
-                { id: "b", text: "() => {}" },
-                { id: "c", text: "=> function {}" },
-                { id: "d", text: "arrow() {}" },
-            ],
-            correctOptionId: "b",
-            explanation: "Arrow functions são declaradas usando a sintaxe () => {}.",
-        },
-        {
-            id: "q5",
-            text: "Qual método é usado para adicionar um elemento ao final de um array?",
-            options: [
-                { id: "a", text: "append()" },
-                { id: "b", text: "push()" },
-                { id: "c", text: "add()" },
-                { id: "d", text: "insert()" },
-            ],
-            correctOptionId: "b",
-            explanation: "O método push() adiciona um ou mais elementos ao final de um array.",
-        },
-    ],
-};
+import { useParams } from "next/navigation";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@convex/_generated/api";
+import { useUser } from "@clerk/nextjs";
+import { Id } from "@convex/_generated/dataModel";
+import { toast } from "sonner";
 
 type QuizState = "intro" | "inProgress" | "finished";
 
 interface Answer {
-    questionId: string;
-    selectedOptionId: string;
+    questionId: Id<"quizQuestions">;
+    answer: string;
     isCorrect: boolean;
 }
 
-export default function QuizPage({ params }: { params: { quizId: string } }) {
-    const [quiz] = useState<Quiz>(mockQuiz);
+export default function QuizPage() {
+    const params = useParams();
+    const quizId = params.quizId as Id<"quizzes">;
+    const { user } = useUser();
+
     const [state, setState] = useState<QuizState>("intro");
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
     const [selectedOption, setSelectedOption] = useState<string | null>(null);
     const [answers, setAnswers] = useState<Answer[]>([]);
     const [showFeedback, setShowFeedback] = useState(false);
-    const [timeLeft, setTimeLeft] = useState(quiz.timeLimit ? quiz.timeLimit * 60 : 0);
+    const [timeLeft, setTimeLeft] = useState(0);
+    const [startTime, setStartTime] = useState<number>(0);
+    const [result, setResult] = useState<any>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const currentQuestion = quiz.questions[currentQuestionIndex];
-    const isLastQuestion = currentQuestionIndex === quiz.questions.length - 1;
-    const progress = ((currentQuestionIndex + 1) / quiz.questions.length) * 100;
+    // Get Convex user and quiz data
+    const convexUser = useQuery(api.users.getByClerkId, {
+        clerkId: user?.id || ""
+    });
+
+    const quiz = useQuery(api.quizzes.getByLesson, { lessonId: quizId as any });
+
+    // If quiz not found by lesson, try direct query (quizId might be a quiz Id)
+    const directQuiz = useQuery(api.quizzes.getByCourse, { courseId: quizId as any });
+
+    const submitAttempt = useMutation(api.quizzes.submitAttempt);
+
+    // Use the quiz data that's available
+    const quizData = quiz || (directQuiz && directQuiz[0]);
+    const questions = quizData?.questions || [];
+    const currentQuestion = questions[currentQuestionIndex];
+    const isLastQuestion = currentQuestionIndex === questions.length - 1;
+    const progress = questions.length > 0 ? ((currentQuestionIndex + 1) / questions.length) * 100 : 0;
 
     // Timer
     useEffect(() => {
-        if (state !== "inProgress" || !quiz.timeLimit) return;
+        if (state !== "inProgress" || !quizData?.timeLimit) return;
 
         const timer = setInterval(() => {
             setTimeLeft((prev) => {
@@ -154,7 +86,7 @@ export default function QuizPage({ params }: { params: { quizId: string } }) {
         }, 1000);
 
         return () => clearInterval(timer);
-    }, [state, quiz.timeLimit]);
+    }, [state, quizData?.timeLimit]);
 
     const formatTime = (seconds: number): string => {
         const mins = Math.floor(seconds / 60);
@@ -164,16 +96,17 @@ export default function QuizPage({ params }: { params: { quizId: string } }) {
 
     const startQuiz = () => {
         setState("inProgress");
-        setTimeLeft(quiz.timeLimit ? quiz.timeLimit * 60 : 0);
+        setStartTime(Date.now());
+        setTimeLeft(quizData?.timeLimit ? quizData.timeLimit * 60 : 0);
     };
 
     const submitAnswer = () => {
-        if (!selectedOption) return;
+        if (!selectedOption || !currentQuestion) return;
 
-        const isCorrect = selectedOption === currentQuestion.correctOptionId;
+        const isCorrect = selectedOption === currentQuestion.correctAnswer;
         const answer: Answer = {
-            questionId: currentQuestion.id,
-            selectedOptionId: selectedOption,
+            questionId: currentQuestion._id,
+            answer: selectedOption,
             isCorrect,
         };
 
@@ -191,8 +124,42 @@ export default function QuizPage({ params }: { params: { quizId: string } }) {
         }
     };
 
-    const finishQuiz = () => {
-        setState("finished");
+    const finishQuiz = async () => {
+        if (!convexUser || !quizData) {
+            setState("finished");
+            return;
+        }
+
+        setIsSubmitting(true);
+
+        try {
+            const timeSpent = Math.round((Date.now() - startTime) / 1000);
+
+            const submissionResult = await submitAttempt({
+                quizId: quizData._id,
+                userId: convexUser._id,
+                answers: answers.map(a => ({
+                    questionId: a.questionId,
+                    answer: a.answer,
+                })),
+                timeSpent,
+            });
+
+            setResult(submissionResult);
+            setState("finished");
+
+            if (submissionResult.passed) {
+                toast.success("Parabéns! Você passou no quiz! 🎉");
+            } else {
+                toast.info("Continue estudando e tente novamente!");
+            }
+        } catch (error) {
+            console.error("Error submitting quiz:", error);
+            toast.error("Erro ao enviar quiz");
+            setState("finished");
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const restartQuiz = () => {
@@ -201,11 +168,23 @@ export default function QuizPage({ params }: { params: { quizId: string } }) {
         setSelectedOption(null);
         setAnswers([]);
         setShowFeedback(false);
+        setResult(null);
     };
 
-    const correctAnswers = answers.filter((a) => a.isCorrect).length;
-    const score = Math.round((correctAnswers / quiz.questions.length) * 100);
-    const passed = score >= quiz.passingScore;
+    // Loading state
+    if (!quizData) {
+        return (
+            <div className="min-h-[80vh] flex items-center justify-center p-4">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    const correctAnswers = result?.results?.filter((r: any) => r.isCorrect).length ||
+        answers.filter(a => a.isCorrect).length;
+    const score = result?.score ||
+        (questions.length > 0 ? Math.round((correctAnswers / questions.length) * 100) : 0);
+    const passed = result?.passed || score >= (quizData.passingScore || 70);
 
     // Intro Screen
     if (state === "intro") {
@@ -222,19 +201,19 @@ export default function QuizPage({ params }: { params: { quizId: string } }) {
                             <div className="h-16 w-16 mx-auto rounded-2xl gradient-bg flex items-center justify-center mb-4">
                                 <Trophy className="h-8 w-8 text-white" />
                             </div>
-                            <CardTitle className="text-2xl">{quiz.title}</CardTitle>
-                            <CardDescription>{quiz.description}</CardDescription>
+                            <CardTitle className="text-2xl">{quizData.title}</CardTitle>
+                            <CardDescription>{quizData.description || "Teste seus conhecimentos!"}</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-6">
                             <div className="grid grid-cols-2 gap-4 text-center">
                                 <div className="p-4 rounded-lg bg-muted">
-                                    <p className="text-2xl font-bold">{quiz.questions.length}</p>
+                                    <p className="text-2xl font-bold">{questions.length}</p>
                                     <p className="text-sm text-muted-foreground">Questões</p>
                                 </div>
                                 <div className="p-4 rounded-lg bg-muted">
-                                    <p className="text-2xl font-bold">{quiz.timeLimit || "∞"}</p>
+                                    <p className="text-2xl font-bold">{quizData.timeLimit || "∞"}</p>
                                     <p className="text-sm text-muted-foreground">
-                                        {quiz.timeLimit ? "Minutos" : "Sem limite"}
+                                        {quizData.timeLimit ? "Minutos" : "Sem limite"}
                                     </p>
                                 </div>
                             </div>
@@ -242,11 +221,7 @@ export default function QuizPage({ params }: { params: { quizId: string } }) {
                             <div className="space-y-2">
                                 <div className="flex justify-between text-sm">
                                     <span className="text-muted-foreground">Nota mínima para aprovação</span>
-                                    <span className="font-medium">{quiz.passingScore}%</span>
-                                </div>
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-muted-foreground">Curso</span>
-                                    <span className="font-medium">{quiz.courseName}</span>
+                                    <span className="font-medium">{quizData.passingScore || 70}%</span>
                                 </div>
                             </div>
 
@@ -354,12 +329,12 @@ export default function QuizPage({ params }: { params: { quizId: string } }) {
                                 </div>
                                 <div className="p-3 rounded-lg bg-muted">
                                     <p className="text-xl font-bold text-destructive">
-                                        {quiz.questions.length - correctAnswers}
+                                        {questions.length - correctAnswers}
                                     </p>
                                     <p className="text-xs text-muted-foreground">Incorretas</p>
                                 </div>
                                 <div className="p-3 rounded-lg bg-muted">
-                                    <p className="text-xl font-bold">{quiz.questions.length}</p>
+                                    <p className="text-xl font-bold">{questions.length}</p>
                                     <p className="text-xs text-muted-foreground">Total</p>
                                 </div>
                             </div>
@@ -370,7 +345,7 @@ export default function QuizPage({ params }: { params: { quizId: string } }) {
                                     <RefreshCw className="h-4 w-4" />
                                     Tentar Novamente
                                 </Button>
-                                <Link href="/dashboard" className="flex-1">
+                                <Link href="/student" className="flex-1">
                                     <Button className="w-full gap-2">
                                         <Home className="h-4 w-4" />
                                         Voltar
@@ -390,12 +365,12 @@ export default function QuizPage({ params }: { params: { quizId: string } }) {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="font-semibold">{quiz.title}</h1>
+                    <h1 className="font-semibold">{quizData.title}</h1>
                     <p className="text-sm text-muted-foreground">
-                        Questão {currentQuestionIndex + 1} de {quiz.questions.length}
+                        Questão {currentQuestionIndex + 1} de {questions.length}
                     </p>
                 </div>
-                {quiz.timeLimit && (
+                {quizData.timeLimit && (
                     <Badge
                         variant={timeLeft < 60 ? "destructive" : "secondary"}
                         className="gap-1 text-base px-3 py-1"
@@ -410,73 +385,76 @@ export default function QuizPage({ params }: { params: { quizId: string } }) {
             <Progress value={progress} className="h-2" />
 
             {/* Question Card */}
-            <AnimatePresence mode="wait">
-                <motion.div
-                    key={currentQuestion.id}
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    transition={{ duration: 0.3 }}
-                >
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-lg">{currentQuestion.text}</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <RadioGroup
-                                value={selectedOption || ""}
-                                onValueChange={setSelectedOption}
-                                disabled={showFeedback}
-                            >
-                                {currentQuestion.options.map((option) => {
-                                    const isSelected = selectedOption === option.id;
-                                    const isCorrect = option.id === currentQuestion.correctOptionId;
-                                    const showCorrect = showFeedback && isCorrect;
-                                    const showWrong = showFeedback && isSelected && !isCorrect;
-
-                                    return (
-                                        <motion.div
-                                            key={option.id}
-                                            whileHover={!showFeedback ? { scale: 1.01 } : {}}
-                                            whileTap={!showFeedback ? { scale: 0.99 } : {}}
-                                        >
-                                            <Label
-                                                htmlFor={option.id}
-                                                className={cn(
-                                                    "flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all",
-                                                    !showFeedback && isSelected && "border-primary bg-primary/5",
-                                                    !showFeedback && !isSelected && "border-transparent bg-muted hover:border-muted-foreground/20",
-                                                    showCorrect && "border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10",
-                                                    showWrong && "border-destructive bg-red-50 dark:bg-red-500/10"
-                                                )}
-                                            >
-                                                <RadioGroupItem value={option.id} id={option.id} />
-                                                <span className="flex-1">{option.text}</span>
-                                                {showCorrect && <CheckCircle2 className="h-5 w-5 text-emerald-500" />}
-                                                {showWrong && <XCircle className="h-5 w-5 text-destructive" />}
-                                            </Label>
-                                        </motion.div>
-                                    );
-                                })}
-                            </RadioGroup>
-
-                            {/* Feedback */}
-                            {showFeedback && currentQuestion.explanation && (
-                                <motion.div
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    className="p-4 rounded-lg bg-muted"
+            {currentQuestion && (
+                <AnimatePresence mode="wait">
+                    <motion.div
+                        key={currentQuestion._id}
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        transition={{ duration: 0.3 }}
+                    >
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-lg">{currentQuestion.question}</CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <RadioGroup
+                                    value={selectedOption || ""}
+                                    onValueChange={setSelectedOption}
+                                    disabled={showFeedback}
                                 >
-                                    <p className="text-sm font-medium mb-1">Explicação:</p>
-                                    <p className="text-sm text-muted-foreground">
-                                        {currentQuestion.explanation}
-                                    </p>
-                                </motion.div>
-                            )}
-                        </CardContent>
-                    </Card>
-                </motion.div>
-            </AnimatePresence>
+                                    {currentQuestion.options?.map((option, index) => {
+                                        const optionId = String.fromCharCode(97 + index); // a, b, c, d...
+                                        const isSelected = selectedOption === option;
+                                        const isCorrect = option === currentQuestion.correctAnswer;
+                                        const showCorrect = showFeedback && isCorrect;
+                                        const showWrong = showFeedback && isSelected && !isCorrect;
+
+                                        return (
+                                            <motion.div
+                                                key={optionId}
+                                                whileHover={!showFeedback ? { scale: 1.01 } : {}}
+                                                whileTap={!showFeedback ? { scale: 0.99 } : {}}
+                                            >
+                                                <Label
+                                                    htmlFor={optionId}
+                                                    className={cn(
+                                                        "flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all",
+                                                        !showFeedback && isSelected && "border-primary bg-primary/5",
+                                                        !showFeedback && !isSelected && "border-transparent bg-muted hover:border-muted-foreground/20",
+                                                        showCorrect && "border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10",
+                                                        showWrong && "border-destructive bg-red-50 dark:bg-red-500/10"
+                                                    )}
+                                                >
+                                                    <RadioGroupItem value={option} id={optionId} />
+                                                    <span className="flex-1">{option}</span>
+                                                    {showCorrect && <CheckCircle2 className="h-5 w-5 text-emerald-500" />}
+                                                    {showWrong && <XCircle className="h-5 w-5 text-destructive" />}
+                                                </Label>
+                                            </motion.div>
+                                        );
+                                    })}
+                                </RadioGroup>
+
+                                {/* Feedback */}
+                                {showFeedback && currentQuestion.explanation && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        className="p-4 rounded-lg bg-muted"
+                                    >
+                                        <p className="text-sm font-medium mb-1">Explicação:</p>
+                                        <p className="text-sm text-muted-foreground">
+                                            {currentQuestion.explanation}
+                                        </p>
+                                    </motion.div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </motion.div>
+                </AnimatePresence>
+            )}
 
             {/* Actions */}
             <div className="flex justify-between">
@@ -499,7 +477,10 @@ export default function QuizPage({ params }: { params: { quizId: string } }) {
                         <CheckCircle2 className="h-4 w-4 ml-2" />
                     </Button>
                 ) : (
-                    <Button onClick={nextQuestion}>
+                    <Button onClick={nextQuestion} disabled={isSubmitting}>
+                        {isSubmitting ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : null}
                         {isLastQuestion ? "Ver Resultado" : "Próxima"}
                         <ArrowRight className="h-4 w-4 ml-2" />
                     </Button>

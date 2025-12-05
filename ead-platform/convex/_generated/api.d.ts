@@ -8,13 +8,20 @@
  * @module
  */
 
+import type * as attachments from "../attachments.js";
 import type * as certificates from "../certificates.js";
+import type * as comments from "../comments.js";
 import type * as courses from "../courses.js";
 import type * as enrollments from "../enrollments.js";
+import type * as forum from "../forum.js";
 import type * as gamification from "../gamification.js";
+import type * as leaderboard from "../leaderboard.js";
 import type * as notifications from "../notifications.js";
 import type * as organizations from "../organizations.js";
+import type * as payments from "../payments.js";
 import type * as quizzes from "../quizzes.js";
+import type * as reports from "../reports.js";
+import type * as search from "../search.js";
 import type * as users from "../users.js";
 
 import type {
@@ -24,13 +31,20 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  attachments: typeof attachments;
   certificates: typeof certificates;
+  comments: typeof comments;
   courses: typeof courses;
   enrollments: typeof enrollments;
+  forum: typeof forum;
   gamification: typeof gamification;
+  leaderboard: typeof leaderboard;
   notifications: typeof notifications;
   organizations: typeof organizations;
+  payments: typeof payments;
   quizzes: typeof quizzes;
+  reports: typeof reports;
+  search: typeof search;
   users: typeof users;
 }>;
 

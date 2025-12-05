@@ -137,22 +137,28 @@ convex/
 - [x] Seletor de tema (claro/escuro/sistema)
 - [x] Informações de segurança
 
-## Próximos Passos (Pendentes)
+## Próximos Passos (Em Progresso)
 
-### 🔄 Módulo 13: Comunicação
-- [ ] Chat em tempo real
-- [ ] Comentários nas aulas
-- [ ] Fórum de discussão
+### ✅ Módulo 13: Comunicação
+- [x] Comentários nas aulas (backend + componente)
+- [x] Respostas e threads
+- [x] Curtidas e moderação
+- [ ] Chat em tempo real (futuro)
+- [ ] Fórum de discussão (futuro)
 
-### 🔄 Módulo 14: Relatórios
-- [ ] Relatórios de progresso
-- [ ] Exportação de dados
-- [ ] Gráficos interativos
+### ✅ Módulo 14: Relatórios
+- [x] Relatórios de progresso por curso
+- [x] Relatório da organização (admin)
+- [x] Relatório global (superadmin)
+- [x] Exportação de dados (CSV)
+- [x] Gráficos interativos
 
 ### 🔄 Módulo 15: Pagamentos
-- [ ] Integração com gateway de pagamento
-- [ ] Planos de assinatura
-- [ ] Histórico de transações
+- [x] Schema de planos e assinaturas
+- [x] CRUD de planos (superadmin)
+- [x] Histórico de transações
+- [x] Dashboard financeiro
+- [ ] Integração com gateway de pagamento (Stripe)
 
 ## Comandos
 

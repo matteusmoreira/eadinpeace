@@ -112,7 +112,7 @@ export default function AdminUsersPage() {
     const handleDelete = async () => {
         if (!deleteId) return;
         try {
-            await deleteUser({ id: deleteId });
+            await deleteUser({ userId: deleteId });
             toast.success("Usuário removido com sucesso!");
             setDeleteId(null);
         } catch {

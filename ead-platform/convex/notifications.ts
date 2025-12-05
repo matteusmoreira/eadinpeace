@@ -21,7 +21,7 @@ export const getUnreadCount = query({
     handler: async (ctx, args) => {
         const notifications = await ctx.db
             .query("notifications")
-            .withIndex("by_user_unread", (q) => q.eq("userId", args.userId).eq("isRead", false))
+            .withIndex("by_user_read", (q) => q.eq("userId", args.userId).eq("isRead", false))
             .collect();
 
         return notifications.length;
@@ -42,12 +42,14 @@ export const markAllAsRead = mutation({
     handler: async (ctx, args) => {
         const notifications = await ctx.db
             .query("notifications")
-            .withIndex("by_user_unread", (q) => q.eq("userId", args.userId).eq("isRead", false))
+            .withIndex("by_user_read", (q) => q.eq("userId", args.userId).eq("isRead", false))
             .collect();
 
         for (const notification of notifications) {
             await ctx.db.patch(notification._id, { isRead: true });
         }
+
+        return { updated: notifications.length };
     },
 });
 
@@ -59,19 +61,41 @@ export const remove = mutation({
     },
 });
 
+// Clear all notifications
+export const clearAll = mutation({
+    args: { userId: v.id("users") },
+    handler: async (ctx, args) => {
+        const notifications = await ctx.db
+            .query("notifications")
+            .withIndex("by_user", (q) => q.eq("userId", args.userId))
+            .collect();
+
+        for (const notification of notifications) {
+            await ctx.db.delete(notification._id);
+        }
+
+        return { deleted: notifications.length };
+    },
+});
+
 // Create notification
 export const create = mutation({
     args: {
         userId: v.id("users"),
+        type: v.union(
+            v.literal("course_update"),
+            v.literal("new_lesson"),
+            v.literal("comment_reply"),
+            v.literal("certificate_ready"),
+            v.literal("quiz_result"),
+            v.literal("enrollment_confirmed"),
+            v.literal("announcement"),
+            v.literal("reminder")
+        ),
         title: v.string(),
         message: v.string(),
-        type: v.union(
-            v.literal("info"),
-            v.literal("success"),
-            v.literal("warning"),
-            v.literal("achievement")
-        ),
         link: v.optional(v.string()),
+        metadata: v.optional(v.any()),
     },
     handler: async (ctx, args) => {
         return await ctx.db.insert("notifications", {
@@ -86,29 +110,199 @@ export const create = mutation({
 export const sendBulk = mutation({
     args: {
         userIds: v.array(v.id("users")),
+        type: v.union(
+            v.literal("course_update"),
+            v.literal("new_lesson"),
+            v.literal("comment_reply"),
+            v.literal("certificate_ready"),
+            v.literal("quiz_result"),
+            v.literal("enrollment_confirmed"),
+            v.literal("announcement"),
+            v.literal("reminder")
+        ),
         title: v.string(),
         message: v.string(),
-        type: v.union(
-            v.literal("info"),
-            v.literal("success"),
-            v.literal("warning"),
-            v.literal("achievement")
-        ),
         link: v.optional(v.string()),
+        metadata: v.optional(v.any()),
     },
     handler: async (ctx, args) => {
+        const { userIds, ...notificationData } = args;
         const now = Date.now();
 
-        for (const userId of args.userIds) {
+        for (const userId of userIds) {
             await ctx.db.insert("notifications", {
                 userId,
-                title: args.title,
-                message: args.message,
-                type: args.type,
-                link: args.link,
+                ...notificationData,
                 isRead: false,
                 createdAt: now,
             });
         }
+
+        return { sent: userIds.length };
+    },
+});
+
+// Send notification to all students in a course
+export const sendToCourseStudents = mutation({
+    args: {
+        courseId: v.id("courses"),
+        type: v.union(
+            v.literal("course_update"),
+            v.literal("new_lesson"),
+            v.literal("announcement"),
+            v.literal("reminder")
+        ),
+        title: v.string(),
+        message: v.string(),
+        link: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
+        const { courseId, ...notificationData } = args;
+
+        // Get all enrollments for the course
+        const enrollments = await ctx.db
+            .query("enrollments")
+            .withIndex("by_course", (q) => q.eq("courseId", courseId))
+            .collect();
+
+        const now = Date.now();
+        let sentCount = 0;
+
+        for (const enrollment of enrollments) {
+            await ctx.db.insert("notifications", {
+                userId: enrollment.userId,
+                ...notificationData,
+                isRead: false,
+                metadata: { courseId },
+                createdAt: now,
+            });
+            sentCount++;
+        }
+
+        return { sent: sentCount };
+    },
+});
+
+// ================================
+// ANNOUNCEMENTS
+// ================================
+
+// Get announcements for organization
+export const getAnnouncements = query({
+    args: {
+        organizationId: v.id("organizations"),
+        includeExpired: v.optional(v.boolean()),
+    },
+    handler: async (ctx, args) => {
+        const now = Date.now();
+
+        const announcements = await ctx.db
+            .query("announcements")
+            .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+            .collect();
+
+        const filtered = args.includeExpired
+            ? announcements
+            : announcements.filter(a => a.isPublished && (!a.expiresAt || a.expiresAt > now));
+
+        // Enrich with author info
+        const enriched = await Promise.all(
+            filtered.map(async (announcement) => {
+                const author = await ctx.db.get(announcement.authorId);
+                return {
+                    ...announcement,
+                    author: author ? {
+                        _id: author._id,
+                        name: `${author.firstName} ${author.lastName}`,
+                        imageUrl: author.imageUrl,
+                    } : null,
+                };
+            })
+        );
+
+        return enriched.sort((a, b) => {
+            // High priority first, then by date
+            const priorityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
+            if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
+                return priorityOrder[a.priority] - priorityOrder[b.priority];
+            }
+            return b.createdAt - a.createdAt;
+        });
+    },
+});
+
+// Create announcement
+export const createAnnouncement = mutation({
+    args: {
+        organizationId: v.id("organizations"),
+        authorId: v.id("users"),
+        title: v.string(),
+        content: v.string(),
+        priority: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
+        targetRoles: v.array(v.string()),
+        expiresAt: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        const now = Date.now();
+
+        const announcementId = await ctx.db.insert("announcements", {
+            ...args,
+            isPublished: true,
+            createdAt: now,
+            updatedAt: now,
+        });
+
+        // Send notifications to targeted users
+        const users = await ctx.db
+            .query("users")
+            .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+            .collect();
+
+        const targetUsers = args.targetRoles.includes("all")
+            ? users
+            : users.filter(u => args.targetRoles.includes(u.role));
+
+        for (const user of targetUsers) {
+            await ctx.db.insert("notifications", {
+                userId: user._id,
+                type: "announcement",
+                title: args.title,
+                message: args.content.substring(0, 100) + (args.content.length > 100 ? "..." : ""),
+                link: "/student",
+                isRead: false,
+                metadata: { announcementId },
+                createdAt: now,
+            });
+        }
+
+        return { announcementId, notified: targetUsers.length };
+    },
+});
+
+// Update announcement
+export const updateAnnouncement = mutation({
+    args: {
+        announcementId: v.id("announcements"),
+        title: v.optional(v.string()),
+        content: v.optional(v.string()),
+        priority: v.optional(v.union(v.literal("low"), v.literal("medium"), v.literal("high"))),
+        targetRoles: v.optional(v.array(v.string())),
+        expiresAt: v.optional(v.number()),
+        isPublished: v.optional(v.boolean()),
+    },
+    handler: async (ctx, args) => {
+        const { announcementId, ...updates } = args;
+        await ctx.db.patch(announcementId, {
+            ...updates,
+            updatedAt: Date.now(),
+        });
+    },
+});
+
+// Delete announcement
+export const deleteAnnouncement = mutation({
+    args: { announcementId: v.id("announcements") },
+    handler: async (ctx, args) => {
+        await ctx.db.delete(args.announcementId);
     },
 });

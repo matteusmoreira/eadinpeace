@@ -5,13 +5,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -19,10 +12,7 @@ import {
     ArrowLeft,
     Save,
     Loader2,
-    Upload,
     User,
-    Shield,
-    UserCog,
     GraduationCap,
     Users,
     Eye,
@@ -37,7 +27,7 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
-import { Id } from "@convex/_generated/dataModel";
+import { useUser } from "@clerk/nextjs";
 import { toast } from "sonner";
 
 const container = {
@@ -55,20 +45,6 @@ const item = {
 
 const roles = [
     {
-        value: "superadmin",
-        label: "Super Admin",
-        description: "Acesso total à plataforma",
-        icon: Shield,
-        color: "gradient-bg text-white",
-    },
-    {
-        value: "admin",
-        label: "Admin",
-        description: "Gerencia uma organização",
-        icon: UserCog,
-        color: "bg-primary/10 text-primary",
-    },
-    {
         value: "professor",
         label: "Professor",
         description: "Cria e ministra cursos",
@@ -84,8 +60,9 @@ const roles = [
     },
 ];
 
-export default function NewUserPage() {
+export default function AdminNewUserPage() {
     const router = useRouter();
+    const { user } = useUser();
     const [isLoading, setIsLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [copied, setCopied] = useState(false);
@@ -95,15 +72,16 @@ export default function NewUserPage() {
         lastName: "",
         email: "",
         password: "",
-        role: "student" as "superadmin" | "admin" | "professor" | "student",
-        organizationId: "",
+        role: "student" as "professor" | "student",
         imageUrl: "",
-        sendInvite: false, // Padrão agora é criar com senha
-        isActive: true,
+        sendInvite: false, // Padrão é criar com senha
     });
 
-    // Convex
-    const organizations = useQuery(api.organizations.getAll);
+    // Get Convex user to get organizationId
+    const convexUser = useQuery(api.users.getByClerkId, {
+        clerkId: user?.id || ""
+    });
+
     const createUser = useMutation(api.users.create);
 
     // Gerar senha aleatória
@@ -127,6 +105,12 @@ export default function NewUserPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (!convexUser?.organizationId) {
+            toast.error("Organização não encontrada");
+            return;
+        }
+
         setIsLoading(true);
 
         try {
@@ -159,11 +143,9 @@ export default function NewUserPage() {
                 firstName: formData.firstName,
                 lastName: formData.lastName,
                 role: formData.role,
-                organizationId: formData.organizationId
-                    ? formData.organizationId as Id<"organizations">
-                    : undefined,
+                organizationId: convexUser.organizationId,
                 imageUrl: formData.imageUrl || undefined,
-                clerkId: clerkId, // Passar clerkId se criou no Clerk
+                clerkId: clerkId,
             });
 
             if (!formData.sendInvite && formData.password) {
@@ -175,7 +157,7 @@ export default function NewUserPage() {
                 toast.success("Usuário criado com sucesso! Copie as credenciais abaixo.");
             } else {
                 toast.success("Usuário criado com sucesso!");
-                router.push("/superadmin/users");
+                router.push("/admin/users");
             }
         } catch (error: any) {
             toast.error(error.message || "Erro ao criar usuário");
@@ -183,8 +165,6 @@ export default function NewUserPage() {
             setIsLoading(false);
         }
     };
-
-    const needsOrganization = formData.role === "admin" || formData.role === "professor" || formData.role === "student";
 
     return (
         <motion.div
@@ -195,7 +175,7 @@ export default function NewUserPage() {
         >
             {/* Header */}
             <motion.div variants={item} className="flex items-center gap-4">
-                <Link href="/superadmin/users">
+                <Link href="/admin/users">
                     <Button variant="ghost" size="icon">
                         <ArrowLeft className="h-5 w-5" />
                     </Button>
@@ -203,7 +183,7 @@ export default function NewUserPage() {
                 <div>
                     <h1 className="text-2xl font-bold">Novo Usuário</h1>
                     <p className="text-muted-foreground">
-                        Adicione um novo usuário à plataforma
+                        Adicione um novo usuário à organização
                     </p>
                 </div>
             </motion.div>
@@ -306,7 +286,6 @@ export default function NewUserPage() {
                                             setFormData((prev) => ({
                                                 ...prev,
                                                 role: role.value as typeof formData.role,
-                                                organizationId: role.value === "superadmin" ? "" : prev.organizationId
                                             }))
                                         }
                                     >
@@ -331,45 +310,6 @@ export default function NewUserPage() {
                             </div>
                         </CardContent>
                     </Card>
-
-                    {/* Organization */}
-                    {needsOrganization && (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Organização</CardTitle>
-                                <CardDescription>
-                                    Vincule o usuário a uma organização
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <Select
-                                    value={formData.organizationId}
-                                    onValueChange={(value) =>
-                                        setFormData((prev) => ({ ...prev, organizationId: value }))
-                                    }
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Selecione uma organização" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {organizations?.map((org) => (
-                                            <SelectItem key={org._id} value={org._id}>
-                                                {org.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                {organizations?.length === 0 && (
-                                    <p className="text-sm text-muted-foreground mt-2">
-                                        Nenhuma organização cadastrada.{" "}
-                                        <Link href="/superadmin/organizations/new" className="text-primary hover:underline">
-                                            Criar organização
-                                        </Link>
-                                    </p>
-                                )}
-                            </CardContent>
-                        </Card>
-                    )}
 
                     {/* Options */}
                     <Card>
@@ -489,7 +429,7 @@ export default function NewUserPage() {
                                     </Button>
                                     <Button
                                         type="button"
-                                        onClick={() => router.push("/superadmin/users")}
+                                        onClick={() => router.push("/admin/users")}
                                         className="gradient-bg border-0"
                                     >
                                         Voltar para Usuários
@@ -501,7 +441,7 @@ export default function NewUserPage() {
 
                     {/* Actions */}
                     <div className="flex justify-end gap-3">
-                        <Link href="/superadmin/users">
+                        <Link href="/admin/users">
                             <Button type="button" variant="outline">
                                 Cancelar
                             </Button>
@@ -509,7 +449,7 @@ export default function NewUserPage() {
                         <Button
                             type="submit"
                             className="gap-2 gradient-bg border-0"
-                            disabled={isLoading}
+                            disabled={isLoading || !!createdCredentials}
                         >
                             {isLoading ? (
                                 <>

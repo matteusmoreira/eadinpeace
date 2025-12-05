@@ -2,129 +2,38 @@
 
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import ReactPlayer from "react-player/youtube";
+import ReactPlayer from "react-player";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import {
     Sheet,
     SheetContent,
-    SheetHeader,
-    SheetTitle,
-    SheetTrigger,
 } from "@/components/ui/sheet";
 import {
     ChevronLeft,
     ChevronRight,
     Menu,
     Play,
-    Pause,
     CheckCircle2,
     Circle,
     Clock,
-    BookOpen,
     ArrowLeft,
-    Lock,
     ThumbsUp,
     MessageSquare,
-    Download,
     Share2,
+    Loader2,
+    Award,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-
-// Mock course data
-const mockCourse = {
-    id: "1",
-    title: "Next.js 14 - O Curso Completo",
-    instructor: "João Silva",
-    modules: [
-        {
-            id: "m1",
-            title: "Introdução ao Next.js",
-            lessons: [
-                {
-                    id: "l1",
-                    title: "Bem-vindo ao curso",
-                    videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-                    duration: 180, // 3 min
-                    isCompleted: true,
-                    isFree: true,
-                },
-                {
-                    id: "l2",
-                    title: "O que é Next.js?",
-                    videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-                    duration: 420, // 7 min
-                    isCompleted: true,
-                    isFree: true,
-                },
-                {
-                    id: "l3",
-                    title: "Instalação e Setup",
-                    videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-                    duration: 600, // 10 min
-                    isCompleted: false,
-                    isFree: false,
-                },
-            ],
-        },
-        {
-            id: "m2",
-            title: "Fundamentos do App Router",
-            lessons: [
-                {
-                    id: "l4",
-                    title: "Estrutura de pastas",
-                    videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-                    duration: 540,
-                    isCompleted: false,
-                    isFree: false,
-                },
-                {
-                    id: "l5",
-                    title: "Páginas e Layouts",
-                    videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-                    duration: 720,
-                    isCompleted: false,
-                    isFree: false,
-                },
-                {
-                    id: "l6",
-                    title: "Rotas dinâmicas",
-                    videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-                    duration: 480,
-                    isCompleted: false,
-                    isFree: false,
-                },
-            ],
-        },
-        {
-            id: "m3",
-            title: "Server Components",
-            lessons: [
-                {
-                    id: "l7",
-                    title: "O que são Server Components?",
-                    videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-                    duration: 600,
-                    isCompleted: false,
-                    isFree: false,
-                },
-                {
-                    id: "l8",
-                    title: "Client vs Server",
-                    videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-                    duration: 540,
-                    isCompleted: false,
-                    isFree: false,
-                },
-            ],
-        },
-    ],
-};
+import { useParams } from "next/navigation";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@convex/_generated/api";
+import { Id } from "@convex/_generated/dataModel";
+import { useUser } from "@clerk/nextjs";
+import { toast } from "sonner";
 
 function formatDuration(seconds: number): string {
     const mins = Math.floor(seconds / 60);
@@ -132,21 +41,48 @@ function formatDuration(seconds: number): string {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 
+interface Lesson {
+    _id: Id<"lessons">;
+    title: string;
+    videoUrl?: string;
+    duration: number;
+    isFree: boolean;
+    isPublished: boolean;
+    order: number;
+    isCompleted?: boolean;
+}
+
+interface Module {
+    _id: Id<"modules">;
+    title: string;
+    description?: string;
+    order: number;
+    lessons: Lesson[];
+}
+
+interface CourseWithContent {
+    _id: Id<"courses">;
+    title: string;
+    instructor?: { firstName: string; lastName: string } | null;
+    modules: Module[];
+    duration: number;
+}
+
 function CourseSidebar({
     course,
     currentLessonId,
     onSelectLesson,
+    completedLessons,
+    progress,
 }: {
-    course: typeof mockCourse;
-    currentLessonId: string;
+    course: CourseWithContent;
+    currentLessonId: string | null;
     onSelectLesson: (lessonId: string) => void;
+    completedLessons: string[];
+    progress: number;
 }) {
-    const totalLessons = course.modules.reduce((acc, m) => acc + m.lessons.length, 0);
-    const completedLessons = course.modules.reduce(
-        (acc, m) => acc + m.lessons.filter((l) => l.isCompleted).length,
-        0
-    );
-    const progress = Math.round((completedLessons / totalLessons) * 100);
+    const totalLessons = course.modules?.reduce((acc, m) => acc + (m.lessons?.length || 0), 0) || 0;
+    const completedCount = completedLessons.length;
 
     return (
         <div className="h-full flex flex-col bg-card">
@@ -160,7 +96,11 @@ function CourseSidebar({
                     Voltar aos cursos
                 </Link>
                 <h2 className="font-semibold line-clamp-2">{course.title}</h2>
-                <p className="text-sm text-muted-foreground mt-1">{course.instructor}</p>
+                {course.instructor && (
+                    <p className="text-sm text-muted-foreground mt-1">
+                        {course.instructor.firstName} {course.instructor.lastName}
+                    </p>
+                )}
 
                 {/* Progress */}
                 <div className="mt-4 space-y-2">
@@ -170,7 +110,7 @@ function CourseSidebar({
                     </div>
                     <Progress value={progress} className="h-2" />
                     <p className="text-xs text-muted-foreground">
-                        {completedLessons} de {totalLessons} aulas concluídas
+                        {completedCount} de {totalLessons} aulas concluídas
                     </p>
                 </div>
             </div>
@@ -178,8 +118,8 @@ function CourseSidebar({
             {/* Modules & Lessons */}
             <ScrollArea className="flex-1">
                 <div className="p-2">
-                    {course.modules.map((module, moduleIndex) => (
-                        <div key={module.id} className="mb-2">
+                    {course.modules?.map((module, moduleIndex) => (
+                        <div key={module._id} className="mb-2">
                             {/* Module Header */}
                             <div className="px-3 py-2 bg-muted/50 rounded-lg mb-1">
                                 <div className="flex items-center gap-2">
@@ -192,13 +132,14 @@ function CourseSidebar({
 
                             {/* Lessons */}
                             <div className="space-y-1">
-                                {module.lessons.map((lesson, lessonIndex) => {
-                                    const isActive = lesson.id === currentLessonId;
+                                {module.lessons?.map((lesson, lessonIndex) => {
+                                    const isActive = lesson._id === currentLessonId;
+                                    const isCompleted = completedLessons.includes(lesson._id);
 
                                     return (
                                         <button
-                                            key={lesson.id}
-                                            onClick={() => onSelectLesson(lesson.id)}
+                                            key={lesson._id}
+                                            onClick={() => onSelectLesson(lesson._id)}
                                             className={cn(
                                                 "w-full flex items-start gap-3 p-3 rounded-lg text-left transition-all",
                                                 isActive
@@ -207,7 +148,7 @@ function CourseSidebar({
                                             )}
                                         >
                                             <div className="mt-0.5">
-                                                {lesson.isCompleted ? (
+                                                {isCompleted ? (
                                                     <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                                                 ) : isActive ? (
                                                     <Play className="h-4 w-4 text-primary fill-primary" />
@@ -219,7 +160,7 @@ function CourseSidebar({
                                                 <p
                                                     className={cn(
                                                         "text-sm font-medium line-clamp-2",
-                                                        lesson.isCompleted && "text-muted-foreground"
+                                                        isCompleted && "text-muted-foreground"
                                                     )}
                                                 >
                                                     {lessonIndex + 1}. {lesson.title}
@@ -248,52 +189,132 @@ function CourseSidebar({
     );
 }
 
-export default function CoursePlayerPage({
-    params,
-}: {
-    params: { courseId: string };
-}) {
-    const [currentLessonId, setCurrentLessonId] = useState("l3");
+export default function CoursePlayerPage() {
+    const params = useParams();
+    const courseId = params.courseId as Id<"courses">;
+    const { user } = useUser();
+
+    const [currentLessonId, setCurrentLessonId] = useState<string | null>(null);
     const [isPlaying, setIsPlaying] = useState(false);
-    const [progress, setProgress] = useState(0);
+    const [videoProgress, setVideoProgress] = useState(0);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [isMarkingComplete, setIsMarkingComplete] = useState(false);
     const playerRef = useRef<ReactPlayer>(null);
 
-    // Find current lesson
-    const currentLesson = mockCourse.modules
-        .flatMap((m) => m.lessons)
-        .find((l) => l.id === currentLessonId);
+    // Get Convex user
+    const convexUser = useQuery(api.users.getByClerkId, {
+        clerkId: user?.id || ""
+    });
+
+    // Get course with content
+    const course = useQuery(api.courses.getWithContent, { courseId });
+
+    // Get enrollment and progress
+    const enrollment = useQuery(
+        api.enrollments.getByUserAndCourse,
+        convexUser?._id ? { userId: convexUser._id, courseId } : "skip"
+    );
+
+    const courseProgress = useQuery(
+        api.enrollments.getCourseProgress,
+        convexUser?._id ? { userId: convexUser._id, courseId } : "skip"
+    );
+
+    // Mutations
+    const updateLessonProgress = useMutation(api.enrollments.updateLessonProgress);
+    const updateStreak = useMutation(api.enrollments.updateStreak);
+
+    // Set initial lesson
+    useEffect(() => {
+        if (course?.modules && !currentLessonId) {
+            const firstLesson = course.modules[0]?.lessons?.[0];
+            if (firstLesson) {
+                setCurrentLessonId(firstLesson._id);
+            }
+        }
+    }, [course, currentLessonId]);
+
+    if (!course || !convexUser) {
+        return (
+            <div className="fixed inset-0 flex items-center justify-center bg-background">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
 
     // Get all lessons flat
-    const allLessons = mockCourse.modules.flatMap((m) => m.lessons);
-    const currentIndex = allLessons.findIndex((l) => l.id === currentLessonId);
+    const allLessons = course.modules?.flatMap((m) => m.lessons || []) || [];
+    const currentLesson = allLessons.find((l) => l._id === currentLessonId);
+    const currentIndex = allLessons.findIndex((l) => l._id === currentLessonId);
     const prevLesson = currentIndex > 0 ? allLessons[currentIndex - 1] : null;
     const nextLesson = currentIndex < allLessons.length - 1 ? allLessons[currentIndex + 1] : null;
 
-    const handleProgress = (state: { played: number }) => {
-        setProgress(state.played * 100);
+    // Completed lessons from enrollment
+    const completedLessons = enrollment?.completedLessons?.map(id => id.toString()) || [];
+    const isCurrentLessonCompleted = currentLessonId ? completedLessons.includes(currentLessonId) : false;
+    const progress = enrollment?.progress || 0;
 
-        // Mark as completed when 90% watched
-        if (state.played >= 0.9 && currentLesson && !currentLesson.isCompleted) {
-            // TODO: Call Convex mutation to mark as completed
-            console.log("Lesson completed:", currentLessonId);
+    const handleProgress = async (state: { played: number; playedSeconds: number }) => {
+        setVideoProgress(state.played * 100);
+
+        // Auto-mark as completed when 90% watched
+        if (state.played >= 0.9 && currentLesson && !isCurrentLessonCompleted && convexUser) {
+            try {
+                await updateLessonProgress({
+                    userId: convexUser._id,
+                    lessonId: currentLesson._id,
+                    courseId,
+                    watchedSeconds: Math.floor(state.playedSeconds),
+                    isCompleted: true,
+                });
+                await updateStreak({ userId: convexUser._id });
+                toast.success("Aula concluída! 🎉");
+            } catch (error) {
+                console.error("Error updating progress:", error);
+            }
+        }
+    };
+
+    const handleMarkComplete = async () => {
+        if (!currentLesson || !convexUser || isCurrentLessonCompleted) return;
+
+        setIsMarkingComplete(true);
+        try {
+            await updateLessonProgress({
+                userId: convexUser._id,
+                lessonId: currentLesson._id,
+                courseId,
+                watchedSeconds: currentLesson.duration,
+                isCompleted: true,
+            });
+            await updateStreak({ userId: convexUser._id });
+            toast.success("Aula marcada como concluída! 🎉");
+        } catch (error) {
+            toast.error("Erro ao marcar aula como concluída");
+        } finally {
+            setIsMarkingComplete(false);
         }
     };
 
     const handleSelectLesson = (lessonId: string) => {
         setCurrentLessonId(lessonId);
-        setProgress(0);
+        setVideoProgress(0);
         setMobileMenuOpen(false);
     };
+
+    // Check if course is complete
+    const isCourseComplete = progress === 100;
 
     return (
         <div className="fixed inset-0 bg-background flex">
             {/* Desktop Sidebar */}
             <div className="hidden lg:block w-80 border-r">
                 <CourseSidebar
-                    course={mockCourse}
+                    course={course}
                     currentLessonId={currentLessonId}
                     onSelectLesson={handleSelectLesson}
+                    completedLessons={completedLessons}
+                    progress={progress}
                 />
             </div>
 
@@ -301,9 +322,11 @@ export default function CoursePlayerPage({
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
                 <SheetContent side="left" className="w-80 p-0">
                     <CourseSidebar
-                        course={mockCourse}
+                        course={course}
                         currentLessonId={currentLessonId}
                         onSelectLesson={handleSelectLesson}
+                        completedLessons={completedLessons}
+                        progress={progress}
                     />
                 </SheetContent>
             </Sheet>
@@ -327,6 +350,14 @@ export default function CoursePlayerPage({
                     </div>
 
                     <div className="flex items-center gap-2">
+                        {isCourseComplete && (
+                            <Link href="/student/certificates">
+                                <Button variant="outline" className="gap-2 text-emerald-600 border-emerald-600">
+                                    <Award className="h-4 w-4" />
+                                    Ver Certificado
+                                </Button>
+                            </Link>
+                        )}
                         <Button variant="ghost" size="icon">
                             <ThumbsUp className="h-4 w-4" />
                         </Button>
@@ -341,7 +372,7 @@ export default function CoursePlayerPage({
 
                 {/* Video Player */}
                 <div className="flex-1 relative bg-black">
-                    {currentLesson && (
+                    {currentLesson?.videoUrl ? (
                         <ReactPlayer
                             ref={playerRef}
                             url={currentLesson.videoUrl}
@@ -361,6 +392,13 @@ export default function CoursePlayerPage({
                                 },
                             }}
                         />
+                    ) : (
+                        <div className="absolute inset-0 flex items-center justify-center text-white">
+                            <div className="text-center">
+                                <Play className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                                <p className="text-lg opacity-75">Vídeo não disponível</p>
+                            </div>
+                        </div>
                     )}
                 </div>
 
@@ -369,7 +407,7 @@ export default function CoursePlayerPage({
                     <Button
                         variant="outline"
                         disabled={!prevLesson}
-                        onClick={() => prevLesson && handleSelectLesson(prevLesson.id)}
+                        onClick={() => prevLesson && handleSelectLesson(prevLesson._id)}
                         className="gap-2"
                     >
                         <ChevronLeft className="h-4 w-4" />
@@ -386,10 +424,14 @@ export default function CoursePlayerPage({
 
                         {/* Mark as Complete Button */}
                         <Button
-                            variant={currentLesson?.isCompleted ? "outline" : "default"}
-                            className={cn(!currentLesson?.isCompleted && "gradient-bg border-0")}
+                            variant={isCurrentLessonCompleted ? "outline" : "default"}
+                            className={cn(!isCurrentLessonCompleted && "gradient-bg border-0")}
+                            onClick={handleMarkComplete}
+                            disabled={isCurrentLessonCompleted || isMarkingComplete}
                         >
-                            {currentLesson?.isCompleted ? (
+                            {isMarkingComplete ? (
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            ) : isCurrentLessonCompleted ? (
                                 <>
                                     <CheckCircle2 className="h-4 w-4 mr-2" />
                                     Concluída
@@ -406,7 +448,7 @@ export default function CoursePlayerPage({
                     <Button
                         variant="outline"
                         disabled={!nextLesson}
-                        onClick={() => nextLesson && handleSelectLesson(nextLesson.id)}
+                        onClick={() => nextLesson && handleSelectLesson(nextLesson._id)}
                         className="gap-2"
                     >
                         <span className="hidden sm:inline">Próxima Aula</span>

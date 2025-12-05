@@ -26,6 +26,7 @@ import {
     HelpCircle,
     Bell,
     Palette,
+    Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -75,6 +76,7 @@ const menuSections: MenuSection[] = [
             { title: "Organizações", href: "/superadmin/organizations", icon: Building2 },
             { title: "Usuários", href: "/superadmin/users", icon: Users },
             { title: "Planos", href: "/superadmin/plans", icon: CreditCard },
+            { title: "Pagamentos", href: "/superadmin/payments", icon: CreditCard },
         ],
     },
     {
@@ -118,6 +120,7 @@ const menuSections: MenuSection[] = [
         items: [
             { title: "Relatórios", href: "/admin/reports", icon: BarChart3 },
             { title: "Certificados", href: "/admin/certificates", icon: Award },
+            { title: "Anúncios", href: "/admin/announcements", icon: Bell },
         ],
     },
 
@@ -154,6 +157,7 @@ const menuSections: MenuSection[] = [
         items: [
             { title: "Meus Cursos", href: "/student/courses", icon: GraduationCap },
             { title: "Continuar", href: "/student/continue", icon: Play },
+            { title: "Buscar", href: "/student/search", icon: Search },
         ],
     },
     {
@@ -171,6 +175,7 @@ const menuSections: MenuSection[] = [
         items: [
             { title: "Fórum", href: "/student/community", icon: MessageSquare },
             { title: "Ranking", href: "/student/ranking", icon: Trophy },
+            { title: "Notificações", href: "/student/notifications", icon: Bell },
         ],
     },
 

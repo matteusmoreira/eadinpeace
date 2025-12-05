@@ -150,6 +150,7 @@ export const create = mutation({
         ),
         organizationId: v.optional(v.id("organizations")),
         imageUrl: v.optional(v.string()),
+        clerkId: v.optional(v.string()), // Clerk ID se usuário já foi criado no Clerk
     },
     handler: async (ctx, args) => {
         const now = Date.now();
@@ -164,15 +165,18 @@ export const create = mutation({
             throw new Error("Email já cadastrado");
         }
 
+        // Se tem clerkId, o usuário já está no Clerk e pode logar
+        const hasClerkId = !!args.clerkId;
+
         return await ctx.db.insert("users", {
-            clerkId: `pending_${now}`, // Will be updated when user accepts invitation
+            clerkId: args.clerkId || `pending_${now}`, // Will be updated when user accepts invitation
             email: args.email,
             firstName: args.firstName,
             lastName: args.lastName,
             imageUrl: args.imageUrl,
             role: args.role,
             organizationId: args.organizationId,
-            isActive: false, // Pending invitation
+            isActive: hasClerkId, // Ativo se já criou no Clerk, senão pending
             createdAt: now,
             updatedAt: now,
         });

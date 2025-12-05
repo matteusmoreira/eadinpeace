@@ -34,7 +34,102 @@ export const getByCourse = query({
             .withIndex("by_course", (q) => q.eq("courseId", args.courseId))
             .collect();
 
-        return quizzes;
+        // Enrich with question count and attempt stats
+        const enrichedQuizzes = await Promise.all(
+            quizzes.map(async (quiz) => {
+                const questions = await ctx.db
+                    .query("quizQuestions")
+                    .withIndex("by_quiz", (q) => q.eq("quizId", quiz._id))
+                    .collect();
+
+                const attempts = await ctx.db
+                    .query("quizAttempts")
+                    .withIndex("by_quiz", (q) => q.eq("quizId", quiz._id))
+                    .collect();
+
+                const avgScore = attempts.length > 0
+                    ? Math.round(attempts.reduce((sum, a) => sum + a.score, 0) / attempts.length)
+                    : 0;
+
+                return {
+                    ...quiz,
+                    questionCount: questions.length,
+                    attemptCount: attempts.length,
+                    avgScore,
+                };
+            })
+        );
+
+        return enrichedQuizzes;
+    },
+});
+
+// Get all quizzes for instructor
+export const getByInstructor = query({
+    args: { instructorId: v.id("users") },
+    handler: async (ctx, args) => {
+        // Get all courses by instructor
+        const courses = await ctx.db
+            .query("courses")
+            .withIndex("by_instructor", (q) => q.eq("instructorId", args.instructorId))
+            .collect();
+
+        // Get all quizzes for these courses
+        const allQuizzes = [];
+        for (const course of courses) {
+            const quizzes = await ctx.db
+                .query("quizzes")
+                .withIndex("by_course", (q) => q.eq("courseId", course._id))
+                .collect();
+
+            for (const quiz of quizzes) {
+                const questions = await ctx.db
+                    .query("quizQuestions")
+                    .withIndex("by_quiz", (q) => q.eq("quizId", quiz._id))
+                    .collect();
+
+                const attempts = await ctx.db
+                    .query("quizAttempts")
+                    .withIndex("by_quiz", (q) => q.eq("quizId", quiz._id))
+                    .collect();
+
+                const avgScore = attempts.length > 0
+                    ? Math.round(attempts.reduce((sum, a) => sum + a.score, 0) / attempts.length)
+                    : 0;
+
+                allQuizzes.push({
+                    ...quiz,
+                    courseName: course.title,
+                    questionCount: questions.length,
+                    attemptCount: attempts.length,
+                    avgScore,
+                });
+            }
+        }
+
+        return allQuizzes;
+    },
+});
+
+// Get quiz with all details (for editing)
+export const getWithQuestions = query({
+    args: { quizId: v.id("quizzes") },
+    handler: async (ctx, args) => {
+        const quiz = await ctx.db.get(args.quizId);
+        if (!quiz) return null;
+
+        const questions = await ctx.db
+            .query("quizQuestions")
+            .withIndex("by_quiz", (q) => q.eq("quizId", args.quizId))
+            .collect();
+
+        const course = await ctx.db.get(quiz.courseId);
+
+        return {
+            ...quiz,
+            courseName: course?.title || "Curso Desconhecido",
+            questions: questions.sort((a, b) => a.order - b.order),
+        };
     },
 });
 
@@ -211,5 +306,81 @@ export const publish = mutation({
             isPublished: true,
             updatedAt: Date.now(),
         });
+    },
+});
+
+// Unpublish quiz
+export const unpublish = mutation({
+    args: { quizId: v.id("quizzes") },
+    handler: async (ctx, args) => {
+        await ctx.db.patch(args.quizId, {
+            isPublished: false,
+            updatedAt: Date.now(),
+        });
+    },
+});
+
+// Update quiz
+export const update = mutation({
+    args: {
+        quizId: v.id("quizzes"),
+        title: v.optional(v.string()),
+        description: v.optional(v.string()),
+        passingScore: v.optional(v.number()),
+        timeLimit: v.optional(v.number()),
+        maxAttempts: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        const { quizId, ...updates } = args;
+        await ctx.db.patch(quizId, {
+            ...updates,
+            updatedAt: Date.now(),
+        });
+    },
+});
+
+// Delete question
+export const deleteQuestion = mutation({
+    args: { questionId: v.id("quizQuestions") },
+    handler: async (ctx, args) => {
+        await ctx.db.delete(args.questionId);
+    },
+});
+
+// Update question
+export const updateQuestion = mutation({
+    args: {
+        questionId: v.id("quizQuestions"),
+        question: v.optional(v.string()),
+        options: v.optional(v.array(v.string())),
+        correctAnswer: v.optional(v.string()),
+        explanation: v.optional(v.string()),
+        points: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        const { questionId, ...updates } = args;
+        await ctx.db.patch(questionId, {
+            ...updates,
+            updatedAt: Date.now(),
+        });
+    },
+});
+
+// Delete quiz
+export const remove = mutation({
+    args: { quizId: v.id("quizzes") },
+    handler: async (ctx, args) => {
+        // Delete all questions first
+        const questions = await ctx.db
+            .query("quizQuestions")
+            .withIndex("by_quiz", (q) => q.eq("quizId", args.quizId))
+            .collect();
+
+        for (const question of questions) {
+            await ctx.db.delete(question._id);
+        }
+
+        // Delete quiz
+        await ctx.db.delete(args.quizId);
     },
 });

@@ -76,6 +76,7 @@ export const create = mutation({
         adminEmail: v.optional(v.string()),
         adminFirstName: v.optional(v.string()),
         adminLastName: v.optional(v.string()),
+        adminClerkId: v.optional(v.string()), // Clerk ID do admin (se já criado)
     },
     handler: async (ctx, args) => {
         const now = Date.now();
@@ -115,14 +116,17 @@ export const create = mutation({
 
         // Create admin user if provided
         if (args.adminEmail && args.adminFirstName && args.adminLastName) {
+            // Se temos clerkId, o admin já foi criado no Clerk
+            const hasClerkId = !!args.adminClerkId;
+
             await ctx.db.insert("users", {
-                clerkId: `pending_${now}`,
+                clerkId: args.adminClerkId || `pending_${now}`,
                 email: args.adminEmail,
                 firstName: args.adminFirstName,
                 lastName: args.adminLastName,
                 role: "admin",
                 organizationId: orgId,
-                isActive: false, // Pending invitation
+                isActive: hasClerkId, // Ativo se já criou no Clerk, senão pending
                 createdAt: now,
                 updatedAt: now,
             });
