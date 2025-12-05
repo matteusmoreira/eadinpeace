@@ -32,7 +32,7 @@ const item = {
     show: { opacity: 1, y: 0 },
 };
 
-const typeConfig = {
+const typeConfig: Record<string, { icon: any, color: string }> = {
     info: {
         icon: Info,
         color: "bg-blue-500/10 text-blue-500",
@@ -48,6 +48,38 @@ const typeConfig = {
     achievement: {
         icon: Award,
         color: "bg-violet-500/10 text-violet-500",
+    },
+    course_update: {
+        icon: BookOpen,
+        color: "bg-blue-500/10 text-blue-500",
+    },
+    new_lesson: {
+        icon: BookOpen,
+        color: "bg-emerald-500/10 text-emerald-500",
+    },
+    comment_reply: {
+        icon: MessageCircle,
+        color: "bg-indigo-500/10 text-indigo-500",
+    },
+    certificate_ready: {
+        icon: Award,
+        color: "bg-yellow-500/10 text-yellow-500",
+    },
+    quiz_result: {
+        icon: CheckCheck,
+        color: "bg-green-500/10 text-green-500",
+    },
+    enrollment_confirmed: {
+        icon: Check,
+        color: "bg-emerald-500/10 text-emerald-500",
+    },
+    announcement: {
+        icon: Bell,
+        color: "bg-orange-500/10 text-orange-500",
+    },
+    reminder: {
+        icon: Bell,
+        color: "bg-gray-500/10 text-gray-500",
     },
 };
 
@@ -133,7 +165,7 @@ export default function NotificationsPage() {
             ) : (
                 <motion.div variants={item} className="space-y-2">
                     {notifications.map((notification) => {
-                        const config = typeConfig[notification.type];
+                        const config = typeConfig[notification.type] || typeConfig.info;
                         const Icon = config.icon;
 
                         return (
