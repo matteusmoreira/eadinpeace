@@ -107,7 +107,7 @@ export default function AdminCoursesPage() {
     const handleDelete = async () => {
         if (!deleteId) return;
         try {
-            await deleteCourse({ id: deleteId });
+            await deleteCourse({ courseId: deleteId });
             toast.success("Curso removido com sucesso!");
             setDeleteId(null);
         } catch {
