@@ -268,13 +268,22 @@ export const getUnresolvedByCourse = query({
         return await Promise.all(
             unresolvedComments.map(async (comment) => {
                 const user = await ctx.db.get(comment.userId);
+
+                // Verificar se é um usuário válido com os campos necessários
+                if (!user || !("firstName" in user) || !("lastName" in user)) {
+                    return {
+                        ...comment,
+                        user: null,
+                    };
+                }
+
                 return {
                     ...comment,
-                    user: user ? {
+                    user: {
                         _id: user._id,
                         name: `${user.firstName} ${user.lastName}`,
                         imageUrl: user.imageUrl,
-                    } : null,
+                    },
                 };
             })
         );
