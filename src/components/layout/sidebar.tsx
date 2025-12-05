@@ -235,7 +235,7 @@ export function Sidebar({ role }: SidebarProps) {
                 onMouseLeave={() => setIsHovering(false)}
                 className={cn(
                     "fixed left-0 top-0 z-40 h-screen border-r border-sidebar-border bg-sidebar",
-                    "flex flex-col shadow-lg"
+                    "flex flex-col shadow-lg overflow-hidden"
                 )}
             >
                 {/* Logo */}
@@ -370,7 +370,7 @@ export function Sidebar({ role }: SidebarProps) {
                 <Separator />
 
                 {/* User Profile */}
-                <div className="p-3">
+                <div className="p-3 shrink-0 border-t border-sidebar-border mt-auto">
                     <div
                         className={cn(
                             "flex items-center gap-3 rounded-lg p-2",
