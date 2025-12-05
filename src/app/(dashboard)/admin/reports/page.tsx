@@ -307,7 +307,7 @@ export default function ReportsPage() {
                                                             key={item.month}
                                                             className="flex-1 flex flex-col items-center gap-1"
                                                         >
-                                                            <span className="text-xs font-medium">{item.count}</span>
+                                                            <span className="text-xs font-medium">{Number(item.count)}</span>
                                                             <div
                                                                 className="w-full bg-gradient-to-t from-primary to-primary/60 rounded-t-md transition-all duration-500"
                                                                 style={{ height: `${Math.max(height, 5)}%` }}
@@ -373,6 +373,10 @@ export default function ReportsPage() {
                                     ) : courseReport === undefined ? (
                                         <div className="flex items-center justify-center py-12">
                                             <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                        </div>
+                                    ) : courseReport === null ? (
+                                        <div className="text-center py-12 text-muted-foreground">
+                                            <p>Dados não disponíveis para este curso.</p>
                                         </div>
                                     ) : (
                                         <div className="space-y-6">
