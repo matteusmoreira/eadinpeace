@@ -300,8 +300,8 @@ export default function ReportsPage() {
                                         <div className="space-y-4">
                                             <div className="flex items-end gap-2 h-40">
                                                 {orgReport.enrollmentTrend.map((item, index) => {
-                                                    const maxCount = Math.max(...orgReport.enrollmentTrend.map(i => i.count));
-                                                    const height = maxCount > 0 ? (item.count / maxCount) * 100 : 0;
+                                                    const maxCount = Math.max(...orgReport.enrollmentTrend.map(i => Number(i.count)));
+                                                    const height = maxCount > 0 ? (Number(item.count) / maxCount) * 100 : 0;
                                                     return (
                                                         <div
                                                             key={item.month}
