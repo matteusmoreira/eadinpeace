@@ -65,6 +65,20 @@ export default defineSchema({
         .index("by_slug", ["slug"])
         .index("by_category", ["category"]),
 
+    // Course Categories (per organization)
+    courseCategories: defineTable({
+        organizationId: v.id("organizations"),
+        name: v.string(),
+        description: v.optional(v.string()),
+        color: v.optional(v.string()),
+        icon: v.optional(v.string()),
+        order: v.number(),
+        isActive: v.boolean(),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_organization", ["organizationId"]),
+
     // Modules (Course sections)
     modules: defineTable({
         courseId: v.id("courses"),
@@ -83,9 +97,29 @@ export default defineSchema({
         courseId: v.id("courses"),
         title: v.string(),
         description: v.optional(v.string()),
-        videoUrl: v.optional(v.string()), // YouTube URL
-        videoProvider: v.union(v.literal("youtube"), v.literal("bunny"), v.literal("upload")),
-        duration: v.number(), // in seconds
+        // Tipo de aula
+        type: v.union(
+            v.literal("video"),
+            v.literal("text"),
+            v.literal("pdf"),
+            v.literal("assignment"),
+            v.literal("exam")
+        ),
+        // Para aulas em vídeo
+        videoUrl: v.optional(v.string()),
+        videoProvider: v.optional(v.union(v.literal("youtube"), v.literal("bunny"), v.literal("upload"))),
+        // Para aulas de texto
+        textContent: v.optional(v.string()),
+        // Para PDF/arquivos
+        fileUrl: v.optional(v.string()),
+        fileStorageId: v.optional(v.id("_storage")),
+        fileName: v.optional(v.string()),
+        // Para trabalhos e provas
+        dueDate: v.optional(v.number()),
+        maxScore: v.optional(v.number()),
+        instructions: v.optional(v.string()),
+        // Comum
+        duration: v.number(), // in seconds (estimado para texto/pdf)
         order: v.number(),
         isPublished: v.boolean(),
         isFree: v.boolean(), // Free preview

@@ -3,21 +3,24 @@
 import { useUser } from "@clerk/nextjs";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 export function useCurrentUser() {
     const { user: clerkUser, isLoaded } = useUser();
-    const upsertUser = useMutation(api.users.upsertFromClerk);
+    const syncUser = useMutation(api.users.syncFromClerk);
+    const hasSynced = useRef(false);
 
     const convexUser = useQuery(
         api.users.getByClerkId,
         clerkUser ? { clerkId: clerkUser.id } : "skip"
     );
 
-    // Sync Clerk user to Convex on login
+    // Sync Clerk user data to Convex on login (only basic info, preserving role)
     useEffect(() => {
-        if (isLoaded && clerkUser) {
-            upsertUser({
+        // Only sync once per session and only if user exists in Convex
+        if (isLoaded && clerkUser && convexUser && !hasSynced.current) {
+            hasSynced.current = true;
+            syncUser({
                 clerkId: clerkUser.id,
                 email: clerkUser.emailAddresses[0]?.emailAddress || "",
                 firstName: clerkUser.firstName || "",
@@ -25,7 +28,7 @@ export function useCurrentUser() {
                 imageUrl: clerkUser.imageUrl,
             });
         }
-    }, [isLoaded, clerkUser, upsertUser]);
+    }, [isLoaded, clerkUser, convexUser, syncUser]);
 
     return {
         user: convexUser,

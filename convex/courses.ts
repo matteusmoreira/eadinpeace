@@ -279,8 +279,28 @@ export const createLesson = mutation({
         courseId: v.id("courses"),
         title: v.string(),
         description: v.optional(v.string()),
+        // Tipo de aula
+        type: v.union(
+            v.literal("video"),
+            v.literal("text"),
+            v.literal("pdf"),
+            v.literal("assignment"),
+            v.literal("exam")
+        ),
+        // Para vídeo
         videoUrl: v.optional(v.string()),
-        videoProvider: v.union(v.literal("youtube"), v.literal("bunny"), v.literal("upload")),
+        videoProvider: v.optional(v.union(v.literal("youtube"), v.literal("bunny"), v.literal("upload"))),
+        // Para texto
+        textContent: v.optional(v.string()),
+        // Para PDF/arquivo
+        fileUrl: v.optional(v.string()),
+        fileStorageId: v.optional(v.id("_storage")),
+        fileName: v.optional(v.string()),
+        // Para trabalhos e provas
+        dueDate: v.optional(v.number()),
+        maxScore: v.optional(v.number()),
+        instructions: v.optional(v.string()),
+        // Comum
         duration: v.number(),
         isFree: v.optional(v.boolean()),
     },
@@ -292,7 +312,21 @@ export const createLesson = mutation({
 
         const now = Date.now();
         const lessonId = await ctx.db.insert("lessons", {
-            ...args,
+            moduleId: args.moduleId,
+            courseId: args.courseId,
+            title: args.title,
+            description: args.description,
+            type: args.type,
+            videoUrl: args.videoUrl,
+            videoProvider: args.videoProvider,
+            textContent: args.textContent,
+            fileUrl: args.fileUrl,
+            fileStorageId: args.fileStorageId,
+            fileName: args.fileName,
+            dueDate: args.dueDate,
+            maxScore: args.maxScore,
+            instructions: args.instructions,
+            duration: args.duration,
             order: existingLessons.length,
             isPublished: false,
             isFree: args.isFree || false,

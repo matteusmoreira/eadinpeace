@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth, useUser } from "@clerk/nextjs";
-import { redirect } from "next/navigation";
+import { redirect, usePathname } from "next/navigation";
 import { Sidebar, type UserRole } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { motion } from "framer-motion";
@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
+import { Loader2 } from "lucide-react";
 
 export default function DashboardLayout({
     children,
@@ -18,13 +19,15 @@ export default function DashboardLayout({
 }) {
     const { isSignedIn, isLoaded } = useAuth();
     const { user } = useUser();
+    const pathname = usePathname();
     const [mobileOpen, setMobileOpen] = useState(false);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-    // Get user role from Convex
-    const convexUser = useQuery(api.users.getByClerkId, {
-        clerkId: user?.id || ""
-    });
+    // Get user role from Convex (use skip when no user)
+    const convexUser = useQuery(
+        api.users.getByClerkId,
+        user?.id ? { clerkId: user.id } : "skip"
+    );
 
     // Default to student if not loaded yet
     const userRole: UserRole = (convexUser?.role as UserRole) || "student";
@@ -34,6 +37,18 @@ export default function DashboardLayout({
             redirect("/sign-in");
         }
     }, [isLoaded, isSignedIn]);
+
+    // Redirect to setup if user doesn't exist in Convex
+    useEffect(() => {
+        // Wait for queries to load
+        if (!isLoaded || !user) return;
+        if (convexUser === undefined) return; // Still loading
+
+        // If user exists in Clerk but not in Convex, redirect to setup
+        if (convexUser === null && pathname !== "/setup") {
+            redirect("/setup");
+        }
+    }, [isLoaded, user, convexUser, pathname]);
 
     if (!isLoaded) {
         return (

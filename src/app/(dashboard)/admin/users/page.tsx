@@ -236,7 +236,7 @@ export default function AdminUsersPage() {
                     )}
                 </motion.div>
             ) : (
-                <motion.div variants={item}>
+                <div>
                     <Card>
                         <CardContent className="p-0">
                             <div className="divide-y">
@@ -305,7 +305,7 @@ export default function AdminUsersPage() {
                             </div>
                         </CardContent>
                     </Card>
-                </motion.div>
+                </div>
             )}
 
             {/* Delete Dialog */}
@@ -325,6 +325,6 @@ export default function AdminUsersPage() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-        </motion.div>
+        </motion.div >
     );
 }

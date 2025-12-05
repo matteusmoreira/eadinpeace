@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
     Select,
     SelectContent,
@@ -40,14 +40,21 @@ import {
     Clock,
     Video,
     FolderOpen,
+    FileText,
+    FileIcon,
+    ClipboardList,
+    GraduationCap,
+    Upload,
+    Calendar,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { Id } from "@convex/_generated/dataModel";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 const container = {
     hidden: { opacity: 0 },
@@ -62,12 +69,24 @@ const item = {
     show: { opacity: 1, y: 0 },
 };
 
+type LessonType = "video" | "text" | "pdf" | "assignment" | "exam";
+
+const lessonTypeLabels: Record<LessonType, { label: string; icon: typeof Video; color: string }> = {
+    video: { label: "Vídeo", icon: Video, color: "text-blue-500" },
+    text: { label: "Texto", icon: FileText, color: "text-emerald-500" },
+    pdf: { label: "PDF", icon: FileIcon, color: "text-red-500" },
+    assignment: { label: "Trabalho", icon: ClipboardList, color: "text-amber-500" },
+    exam: { label: "Prova", icon: GraduationCap, color: "text-purple-500" },
+};
+
 export default function AdminCourseEditPage() {
     const params = useParams();
     const router = useRouter();
     const courseId = params.id as Id<"courses">;
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [isLoading, setIsLoading] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
     const [moduleDialogOpen, setModuleDialogOpen] = useState(false);
     const [lessonDialogOpen, setLessonDialogOpen] = useState(false);
     const [selectedModuleId, setSelectedModuleId] = useState<Id<"modules"> | null>(null);
@@ -76,8 +95,20 @@ export default function AdminCourseEditPage() {
     const [newLesson, setNewLesson] = useState({
         title: "",
         description: "",
+        type: "video" as LessonType,
+        // Video fields
         videoUrl: "",
         videoProvider: "youtube" as "youtube" | "bunny" | "upload",
+        // Text fields
+        textContent: "",
+        // PDF/File fields
+        fileUrl: "",
+        fileName: "",
+        // Assignment/Exam fields
+        dueDate: "",
+        maxScore: 100,
+        instructions: "",
+        // Common
         duration: 0,
         isFree: false,
     });
@@ -89,6 +120,7 @@ export default function AdminCourseEditPage() {
     const updateCourse = useMutation(api.courses.update);
     const createModule = useMutation(api.courses.createModule);
     const createLesson = useMutation(api.courses.createLesson);
+    const generateUploadUrl = useMutation(api.files.generateUploadUrl);
 
     const handlePublishToggle = async () => {
         if (!course) return;
@@ -130,9 +162,64 @@ export default function AdminCourseEditPage() {
         }
     };
 
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Validate file type for PDF
+        if (newLesson.type === "pdf" && file.type !== "application/pdf") {
+            toast.error("Selecione um arquivo PDF válido");
+            return;
+        }
+
+        // Validate file size (max 50MB)
+        if (file.size > 50 * 1024 * 1024) {
+            toast.error("O arquivo deve ter no máximo 50MB");
+            return;
+        }
+
+        setIsUploading(true);
+        try {
+            const uploadUrl = await generateUploadUrl();
+            const result = await fetch(uploadUrl, {
+                method: "POST",
+                headers: { "Content-Type": file.type },
+                body: file,
+            });
+
+            if (!result.ok) throw new Error("Erro no upload");
+
+            const { storageId } = await result.json();
+            setNewLesson(prev => ({
+                ...prev,
+                fileUrl: storageId,
+                fileName: file.name,
+            }));
+            toast.success("Arquivo carregado!");
+        } catch (error) {
+            toast.error("Erro ao carregar arquivo");
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
     const handleCreateLesson = async () => {
         if (!selectedModuleId || !newLesson.title.trim()) {
             toast.error("Preencha os campos obrigatórios");
+            return;
+        }
+
+        // Validate based on type
+        if (newLesson.type === "video" && !newLesson.videoUrl) {
+            toast.error("Informe a URL do vídeo");
+            return;
+        }
+        if (newLesson.type === "text" && !newLesson.textContent) {
+            toast.error("Escreva o conteúdo da aula");
+            return;
+        }
+        if (newLesson.type === "pdf" && !newLesson.fileUrl) {
+            toast.error("Faça upload do arquivo PDF");
             return;
         }
 
@@ -143,20 +230,27 @@ export default function AdminCourseEditPage() {
                 courseId,
                 title: newLesson.title,
                 description: newLesson.description || undefined,
-                videoUrl: newLesson.videoUrl || undefined,
-                videoProvider: newLesson.videoProvider,
+                type: newLesson.type,
+                // Video
+                videoUrl: newLesson.type === "video" ? newLesson.videoUrl || undefined : undefined,
+                videoProvider: newLesson.type === "video" ? newLesson.videoProvider : undefined,
+                // Text
+                textContent: newLesson.type === "text" ? newLesson.textContent || undefined : undefined,
+                // PDF
+                fileUrl: newLesson.type === "pdf" ? newLesson.fileUrl || undefined : undefined,
+                fileName: newLesson.type === "pdf" ? newLesson.fileName || undefined : undefined,
+                // Assignment/Exam
+                instructions: ["assignment", "exam"].includes(newLesson.type) ? newLesson.instructions || undefined : undefined,
+                maxScore: ["assignment", "exam"].includes(newLesson.type) ? newLesson.maxScore : undefined,
+                dueDate: ["assignment", "exam"].includes(newLesson.type) && newLesson.dueDate
+                    ? new Date(newLesson.dueDate).getTime()
+                    : undefined,
+                // Common
                 duration: newLesson.duration * 60, // Convert minutes to seconds
                 isFree: newLesson.isFree,
             });
             toast.success("Aula criada com sucesso!");
-            setNewLesson({
-                title: "",
-                description: "",
-                videoUrl: "",
-                videoProvider: "youtube",
-                duration: 0,
-                isFree: false,
-            });
+            resetLessonForm();
             setLessonDialogOpen(false);
             setSelectedModuleId(null);
         } catch (error: any) {
@@ -166,6 +260,24 @@ export default function AdminCourseEditPage() {
         }
     };
 
+    const resetLessonForm = () => {
+        setNewLesson({
+            title: "",
+            description: "",
+            type: "video",
+            videoUrl: "",
+            videoProvider: "youtube",
+            textContent: "",
+            fileUrl: "",
+            fileName: "",
+            dueDate: "",
+            maxScore: 100,
+            instructions: "",
+            duration: 0,
+            isFree: false,
+        });
+    };
+
     const formatDuration = (seconds: number) => {
         const hours = Math.floor(seconds / 3600);
         const minutes = Math.floor((seconds % 3600) / 60);
@@ -173,6 +285,12 @@ export default function AdminCourseEditPage() {
             return `${hours}h ${minutes}min`;
         }
         return `${minutes}min`;
+    };
+
+    const getLessonIcon = (type: string) => {
+        const config = lessonTypeLabels[type as LessonType] || lessonTypeLabels.video;
+        const Icon = config.icon;
+        return <Icon className={cn("h-4 w-4", config.color)} />;
     };
 
     if (!course) {
@@ -326,6 +444,7 @@ export default function AdminCourseEditPage() {
                                                 size="sm"
                                                 onClick={() => {
                                                     setSelectedModuleId(module._id);
+                                                    resetLessonForm();
                                                     setLessonDialogOpen(true);
                                                 }}
                                             >
@@ -345,10 +464,13 @@ export default function AdminCourseEditPage() {
                                                         <div className="flex items-center justify-center h-8 w-8 rounded-full bg-muted text-sm font-medium">
                                                             {lessonIndex + 1}
                                                         </div>
-                                                        <Video className="h-4 w-4 text-muted-foreground" />
+                                                        {getLessonIcon((lesson as any).type || "video")}
                                                         <div className="flex-1">
                                                             <div className="flex items-center gap-2">
                                                                 <span>{lesson.title}</span>
+                                                                <Badge variant="outline" className="text-xs">
+                                                                    {lessonTypeLabels[(lesson as any).type as LessonType]?.label || "Vídeo"}
+                                                                </Badge>
                                                                 {lesson.isFree && (
                                                                     <Badge variant="outline" className="text-xs">
                                                                         Grátis
@@ -378,81 +500,291 @@ export default function AdminCourseEditPage() {
             </motion.div>
 
             {/* Lesson Dialog */}
-            <Dialog open={lessonDialogOpen} onOpenChange={setLessonDialogOpen}>
-                <DialogContent className="max-w-lg">
+            <Dialog open={lessonDialogOpen} onOpenChange={(open) => {
+                setLessonDialogOpen(open);
+                if (!open) resetLessonForm();
+            }}>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>Criar Nova Aula</DialogTitle>
                         <DialogDescription>
-                            Adicione uma aula ao módulo selecionado
+                            Escolha o tipo de aula e preencha as informações
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="lessonTitle">Título da Aula *</Label>
-                            <Input
-                                id="lessonTitle"
-                                placeholder="Ex: Boas-vindas ao curso"
-                                value={newLesson.title}
-                                onChange={(e) => setNewLesson((prev) => ({ ...prev, title: e.target.value }))}
-                            />
+
+                    <div className="space-y-6 py-4">
+                        {/* Lesson Type Selection */}
+                        <div className="space-y-3">
+                            <Label>Tipo de Aula</Label>
+                            <div className="grid grid-cols-5 gap-2">
+                                {(Object.keys(lessonTypeLabels) as LessonType[]).map((type) => {
+                                    const config = lessonTypeLabels[type];
+                                    const Icon = config.icon;
+                                    return (
+                                        <button
+                                            key={type}
+                                            type="button"
+                                            className={cn(
+                                                "flex flex-col items-center gap-2 p-3 rounded-lg border-2 transition-all",
+                                                newLesson.type === type
+                                                    ? "border-primary bg-primary/5"
+                                                    : "border-muted hover:border-muted-foreground/50"
+                                            )}
+                                            onClick={() => setNewLesson(prev => ({ ...prev, type }))}
+                                        >
+                                            <Icon className={cn("h-6 w-6", config.color)} />
+                                            <span className="text-xs font-medium">{config.label}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
                         </div>
 
-                        <div className="space-y-2">
-                            <Label htmlFor="lessonDescription">Descrição (opcional)</Label>
-                            <Textarea
-                                id="lessonDescription"
-                                placeholder="Breve descrição da aula..."
-                                value={newLesson.description}
-                                onChange={(e) => setNewLesson((prev) => ({ ...prev, description: e.target.value }))}
-                            />
-                        </div>
-
-                        <div className="grid gap-4 md:grid-cols-2">
+                        {/* Common Fields */}
+                        <div className="space-y-4">
                             <div className="space-y-2">
-                                <Label>Provedor de Vídeo</Label>
-                                <Select
-                                    value={newLesson.videoProvider}
-                                    onValueChange={(value: any) =>
-                                        setNewLesson((prev) => ({ ...prev, videoProvider: value }))
-                                    }
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="youtube">YouTube</SelectItem>
-                                        <SelectItem value="bunny">Bunny CDN</SelectItem>
-                                        <SelectItem value="upload">Upload</SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                <Label htmlFor="lessonTitle">Título da Aula *</Label>
+                                <Input
+                                    id="lessonTitle"
+                                    placeholder="Ex: Boas-vindas ao curso"
+                                    value={newLesson.title}
+                                    onChange={(e) => setNewLesson((prev) => ({ ...prev, title: e.target.value }))}
+                                />
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="duration">Duração (minutos) *</Label>
-                                <Input
-                                    id="duration"
-                                    type="number"
-                                    min="1"
-                                    placeholder="15"
-                                    value={newLesson.duration || ""}
-                                    onChange={(e) =>
-                                        setNewLesson((prev) => ({ ...prev, duration: parseInt(e.target.value) || 0 }))
-                                    }
+                                <Label htmlFor="lessonDescription">Descrição (opcional)</Label>
+                                <Textarea
+                                    id="lessonDescription"
+                                    placeholder="Breve descrição da aula..."
+                                    value={newLesson.description}
+                                    onChange={(e) => setNewLesson((prev) => ({ ...prev, description: e.target.value }))}
                                 />
                             </div>
                         </div>
 
-                        <div className="space-y-2">
-                            <Label htmlFor="videoUrl">URL do Vídeo</Label>
-                            <Input
-                                id="videoUrl"
-                                placeholder="https://youtube.com/watch?v=..."
-                                value={newLesson.videoUrl}
-                                onChange={(e) => setNewLesson((prev) => ({ ...prev, videoUrl: e.target.value }))}
-                            />
-                        </div>
+                        {/* Type-specific Fields */}
+                        {newLesson.type === "video" && (
+                            <div className="space-y-4 border-t pt-4">
+                                <h4 className="font-medium flex items-center gap-2">
+                                    <Video className="h-4 w-4 text-blue-500" />
+                                    Configurações de Vídeo
+                                </h4>
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    <div className="space-y-2">
+                                        <Label>Provedor de Vídeo</Label>
+                                        <Select
+                                            value={newLesson.videoProvider}
+                                            onValueChange={(value: any) =>
+                                                setNewLesson((prev) => ({ ...prev, videoProvider: value }))
+                                            }
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="youtube">YouTube</SelectItem>
+                                                <SelectItem value="bunny">Bunny CDN</SelectItem>
+                                                <SelectItem value="upload">Upload</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="duration">Duração (minutos) *</Label>
+                                        <Input
+                                            id="duration"
+                                            type="number"
+                                            min="1"
+                                            placeholder="15"
+                                            value={newLesson.duration || ""}
+                                            onChange={(e) =>
+                                                setNewLesson((prev) => ({ ...prev, duration: parseInt(e.target.value) || 0 }))
+                                            }
+                                        />
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="videoUrl">URL do Vídeo *</Label>
+                                    <Input
+                                        id="videoUrl"
+                                        placeholder="https://youtube.com/watch?v=..."
+                                        value={newLesson.videoUrl}
+                                        onChange={(e) => setNewLesson((prev) => ({ ...prev, videoUrl: e.target.value }))}
+                                    />
+                                </div>
+                            </div>
+                        )}
 
-                        <div className="flex items-center justify-between">
+                        {newLesson.type === "text" && (
+                            <div className="space-y-4 border-t pt-4">
+                                <h4 className="font-medium flex items-center gap-2">
+                                    <FileText className="h-4 w-4 text-emerald-500" />
+                                    Conteúdo da Aula
+                                </h4>
+                                <div className="space-y-2">
+                                    <Label htmlFor="textContent">Texto da Aula *</Label>
+                                    <Textarea
+                                        id="textContent"
+                                        placeholder="Escreva o conteúdo da aula aqui..."
+                                        value={newLesson.textContent}
+                                        onChange={(e) => setNewLesson((prev) => ({ ...prev, textContent: e.target.value }))}
+                                        rows={10}
+                                        className="font-mono"
+                                    />
+                                    <p className="text-xs text-muted-foreground">
+                                        Você pode usar Markdown para formatar o texto
+                                    </p>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="readDuration">Tempo estimado de leitura (minutos)</Label>
+                                    <Input
+                                        id="readDuration"
+                                        type="number"
+                                        min="1"
+                                        placeholder="5"
+                                        value={newLesson.duration || ""}
+                                        onChange={(e) =>
+                                            setNewLesson((prev) => ({ ...prev, duration: parseInt(e.target.value) || 0 }))
+                                        }
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        {newLesson.type === "pdf" && (
+                            <div className="space-y-4 border-t pt-4">
+                                <h4 className="font-medium flex items-center gap-2">
+                                    <FileIcon className="h-4 w-4 text-red-500" />
+                                    Arquivo PDF
+                                </h4>
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept=".pdf"
+                                    onChange={handleFileUpload}
+                                    className="hidden"
+                                />
+                                {newLesson.fileName ? (
+                                    <div className="flex items-center gap-2 p-3 border rounded-lg bg-muted/50">
+                                        <FileIcon className="h-5 w-5 text-red-500" />
+                                        <span className="flex-1 truncate">{newLesson.fileName}</span>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => setNewLesson(prev => ({ ...prev, fileUrl: "", fileName: "" }))}
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        onClick={() => fileInputRef.current?.click()}
+                                        disabled={isUploading}
+                                        className={cn(
+                                            "w-full border-2 border-dashed rounded-lg p-6 text-center transition-colors",
+                                            "hover:border-primary hover:bg-primary/5",
+                                            isUploading && "opacity-50 pointer-events-none"
+                                        )}
+                                    >
+                                        {isUploading ? (
+                                            <div className="flex flex-col items-center gap-2">
+                                                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                                                <span className="text-sm text-muted-foreground">Carregando...</span>
+                                            </div>
+                                        ) : (
+                                            <div className="flex flex-col items-center gap-2">
+                                                <Upload className="h-6 w-6 text-muted-foreground" />
+                                                <span className="font-medium">Clique para fazer upload do PDF</span>
+                                                <span className="text-sm text-muted-foreground">Até 50MB</span>
+                                            </div>
+                                        )}
+                                    </button>
+                                )}
+                                <div className="space-y-2">
+                                    <Label htmlFor="pdfDuration">Tempo estimado de leitura (minutos)</Label>
+                                    <Input
+                                        id="pdfDuration"
+                                        type="number"
+                                        min="1"
+                                        placeholder="10"
+                                        value={newLesson.duration || ""}
+                                        onChange={(e) =>
+                                            setNewLesson((prev) => ({ ...prev, duration: parseInt(e.target.value) || 0 }))
+                                        }
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        {(newLesson.type === "assignment" || newLesson.type === "exam") && (
+                            <div className="space-y-4 border-t pt-4">
+                                <h4 className="font-medium flex items-center gap-2">
+                                    {newLesson.type === "assignment" ? (
+                                        <ClipboardList className="h-4 w-4 text-amber-500" />
+                                    ) : (
+                                        <GraduationCap className="h-4 w-4 text-purple-500" />
+                                    )}
+                                    Configurações do {newLesson.type === "assignment" ? "Trabalho" : "Exame"}
+                                </h4>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="instructions">Instruções *</Label>
+                                    <Textarea
+                                        id="instructions"
+                                        placeholder="Descreva as instruções e requisitos..."
+                                        value={newLesson.instructions}
+                                        onChange={(e) => setNewLesson((prev) => ({ ...prev, instructions: e.target.value }))}
+                                        rows={5}
+                                    />
+                                </div>
+
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="dueDate">Data de Entrega</Label>
+                                        <Input
+                                            id="dueDate"
+                                            type="datetime-local"
+                                            value={newLesson.dueDate}
+                                            onChange={(e) =>
+                                                setNewLesson((prev) => ({ ...prev, dueDate: e.target.value }))
+                                            }
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="maxScore">Pontuação Máxima</Label>
+                                        <Input
+                                            id="maxScore"
+                                            type="number"
+                                            min="0"
+                                            placeholder="100"
+                                            value={newLesson.maxScore}
+                                            onChange={(e) =>
+                                                setNewLesson((prev) => ({ ...prev, maxScore: parseInt(e.target.value) || 100 }))
+                                            }
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="examDuration">Tempo estimado (minutos)</Label>
+                                    <Input
+                                        id="examDuration"
+                                        type="number"
+                                        min="1"
+                                        placeholder="60"
+                                        value={newLesson.duration || ""}
+                                        onChange={(e) =>
+                                            setNewLesson((prev) => ({ ...prev, duration: parseInt(e.target.value) || 0 }))
+                                        }
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Free lesson toggle */}
+                        <div className="flex items-center justify-between border-t pt-4">
                             <div className="space-y-0.5">
                                 <Label>Aula Gratuita</Label>
                                 <p className="text-xs text-muted-foreground">
@@ -467,6 +799,7 @@ export default function AdminCourseEditPage() {
                             />
                         </div>
                     </div>
+
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setLessonDialogOpen(false)}>
                             Cancelar

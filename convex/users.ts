@@ -12,6 +12,43 @@ export const getByClerkId = query({
     },
 });
 
+// Sync user data from Clerk (updates basic info only, preserves role and organization)
+export const syncFromClerk = mutation({
+    args: {
+        clerkId: v.string(),
+        email: v.string(),
+        firstName: v.string(),
+        lastName: v.string(),
+        imageUrl: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
+        const existingUser = await ctx.db
+            .query("users")
+            .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
+            .first();
+
+        if (!existingUser) {
+            // User doesn't exist in Convex - they need to go through setup
+            // Don't create automatically to prevent role issues
+            return null;
+        }
+
+        const now = Date.now();
+
+        // Only update basic profile info, NEVER touch role or organizationId
+        await ctx.db.patch(existingUser._id, {
+            email: args.email,
+            firstName: args.firstName,
+            lastName: args.lastName,
+            imageUrl: args.imageUrl,
+            lastLoginAt: now,
+            updatedAt: now,
+        });
+
+        return existingUser._id;
+    },
+});
+
 // Get user by ID
 export const getById = query({
     args: { userId: v.id("users") },
@@ -340,5 +377,106 @@ export const promoteToSuperadmin = mutation({
         });
 
         return { success: true, userId: user._id };
+    },
+});
+
+// Ensure user has an organization (creates default if needed)
+export const ensureOrganization = mutation({
+    args: { clerkId: v.string() },
+    handler: async (ctx, args) => {
+        const user = await ctx.db
+            .query("users")
+            .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
+            .first();
+
+        if (!user) {
+            throw new Error("Usuário não encontrado");
+        }
+
+        // Superadmins don't need organization
+        if (user.role === "superadmin") {
+            // Get or create a default organization for testing/admin access
+            let defaultOrg = await ctx.db
+                .query("organizations")
+                .first();
+
+            if (!defaultOrg) {
+                const now = Date.now();
+                const orgId = await ctx.db.insert("organizations", {
+                    name: "Organização Padrão",
+                    slug: "org-padrao",
+                    plan: "enterprise",
+                    maxUsers: 1000,
+                    maxCourses: 100,
+                    isActive: true,
+                    createdAt: now,
+                    updatedAt: now,
+                });
+                defaultOrg = await ctx.db.get(orgId);
+            }
+
+            return { organizationId: defaultOrg?._id, created: false };
+        }
+
+        // If user already has organization, return it
+        if (user.organizationId) {
+            return { organizationId: user.organizationId, created: false };
+        }
+
+        // Try to find or create a default organization
+        let org = await ctx.db.query("organizations").first();
+
+        if (!org) {
+            const now = Date.now();
+            const orgId = await ctx.db.insert("organizations", {
+                name: "Minha Organização",
+                slug: "minha-org",
+                plan: "starter",
+                maxUsers: 50,
+                maxCourses: 10,
+                isActive: true,
+                createdAt: now,
+                updatedAt: now,
+            });
+            org = await ctx.db.get(orgId);
+        }
+
+        // Assign user to org
+        if (org) {
+            await ctx.db.patch(user._id, {
+                organizationId: org._id,
+                updatedAt: Date.now(),
+            });
+            return { organizationId: org._id, created: true };
+        }
+
+        throw new Error("Não foi possível criar ou encontrar uma organização");
+    },
+});
+
+// Get or create organization for current user (auto-assign)
+export const getOrCreateUserOrganization = query({
+    args: { clerkId: v.string() },
+    handler: async (ctx, args) => {
+        const user = await ctx.db
+            .query("users")
+            .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
+            .first();
+
+        if (!user) {
+            return null;
+        }
+
+        // If user has org, return it
+        if (user.organizationId) {
+            return await ctx.db.get(user.organizationId);
+        }
+
+        // For superadmin, just return the first org if exists
+        if (user.role === "superadmin") {
+            return await ctx.db.query("organizations").first();
+        }
+
+        return null;
     },
 });

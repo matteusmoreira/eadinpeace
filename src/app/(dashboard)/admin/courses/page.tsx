@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -72,14 +72,24 @@ export default function AdminCoursesPage() {
     const [deleteId, setDeleteId] = useState<Id<"courses"> | null>(null);
 
     // Get Convex user
-    const convexUser = useQuery(api.users.getByClerkId, {
-        clerkId: user?.id || ""
-    });
+    const convexUser = useQuery(
+        api.users.getByClerkId,
+        user?.id ? { clerkId: user.id } : "skip"
+    );
+
+    // For superadmins, also check for any organization
+    const anyOrganization = useQuery(
+        api.users.getOrCreateUserOrganization,
+        user?.id ? { clerkId: user.id } : "skip"
+    );
+
+    // The organization ID to use
+    const effectiveOrgId = convexUser?.organizationId || anyOrganization?._id;
 
     // Get organization courses
     const courses = useQuery(
         api.courses.getByOrganization,
-        convexUser?.organizationId ? { organizationId: convexUser.organizationId } : "skip"
+        effectiveOrgId ? { organizationId: effectiveOrgId } : "skip"
     );
 
     const deleteCourse = useMutation(api.courses.remove);
@@ -87,7 +97,7 @@ export default function AdminCoursesPage() {
     const isLoading = courses === undefined;
 
     // Filter courses
-    const filteredCourses = courses?.filter((course) => {
+    const filteredCourses = (courses ?? []).filter((course) => {
         const matchSearch = search === "" ||
             course.title.toLowerCase().includes(search.toLowerCase()) ||
             course.description?.toLowerCase().includes(search.toLowerCase());
@@ -97,12 +107,12 @@ export default function AdminCoursesPage() {
             (statusFilter === "draft" && !course.isPublished);
 
         return matchSearch && matchStatus;
-    }) || [];
+    });
 
     // Stats
-    const totalCourses = courses?.length || 0;
-    const publishedCourses = courses?.filter(c => c.isPublished).length || 0;
-    const totalEnrollments = courses?.reduce((acc, c) => acc + (c.enrollmentCount || 0), 0) || 0;
+    const totalCourses = courses?.length ?? 0;
+    const publishedCourses = courses?.filter(c => c.isPublished).length ?? 0;
+    const totalEnrollments = courses?.reduce((acc, c) => acc + (c.enrollmentCount || 0), 0) ?? 0;
 
     const handleDelete = async () => {
         if (!deleteId) return;
@@ -229,7 +239,7 @@ export default function AdminCoursesPage() {
                     )}
                 </motion.div>
             ) : (
-                <motion.div variants={item} className="grid gap-4">
+                <div className="grid gap-4">
                     {filteredCourses.map((course) => (
                         <Card key={course._id} className="hover:shadow-lg transition-all">
                             <CardContent className="p-4">
@@ -283,10 +293,12 @@ export default function AdminCoursesPage() {
                                                     Editar
                                                 </DropdownMenuItem>
                                             </Link>
-                                            <DropdownMenuItem className="gap-2">
-                                                <Eye className="h-4 w-4" />
-                                                Visualizar
-                                            </DropdownMenuItem>
+                                            <Link href={`/student/courses/${course._id}`} target="_blank">
+                                                <DropdownMenuItem className="gap-2">
+                                                    <Eye className="h-4 w-4" />
+                                                    Visualizar
+                                                </DropdownMenuItem>
+                                            </Link>
                                             <DropdownMenuItem
                                                 className="gap-2 text-destructive"
                                                 onClick={() => setDeleteId(course._id)}
@@ -300,7 +312,7 @@ export default function AdminCoursesPage() {
                             </CardContent>
                         </Card>
                     ))}
-                </motion.div>
+                </div>
             )}
 
             {/* Delete Dialog */}

@@ -9,10 +9,12 @@
  */
 
 import type * as attachments from "../attachments.js";
+import type * as categories from "../categories.js";
 import type * as certificates from "../certificates.js";
 import type * as comments from "../comments.js";
 import type * as courses from "../courses.js";
 import type * as enrollments from "../enrollments.js";
+import type * as files from "../files.js";
 import type * as forum from "../forum.js";
 import type * as gamification from "../gamification.js";
 import type * as leaderboard from "../leaderboard.js";
@@ -32,10 +34,12 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   attachments: typeof attachments;
+  categories: typeof categories;
   certificates: typeof certificates;
   comments: typeof comments;
   courses: typeof courses;
   enrollments: typeof enrollments;
+  files: typeof files;
   forum: typeof forum;
   gamification: typeof gamification;
   leaderboard: typeof leaderboard;
