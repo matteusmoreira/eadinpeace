@@ -97,14 +97,14 @@ export default defineSchema({
         courseId: v.id("courses"),
         title: v.string(),
         description: v.optional(v.string()),
-        // Tipo de aula
-        type: v.union(
+        // Tipo de aula (opcional para compatibilidade com dados antigos - default: "video")
+        type: v.optional(v.union(
             v.literal("video"),
             v.literal("text"),
             v.literal("pdf"),
             v.literal("assignment"),
             v.literal("exam")
-        ),
+        )),
         // Para aulas em vídeo
         videoUrl: v.optional(v.string()),
         videoProvider: v.optional(v.union(v.literal("youtube"), v.literal("bunny"), v.literal("upload"))),
