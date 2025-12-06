@@ -54,6 +54,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { Id } from "@convex/_generated/dataModel";
 import { toast } from "sonner";
+import { BunnyVideoUpload } from "@/components/bunny-video-upload";
 import { cn } from "@/lib/utils";
 
 const container = {
@@ -603,15 +604,61 @@ export default function AdminCourseEditPage() {
                                         />
                                     </div>
                                 </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="videoUrl">URL do Vídeo *</Label>
-                                    <Input
-                                        id="videoUrl"
-                                        placeholder="https://youtube.com/watch?v=..."
-                                        value={newLesson.videoUrl}
-                                        onChange={(e) => setNewLesson((prev) => ({ ...prev, videoUrl: e.target.value }))}
-                                    />
-                                </div>
+
+                                {/* YouTube or Upload URL Input */}
+                                {newLesson.videoProvider !== "bunny" && (
+                                    <div className="space-y-2">
+                                        <Label htmlFor="videoUrl">URL do Vídeo *</Label>
+                                        <Input
+                                            id="videoUrl"
+                                            placeholder={newLesson.videoProvider === "youtube"
+                                                ? "https://youtube.com/watch?v=..."
+                                                : "https://seu-video.mp4"}
+                                            value={newLesson.videoUrl}
+                                            onChange={(e) => setNewLesson((prev) => ({ ...prev, videoUrl: e.target.value }))}
+                                        />
+                                    </div>
+                                )}
+
+                                {/* Bunny Stream Upload */}
+                                {newLesson.videoProvider === "bunny" && (
+                                    <div className="space-y-3">
+                                        <Label>Upload de Vídeo (Bunny Stream)</Label>
+                                        {newLesson.videoUrl ? (
+                                            <div className="p-4 border rounded-lg bg-muted/50">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <Video className="h-5 w-5 text-primary" />
+                                                        <div>
+                                                            <p className="font-medium">Vídeo carregado</p>
+                                                            <p className="text-xs text-muted-foreground font-mono">
+                                                                {newLesson.videoUrl.split('/').pop()}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => setNewLesson(prev => ({ ...prev, videoUrl: "" }))}
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <BunnyVideoUpload
+                                                onUploadComplete={(videoId, embedUrl) => {
+                                                    setNewLesson(prev => ({ ...prev, videoUrl: videoId }));
+                                                }}
+                                                onError={(error) => toast.error(error)}
+                                            />
+                                        )}
+                                        <p className="text-xs text-muted-foreground">
+                                            Formatos suportados: MP4, MOV, WebM • Máx: 500MB
+                                        </p>
+                                    </div>
+                                )}
                             </div>
                         )}
 

@@ -34,6 +34,7 @@ import { api } from "@convex/_generated/api";
 import { Id } from "@convex/_generated/dataModel";
 import { useUser } from "@clerk/nextjs";
 import { toast } from "sonner";
+import { BunnyPlayer } from "@/components/bunny-player";
 
 // Cast ReactPlayer to any to avoid type errors
 const ReactPlayerAny = ReactPlayer as any;
@@ -48,6 +49,7 @@ interface Lesson {
     _id: Id<"lessons">;
     title: string;
     videoUrl?: string;
+    videoProvider?: "youtube" | "bunny" | "upload";
     duration: number;
     isFree: boolean;
     isPublished: boolean;
@@ -376,25 +378,38 @@ export default function CoursePlayerPage() {
                 {/* Video Player */}
                 <div className="flex-1 relative bg-black">
                     {currentLesson?.videoUrl ? (
-                        <ReactPlayerAny
-                            ref={playerRef}
-                            url={currentLesson.videoUrl}
-                            width="100%"
-                            height="100%"
-                            playing={isPlaying}
-                            onPlay={() => setIsPlaying(true)}
-                            onPause={() => setIsPlaying(false)}
-                            onProgress={handleProgress}
-                            controls
-                            config={{
-                                youtube: {
-                                    playerVars: {
-                                        modestbranding: 1,
-                                        rel: 0,
+                        // Check if it's a Bunny Stream video
+                        (currentLesson as any).videoProvider === "bunny" ? (
+                            <div className="absolute inset-0">
+                                <BunnyPlayer
+                                    videoId={currentLesson.videoUrl}
+                                    title={currentLesson.title}
+                                    autoplay={isPlaying}
+                                    controls={true}
+                                    className="w-full h-full border-0"
+                                />
+                            </div>
+                        ) : (
+                            <ReactPlayerAny
+                                ref={playerRef}
+                                url={currentLesson.videoUrl}
+                                width="100%"
+                                height="100%"
+                                playing={isPlaying}
+                                onPlay={() => setIsPlaying(true)}
+                                onPause={() => setIsPlaying(false)}
+                                onProgress={handleProgress}
+                                controls
+                                config={{
+                                    youtube: {
+                                        playerVars: {
+                                            modestbranding: 1,
+                                            rel: 0,
+                                        },
                                     },
-                                },
-                            }}
-                        />
+                                }}
+                            />
+                        )
                     ) : (
                         <div className="absolute inset-0 flex items-center justify-center text-white">
                             <div className="text-center">

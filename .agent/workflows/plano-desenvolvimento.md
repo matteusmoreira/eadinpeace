@@ -515,7 +515,7 @@ export const getUserStudyHours = query({
 ## Fase 4 - Features Adicionais (Dias 4-7)
 - [x] 5.4 Certificados
 - [x] 6. Conquistas
-- [ ] 7. Bunny Stream
+- [x] 7. Bunny Stream
 
 ---
 
