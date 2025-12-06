@@ -21,6 +21,7 @@ import type * as leaderboard from "../leaderboard.js";
 import type * as notifications from "../notifications.js";
 import type * as organizations from "../organizations.js";
 import type * as payments from "../payments.js";
+import type * as plans from "../plans.js";
 import type * as quizzes from "../quizzes.js";
 import type * as reports from "../reports.js";
 import type * as search from "../search.js";
@@ -46,6 +47,7 @@ declare const fullApi: ApiFromModules<{
   notifications: typeof notifications;
   organizations: typeof organizations;
   payments: typeof payments;
+  plans: typeof plans;
   quizzes: typeof quizzes;
   reports: typeof reports;
   search: typeof search;

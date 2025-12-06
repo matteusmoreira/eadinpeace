@@ -36,13 +36,38 @@ export const getByUser = query({
             .withIndex("by_user", (q) => q.eq("userId", args.userId))
             .collect();
 
-        // Get course details for each enrollment
+        // Get course details for each enrollment (with instructor and lesson count)
         const enrollmentsWithCourses = await Promise.all(
             enrollments.map(async (enrollment) => {
                 const course = await ctx.db.get(enrollment.courseId);
+                if (!course) {
+                    return {
+                        ...enrollment,
+                        course: null,
+                    };
+                }
+
+                // Get instructor
+                const instructor = course.instructorId
+                    ? await ctx.db.get(course.instructorId)
+                    : null;
+
+                // Get lesson count
+                const lessons = await ctx.db
+                    .query("lessons")
+                    .withIndex("by_course", (q) => q.eq("courseId", enrollment.courseId))
+                    .collect();
+
                 return {
                     ...enrollment,
-                    course,
+                    course: {
+                        ...course,
+                        instructor: instructor ? {
+                            firstName: instructor.firstName,
+                            lastName: instructor.lastName,
+                        } : null,
+                        lessonCount: lessons.length,
+                    },
                 };
             })
         );
@@ -50,6 +75,7 @@ export const getByUser = query({
         return enrollmentsWithCourses;
     },
 });
+
 
 // Get enrollment for user and course
 export const getByUserAndCourse = query({

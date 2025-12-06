@@ -145,6 +145,7 @@ export default function EditCoursePage() {
                 courseId,
                 title: newLesson.title,
                 description: newLesson.description || undefined,
+                type: "video",
                 videoUrl: newLesson.videoUrl || undefined,
                 videoProvider: "youtube",
                 duration: newLesson.duration * 60, // Convert to seconds

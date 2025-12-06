@@ -458,25 +458,45 @@ export const ensureOrganization = mutation({
 export const getOrCreateUserOrganization = query({
     args: { clerkId: v.string() },
     handler: async (ctx, args) => {
+        // Se não houver clerkId, retorna null imediatamente
+        if (!args.clerkId) {
+            console.log("[getOrCreateUserOrganization] No clerkId provided");
+            return null;
+        }
+
         const user = await ctx.db
             .query("users")
             .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
             .first();
 
         if (!user) {
+            console.log("[getOrCreateUserOrganization] User not found for clerkId:", args.clerkId);
             return null;
         }
 
+        console.log("[getOrCreateUserOrganization] User found:", user.email, "Role:", user.role);
+
         // If user has org, return it
         if (user.organizationId) {
-            return await ctx.db.get(user.organizationId);
+            const org = await ctx.db.get(user.organizationId);
+            if (org) {
+                console.log("[getOrCreateUserOrganization] Found user org:", org.name);
+                return org;
+            }
+            // Organização não existe mais - log e continue
+            console.log("[getOrCreateUserOrganization] User org ID exists but org not found:", user.organizationId);
         }
 
-        // For superadmin, just return the first org if exists
-        if (user.role === "superadmin") {
-            return await ctx.db.query("organizations").first();
+        // For superadmin or when user's org is missing, return the first org if exists
+        if (user.role === "superadmin" || user.organizationId) {
+            const firstOrg = await ctx.db.query("organizations").first();
+            if (firstOrg) {
+                console.log("[getOrCreateUserOrganization] Returning first org:", firstOrg.name);
+            }
+            return firstOrg;
         }
 
+        console.log("[getOrCreateUserOrganization] No organization found");
         return null;
     },
 });
