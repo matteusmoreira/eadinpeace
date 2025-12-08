@@ -342,6 +342,30 @@ export const getGlobalStats = query({
     args: {},
     handler: async (ctx) => {
         const users = await ctx.db.query("users").collect();
+        const organizations = await ctx.db.query("organizations").collect();
+        const enrollments = await ctx.db.query("enrollments").collect();
+        const certificates = await ctx.db.query("certificates").collect();
+        const courses = await ctx.db.query("courses").collect();
+
+        // Calculate growth based on createdAt timestamps
+        const now = Date.now();
+        const thirtyDaysAgo = now - (30 * 24 * 60 * 60 * 1000);
+        const sixtyDaysAgo = now - (60 * 24 * 60 * 60 * 1000);
+
+        // Users created in last 30 days vs previous 30 days
+        const usersLast30 = users.filter(u => u.createdAt && u.createdAt >= thirtyDaysAgo).length;
+        const usersPrevious30 = users.filter(u => u.createdAt && u.createdAt >= sixtyDaysAgo && u.createdAt < thirtyDaysAgo).length;
+        const userGrowth = usersPrevious30 > 0 ? ((usersLast30 - usersPrevious30) / usersPrevious30 * 100) : usersLast30 > 0 ? 100 : 0;
+
+        // Organizations created in last 30 days vs previous 30 days
+        const orgsLast30 = organizations.filter(o => o.createdAt && o.createdAt >= thirtyDaysAgo).length;
+        const orgsPrevious30 = organizations.filter(o => o.createdAt && o.createdAt >= sixtyDaysAgo && o.createdAt < thirtyDaysAgo).length;
+        const orgGrowth = orgsPrevious30 > 0 ? ((orgsLast30 - orgsPrevious30) / orgsPrevious30 * 100) : orgsLast30 > 0 ? 100 : 0;
+
+        // Active users growth (based on lastLoginAt)
+        const activeUsersLast30 = users.filter(u => u.isActive && u.lastLoginAt && u.lastLoginAt >= thirtyDaysAgo).length;
+        const activeUsersPrevious30 = users.filter(u => u.isActive && u.lastLoginAt && u.lastLoginAt >= sixtyDaysAgo && u.lastLoginAt < thirtyDaysAgo).length;
+        const activeGrowth = activeUsersPrevious30 > 0 ? ((activeUsersLast30 - activeUsersPrevious30) / activeUsersPrevious30 * 100) : activeUsersLast30 > 0 ? 100 : 0;
 
         return {
             total: users.length,
@@ -353,6 +377,24 @@ export const getGlobalStats = query({
             },
             active: users.filter((u) => u.isActive).length,
             pending: users.filter((u) => !u.isActive).length,
+            // Growth metrics
+            growth: {
+                users: Math.round(userGrowth * 10) / 10,
+                organizations: Math.round(orgGrowth * 10) / 10,
+                activeUsers: Math.round(activeGrowth * 10) / 10,
+            },
+            // Additional stats
+            courses: {
+                total: courses.length,
+                published: courses.filter(c => c.isPublished).length,
+            },
+            enrollments: {
+                total: enrollments.length,
+                completed: enrollments.filter(e => e.completedAt).length,
+            },
+            certificates: {
+                total: certificates.length,
+            },
         };
     },
 });

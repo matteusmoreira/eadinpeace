@@ -70,19 +70,28 @@ export default function AdminCertificatesPage() {
         clerkId: user?.id || ""
     });
 
-    // Get certificates - using a query that gets all certificates
-    // We'll filter by organization courses
+    // Get certificates from organization
+    const certificates = useQuery(api.certificates.getByOrganization,
+        currentUser?.organizationId
+            ? { organizationId: currentUser.organizationId }
+            : "skip"
+    );
+
+    // Get organization certificate stats
+    const certStats = useQuery(api.certificates.getOrganizationStats,
+        currentUser?.organizationId
+            ? { organizationId: currentUser.organizationId }
+            : "skip"
+    );
+
+    // Get courses count
     const courses = useQuery(api.courses.getByOrganization,
         currentUser?.organizationId
             ? { organizationId: currentUser.organizationId }
             : "skip"
     );
 
-    // For now, we'll create mock data since we need to implement certificate queries
-    // In production, this would be a proper query
-    const certificates: any[] = [];
-
-    const filteredCertificates = certificates.filter((cert) => {
+    const filteredCertificates = (certificates || []).filter((cert) => {
         const searchStr = `${cert.userName} ${cert.courseName} ${cert.code}`.toLowerCase();
         return searchStr.includes(searchQuery.toLowerCase());
     });
@@ -92,7 +101,7 @@ export default function AdminCertificatesPage() {
         setPreviewDialogOpen(true);
     };
 
-    const isLoading = courses === undefined;
+    const isLoading = certificates === undefined;
 
     return (
         <motion.div
@@ -120,7 +129,7 @@ export default function AdminCertificatesPage() {
                                 <Award className="h-5 w-5 text-primary" />
                             </div>
                             <div>
-                                <p className="text-2xl font-bold">{certificates.length}</p>
+                                <p className="text-2xl font-bold">{certStats?.total || 0}</p>
                                 <p className="text-sm text-muted-foreground">Total Emitidos</p>
                             </div>
                         </div>
@@ -133,7 +142,7 @@ export default function AdminCertificatesPage() {
                                 <CheckCircle className="h-5 w-5 text-emerald-500" />
                             </div>
                             <div>
-                                <p className="text-2xl font-bold">0</p>
+                                <p className="text-2xl font-bold">{certStats?.thisMonth || 0}</p>
                                 <p className="text-sm text-muted-foreground">Este Mês</p>
                             </div>
                         </div>
@@ -146,7 +155,7 @@ export default function AdminCertificatesPage() {
                                 <BookOpen className="h-5 w-5 text-amber-500" />
                             </div>
                             <div>
-                                <p className="text-2xl font-bold">{courses?.length || 0}</p>
+                                <p className="text-2xl font-bold">{certStats?.coursesWithCertificates || 0}</p>
                                 <p className="text-sm text-muted-foreground">Cursos com Certificado</p>
                             </div>
                         </div>
@@ -159,7 +168,7 @@ export default function AdminCertificatesPage() {
                                 <Download className="h-5 w-5 text-violet-500" />
                             </div>
                             <div>
-                                <p className="text-2xl font-bold">0</p>
+                                <p className="text-2xl font-bold">{certStats?.downloads || 0}</p>
                                 <p className="text-sm text-muted-foreground">Downloads</p>
                             </div>
                         </div>

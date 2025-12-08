@@ -45,7 +45,7 @@ export default function SuperadminMetricsPage() {
     const organizations = useQuery(api.organizations.getAll);
     const userStats = useQuery(api.users.getGlobalStats);
 
-    const isLoading = users === undefined || organizations === undefined;
+    const isLoading = users === undefined || organizations === undefined || userStats === undefined;
 
     // Calculate metrics
     const totalUsers = users?.length || 0;
@@ -53,10 +53,10 @@ export default function SuperadminMetricsPage() {
     const activeUsers = userStats?.active || 0;
     const pendingUsers = userStats?.pending || 0;
 
-    // Calculate growth (mock for now - would need historical data)
-    const userGrowth = 12.5;
-    const orgGrowth = 8.3;
-    const activeGrowth = 15.2;
+    // Use real growth data from backend
+    const userGrowth = userStats?.growth?.users || 0;
+    const orgGrowth = userStats?.growth?.organizations || 0;
+    const activeGrowth = userStats?.growth?.activeUsers || 0;
 
     // User distribution by role
     const usersByRole = userStats?.byRole || {
@@ -264,8 +264,10 @@ export default function SuperadminMetricsPage() {
                             </div>
                             <div>
                                 <p className="text-sm text-muted-foreground">Cursos Ativos</p>
-                                <p className="text-2xl font-bold">-</p>
-                                <p className="text-xs text-muted-foreground">Em todas organizações</p>
+                                <p className="text-2xl font-bold">{userStats?.courses?.published || 0}</p>
+                                <p className="text-xs text-muted-foreground">
+                                    {userStats?.courses?.total || 0} total em todas organizações
+                                </p>
                             </div>
                         </div>
                     </CardContent>
@@ -279,8 +281,10 @@ export default function SuperadminMetricsPage() {
                             </div>
                             <div>
                                 <p className="text-sm text-muted-foreground">Matrículas</p>
-                                <p className="text-2xl font-bold">-</p>
-                                <p className="text-xs text-muted-foreground">Total de matrículas</p>
+                                <p className="text-2xl font-bold">{userStats?.enrollments?.total || 0}</p>
+                                <p className="text-xs text-muted-foreground">
+                                    {userStats?.enrollments?.completed || 0} concluídas
+                                </p>
                             </div>
                         </div>
                     </CardContent>
@@ -294,7 +298,7 @@ export default function SuperadminMetricsPage() {
                             </div>
                             <div>
                                 <p className="text-sm text-muted-foreground">Certificados</p>
-                                <p className="text-2xl font-bold">-</p>
+                                <p className="text-2xl font-bold">{userStats?.certificates?.total || 0}</p>
                                 <p className="text-xs text-muted-foreground">Emitidos</p>
                             </div>
                         </div>

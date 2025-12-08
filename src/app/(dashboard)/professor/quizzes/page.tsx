@@ -51,6 +51,9 @@ import {
 import { useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { useUser } from "@clerk/nextjs";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@convex/_generated/api";
 
 const container = {
     hidden: { opacity: 0 },
@@ -65,46 +68,6 @@ const item = {
     show: { opacity: 1, y: 0 },
 };
 
-// Mock quizzes
-const mockQuizzes = [
-    {
-        id: "quiz1",
-        title: "Fundamentos de JavaScript",
-        courseName: "JavaScript do Zero",
-        lessonName: "Variáveis e Tipos de Dados",
-        questions: 5,
-        timeLimit: 10,
-        passingScore: 70,
-        attempts: 156,
-        avgScore: 78,
-        isPublished: true,
-    },
-    {
-        id: "quiz2",
-        title: "Funções e Escopo",
-        courseName: "JavaScript do Zero",
-        lessonName: "Funções",
-        questions: 8,
-        timeLimit: 15,
-        passingScore: 70,
-        attempts: 89,
-        avgScore: 65,
-        isPublished: true,
-    },
-    {
-        id: "quiz3",
-        title: "Arrays e Objetos",
-        courseName: "JavaScript do Zero",
-        lessonName: "Estruturas de Dados",
-        questions: 10,
-        timeLimit: 20,
-        passingScore: 70,
-        attempts: 0,
-        avgScore: 0,
-        isPublished: false,
-    },
-];
-
 interface Question {
     id: string;
     text: string;
@@ -113,11 +76,33 @@ interface Question {
 }
 
 export default function ProfessorQuizzesPage() {
+    const { user } = useUser();
     const [searchQuery, setSearchQuery] = useState("");
     const [isCreating, setIsCreating] = useState(false);
     const [editingQuiz, setEditingQuiz] = useState<any>(null);
     const [questions, setQuestions] = useState<Question[]>([]);
     const [isSaving, setIsSaving] = useState(false);
+
+    // Get current user
+    const currentUser = useQuery(api.users.getByClerkId, {
+        clerkId: user?.id || ""
+    });
+
+    // Get quizzes for this instructor
+    const quizzes = useQuery(api.quizzes.getByInstructor,
+        currentUser?._id
+            ? { instructorId: currentUser._id }
+            : "skip"
+    );
+
+    // Get instructor's courses for the quiz creation dropdown
+    const courses = useQuery(api.courses.getByInstructor,
+        currentUser?._id
+            ? { instructorId: currentUser._id }
+            : "skip"
+    );
+
+    const isLoading = quizzes === undefined;
 
     // New quiz form
     const [quizForm, setQuizForm] = useState({
@@ -142,7 +127,7 @@ export default function ProfessorQuizzesPage() {
         explanation: "",
     });
 
-    const filteredQuizzes = mockQuizzes.filter((quiz) =>
+    const filteredQuizzes = (quizzes || []).filter((quiz) =>
         quiz.title.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
@@ -164,25 +149,27 @@ export default function ProfessorQuizzesPage() {
         setEditingQuiz(quiz);
         setQuizForm({
             title: quiz.title,
-            courseId: "1",
-            lessonId: "1",
-            timeLimit: String(quiz.timeLimit),
+            courseId: quiz.courseId || "",
+            lessonId: quiz.lessonId || "",
+            timeLimit: String(quiz.timeLimit || 10),
             passingScore: String(quiz.passingScore),
         });
-        // Load questions (mock)
-        setQuestions([
-            {
-                id: "q1",
-                text: "Qual é a diferença entre let e const?",
-                options: [
-                    { id: "a", text: "let pode ser reatribuído, const não", isCorrect: true },
-                    { id: "b", text: "const pode ser reatribuído, let não", isCorrect: false },
-                    { id: "c", text: "Não há diferença", isCorrect: false },
-                    { id: "d", text: "Ambos podem ser reatribuídos", isCorrect: false },
-                ],
-                explanation: "let permite reatribuição enquanto const não.",
-            },
-        ]);
+        // Transform questions from API format to local format
+        if (quiz.questions && Array.isArray(quiz.questions)) {
+            const formattedQuestions = quiz.questions.map((q: any) => ({
+                id: q._id || q.id,
+                text: q.question || q.text,
+                options: q.options?.map((opt: string, idx: number) => ({
+                    id: String.fromCharCode(97 + idx), // a, b, c, d...
+                    text: opt,
+                    isCorrect: q.correctAnswer === opt,
+                })) || [],
+                explanation: q.explanation || "",
+            }));
+            setQuestions(formattedQuestions);
+        } else {
+            setQuestions([]);
+        }
     };
 
     const openAddQuestion = () => {
@@ -523,6 +510,15 @@ export default function ProfessorQuizzesPage() {
         );
     }
 
+    // Loading state
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center min-h-[400px]">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
     // Quizzes List View
     return (
         <motion.div
@@ -561,7 +557,7 @@ export default function ProfessorQuizzesPage() {
             {/* Quizzes */}
             <motion.div variants={item} className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {filteredQuizzes.map((quiz) => (
-                    <Card key={quiz.id} className="hover:shadow-lg transition-all duration-300">
+                    <Card key={quiz._id} className="hover:shadow-lg transition-all duration-300">
                         <CardHeader className="pb-3">
                             <div className="flex items-start justify-between">
                                 <div className="flex-1 min-w-0">
@@ -579,7 +575,7 @@ export default function ProfessorQuizzesPage() {
                             <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
                                 <div className="flex items-center gap-1">
                                     <HelpCircle className="h-3.5 w-3.5" />
-                                    {quiz.questions} questões
+                                    {quiz.questionCount} questões
                                 </div>
                                 <div className="flex items-center gap-1">
                                     <Clock className="h-3.5 w-3.5" />
@@ -587,11 +583,11 @@ export default function ProfessorQuizzesPage() {
                                 </div>
                                 <div className="flex items-center gap-1">
                                     <Users className="h-3.5 w-3.5" />
-                                    {quiz.attempts} tentativas
+                                    {quiz.attemptCount} tentativas
                                 </div>
                             </div>
 
-                            {quiz.attempts > 0 && (
+                            {quiz.attemptCount > 0 && (
                                 <div className="flex items-center justify-between text-sm">
                                     <span className="text-muted-foreground">Média de pontuação</span>
                                     <span className={cn(

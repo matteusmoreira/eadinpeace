@@ -231,6 +231,51 @@ export const getAnnouncements = query({
     },
 });
 
+// Search users by name or email (for targeted notifications)
+export const searchUsers = query({
+    args: {
+        organizationId: v.id("organizations"),
+        search: v.optional(v.string()),
+        role: v.optional(v.string()),
+        limit: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        let users = await ctx.db
+            .query("users")
+            .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+            .collect();
+
+        // Filter by role if specified
+        if (args.role && args.role !== "all") {
+            users = users.filter(u => u.role === args.role);
+        }
+
+        // Filter by search term (name or email)
+        if (args.search && args.search.trim()) {
+            const searchLower = args.search.toLowerCase().trim();
+            users = users.filter(u =>
+                u.firstName.toLowerCase().includes(searchLower) ||
+                u.lastName.toLowerCase().includes(searchLower) ||
+                u.email.toLowerCase().includes(searchLower) ||
+                `${u.firstName} ${u.lastName}`.toLowerCase().includes(searchLower)
+            );
+        }
+
+        // Limit results
+        const limit = args.limit || 20;
+        users = users.slice(0, limit);
+
+        return users.map(u => ({
+            _id: u._id,
+            firstName: u.firstName,
+            lastName: u.lastName,
+            email: u.email,
+            role: u.role,
+            imageUrl: u.imageUrl,
+        }));
+    },
+});
+
 // Create announcement
 export const createAnnouncement = mutation({
     args: {
@@ -240,27 +285,41 @@ export const createAnnouncement = mutation({
         content: v.string(),
         priority: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
         targetRoles: v.array(v.string()),
+        targetUserIds: v.optional(v.array(v.id("users"))), // NEW: specific users
         expiresAt: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
         const now = Date.now();
 
         const announcementId = await ctx.db.insert("announcements", {
-            ...args,
+            organizationId: args.organizationId,
+            authorId: args.authorId,
+            title: args.title,
+            content: args.content,
+            priority: args.priority,
+            targetRoles: args.targetRoles,
             isPublished: true,
+            expiresAt: args.expiresAt,
             createdAt: now,
             updatedAt: now,
         });
 
-        // Send notifications to targeted users
-        const users = await ctx.db
-            .query("users")
-            .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
-            .collect();
+        let targetUsers: { _id: any }[] = [];
 
-        const targetUsers = args.targetRoles.includes("all")
-            ? users
-            : users.filter(u => args.targetRoles.includes(u.role));
+        // If specific users are provided, use them
+        if (args.targetUserIds && args.targetUserIds.length > 0) {
+            targetUsers = args.targetUserIds.map(id => ({ _id: id }));
+        } else {
+            // Otherwise, filter by roles
+            const users = await ctx.db
+                .query("users")
+                .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+                .collect();
+
+            targetUsers = args.targetRoles.includes("all")
+                ? users
+                : users.filter(u => args.targetRoles.includes(u.role));
+        }
 
         for (const user of targetUsers) {
             await ctx.db.insert("notifications", {
