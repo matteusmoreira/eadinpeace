@@ -17,6 +17,11 @@ import {
     Eye,
     Loader2,
     GraduationCap,
+    HelpCircle,
+    CheckCircle2,
+    AlertCircle,
+    BarChart3,
+    FileText,
 } from "lucide-react";
 import Link from "next/link";
 import { useQuery } from "convex/react";
@@ -47,6 +52,18 @@ export default function ProfessorDashboardPage() {
         convexUser?._id ? { instructorId: convexUser._id } : "skip"
     );
 
+    // Get grading stats for professor
+    const gradingStats = useQuery(
+        api.quizzesGrading.getGradingStats,
+        convexUser?._id ? { professorId: convexUser._id } : "skip"
+    );
+
+    // Get pending grading attempts
+    const pendingGrading = useQuery(
+        api.quizzesGrading.getPendingGrading,
+        convexUser?._id ? { professorId: convexUser._id } : "skip"
+    );
+
     const isLoading = courses === undefined;
 
     // Calculate stats
@@ -69,6 +86,11 @@ export default function ProfessorDashboardPage() {
     const recentCourses = [...myCourses]
         .sort((a, b) => b.createdAt - a.createdAt)
         .slice(0, 3);
+
+    // Grading stats
+    const pendingCount = gradingStats?.pending || 0;
+    const gradedCount = gradingStats?.graded || 0;
+    const averageScore = gradingStats?.averageScore || 0;
 
     const formatDuration = (seconds: number) => {
         const hours = Math.floor(seconds / 3600);
@@ -160,6 +182,73 @@ export default function ProfessorDashboardPage() {
                                     </div>
                                     <div className="h-12 w-12 rounded-xl bg-violet-500/10 flex items-center justify-center">
                                         <Clock className="h-6 w-6 text-violet-500" />
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </motion.div>
+
+                    {/* Quiz/Grading Stats Row */}
+                    <motion.div variants={item} className="grid gap-4 md:grid-cols-4">
+                        <Card className="hover:shadow-lg transition-all border-l-4 border-l-indigo-500">
+                            <CardContent className="pt-6">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm text-muted-foreground">Total Quizzes</p>
+                                        <p className="text-3xl font-bold">{gradingStats?.total || 0}</p>
+                                        <p className="text-xs text-muted-foreground">criados</p>
+                                    </div>
+                                    <div className="h-12 w-12 rounded-xl bg-indigo-500/10 flex items-center justify-center">
+                                        <HelpCircle className="h-6 w-6 text-indigo-500" />
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Link href="/professor/quizzes/grading">
+                            <Card className={`hover:shadow-lg transition-all cursor-pointer ${pendingCount > 0 ? 'border-l-4 border-l-orange-500' : ''}`}>
+                                <CardContent className="pt-6">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-sm text-muted-foreground">Pendentes</p>
+                                            <p className="text-3xl font-bold">{pendingCount}</p>
+                                            <p className="text-xs text-orange-500 font-medium">
+                                                {pendingCount > 0 ? "aguardando correção" : "nenhuma pendência"}
+                                            </p>
+                                        </div>
+                                        <div className="h-12 w-12 rounded-xl bg-orange-500/10 flex items-center justify-center">
+                                            <AlertCircle className="h-6 w-6 text-orange-500" />
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </Link>
+
+                        <Card className="hover:shadow-lg transition-all">
+                            <CardContent className="pt-6">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm text-muted-foreground">Corrigidos</p>
+                                        <p className="text-3xl font-bold">{gradedCount}</p>
+                                        <p className="text-xs text-emerald-500">finalizados</p>
+                                    </div>
+                                    <div className="h-12 w-12 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                                        <CheckCircle2 className="h-6 w-6 text-emerald-500" />
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="hover:shadow-lg transition-all">
+                            <CardContent className="pt-6">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm text-muted-foreground">Média Geral</p>
+                                        <p className="text-3xl font-bold">{averageScore.toFixed(0)}%</p>
+                                        <p className="text-xs text-muted-foreground">dos alunos</p>
+                                    </div>
+                                    <div className="h-12 w-12 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                                        <BarChart3 className="h-6 w-6 text-blue-500" />
                                     </div>
                                 </div>
                             </CardContent>

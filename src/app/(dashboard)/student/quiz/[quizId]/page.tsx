@@ -5,8 +5,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
 import {
     CheckCircle2,
     XCircle,
@@ -17,6 +15,7 @@ import {
     RefreshCw,
     Home,
     Loader2,
+    AlertCircle,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -27,13 +26,18 @@ import { api } from "@convex/_generated/api";
 import { useUser } from "@clerk/nextjs";
 import { Id } from "@convex/_generated/dataModel";
 import { toast } from "sonner";
+import { QuestionRenderer, getQuestionTypeLabel, requiresManualGrading } from "@/components/quiz/QuestionRenderer";
 
 type QuizState = "intro" | "inProgress" | "finished";
 
+// Interface expandida para suportar todos os tipos
 interface Answer {
     questionId: Id<"quizQuestions">;
-    answer: string;
-    isCorrect: boolean;
+    answer?: string;
+    answers?: string[];
+    matches?: { prompt: string; answer: string }[];
+    order?: string[];
+    blanks?: string[];
 }
 
 export default function QuizPage() {
@@ -43,9 +47,7 @@ export default function QuizPage() {
 
     const [state, setState] = useState<QuizState>("intro");
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-    const [selectedOption, setSelectedOption] = useState<string | null>(null);
     const [answers, setAnswers] = useState<Answer[]>([]);
-    const [showFeedback, setShowFeedback] = useState(false);
     const [timeLeft, setTimeLeft] = useState(0);
     const [startTime, setStartTime] = useState<number>(0);
     const [result, setResult] = useState<any>(null);
@@ -57,8 +59,6 @@ export default function QuizPage() {
     });
 
     const quiz = useQuery(api.quizzes.getByLesson, { lessonId: quizId as any });
-
-    // If quiz not found by lesson, try direct query (quizId might be a quiz Id)
     const directQuiz = useQuery(api.quizzes.getByCourse, { courseId: quizId as any });
 
     const submitAttempt = useMutation(api.quizzes.submitAttempt);
@@ -69,6 +69,11 @@ export default function QuizPage() {
     const currentQuestion = questions[currentQuestionIndex];
     const isLastQuestion = currentQuestionIndex === questions.length - 1;
     const progress = questions.length > 0 ? ((currentQuestionIndex + 1) / questions.length) * 100 : 0;
+
+    // Verificar se o quiz tem questões que requerem correção manual
+    const hasManualGradingQuestions = questions.some((q: any) =>
+        requiresManualGrading(q.type) || q.requiresManualGrading
+    );
 
     // Timer
     useEffect(() => {
@@ -98,20 +103,55 @@ export default function QuizPage() {
         setState("inProgress");
         setStartTime(Date.now());
         setTimeLeft(quizData?.timeLimit ? quizData.timeLimit * 60 : 0);
+        // Inicializar respostas vazias
+        setAnswers(questions.map((q: any) => ({ questionId: q._id })));
     };
 
-    const submitAnswer = () => {
-        if (!selectedOption || !currentQuestion) return;
+    // Atualizar resposta para a questão atual
+    const updateCurrentAnswer = (value: any) => {
+        if (!currentQuestion) return;
 
-        const isCorrect = selectedOption === currentQuestion.correctAnswer;
-        const answer: Answer = {
-            questionId: currentQuestion._id,
-            answer: selectedOption,
-            isCorrect,
-        };
+        const newAnswers = [...answers];
+        const answerIndex = newAnswers.findIndex(a => a.questionId === currentQuestion._id);
 
-        setAnswers((prev) => [...prev, answer]);
-        setShowFeedback(true);
+        if (answerIndex >= 0) {
+            // Determinar qual campo atualizar baseado no tipo
+            switch (currentQuestion.type) {
+                case "multiple_choice":
+                    newAnswers[answerIndex] = { ...newAnswers[answerIndex], answers: value };
+                    break;
+                case "match_following":
+                    newAnswers[answerIndex] = { ...newAnswers[answerIndex], matches: value };
+                    break;
+                case "sortable":
+                    newAnswers[answerIndex] = { ...newAnswers[answerIndex], order: value };
+                    break;
+                case "fill_blanks":
+                    newAnswers[answerIndex] = { ...newAnswers[answerIndex], blanks: value };
+                    break;
+                default:
+                    newAnswers[answerIndex] = { ...newAnswers[answerIndex], answer: value };
+            }
+            setAnswers(newAnswers);
+        }
+    };
+
+    const getCurrentAnswer = () => {
+        if (!currentQuestion) return undefined;
+        const answer = answers.find(a => a.questionId === currentQuestion._id);
+
+        switch (currentQuestion.type) {
+            case "multiple_choice":
+                return answer?.answers;
+            case "match_following":
+                return answer?.matches;
+            case "sortable":
+                return answer?.order;
+            case "fill_blanks":
+                return answer?.blanks;
+            default:
+                return answer?.answer;
+        }
     };
 
     const nextQuestion = () => {
@@ -119,8 +159,12 @@ export default function QuizPage() {
             finishQuiz();
         } else {
             setCurrentQuestionIndex((prev) => prev + 1);
-            setSelectedOption(null);
-            setShowFeedback(false);
+        }
+    };
+
+    const prevQuestion = () => {
+        if (currentQuestionIndex > 0) {
+            setCurrentQuestionIndex((prev) => prev - 1);
         }
     };
 
@@ -141,6 +185,10 @@ export default function QuizPage() {
                 answers: answers.map(a => ({
                     questionId: a.questionId,
                     answer: a.answer,
+                    answers: a.answers,
+                    matches: a.matches,
+                    order: a.order,
+                    blanks: a.blanks,
                 })),
                 timeSpent,
             });
@@ -148,7 +196,9 @@ export default function QuizPage() {
             setResult(submissionResult);
             setState("finished");
 
-            if (submissionResult.passed) {
+            if (submissionResult.requiresManualGrading) {
+                toast.info("Quiz enviado! Algumas questões serão corrigidas pelo professor.");
+            } else if (submissionResult.passed) {
                 toast.success("Parabéns! Você passou no quiz! 🎉");
             } else {
                 toast.info("Continue estudando e tente novamente!");
@@ -165,9 +215,7 @@ export default function QuizPage() {
     const restartQuiz = () => {
         setState("intro");
         setCurrentQuestionIndex(0);
-        setSelectedOption(null);
         setAnswers([]);
-        setShowFeedback(false);
         setResult(null);
     };
 
@@ -180,11 +228,9 @@ export default function QuizPage() {
         );
     }
 
-    const correctAnswers = result?.results?.filter((r: any) => r.isCorrect).length ||
-        answers.filter(a => a.isCorrect).length;
-    const score = result?.score ||
-        (questions.length > 0 ? Math.round((correctAnswers / questions.length) * 100) : 0);
-    const passed = result?.passed || score >= (quizData.passingScore || 70);
+    const score = result?.score || 0;
+    const passed = result?.passed || false;
+    const requiresManual = result?.requiresManualGrading || hasManualGradingQuestions;
 
     // Intro Screen
     if (state === "intro") {
@@ -218,6 +264,20 @@ export default function QuizPage() {
                                 </div>
                             </div>
 
+                            {hasManualGradingQuestions && (
+                                <div className="p-4 rounded-lg bg-orange-50 border border-orange-200 flex items-start gap-3">
+                                    <AlertCircle className="w-5 h-5 text-orange-600 mt-0.5" />
+                                    <div>
+                                        <p className="text-sm font-medium text-orange-900">
+                                            Correção Manual
+                                        </p>
+                                        <p className="text-xs text-orange-700 mt-1">
+                                            Algumas questões serão corrigidas pelo professor
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="space-y-2">
                                 <div className="flex justify-between text-sm">
                                     <span className="text-muted-foreground">Nota mínima para aprovação</span>
@@ -250,7 +310,10 @@ export default function QuizPage() {
                     className="w-full max-w-lg"
                 >
                     <Card className="overflow-hidden">
-                        <div className={cn("h-2", passed ? "bg-emerald-500" : "bg-destructive")} />
+                        <div className={cn(
+                            "h-2",
+                            requiresManual ? "bg-orange-500" : passed ? "bg-emerald-500" : "bg-destructive"
+                        )} />
                         <CardHeader className="text-center">
                             <motion.div
                                 initial={{ scale: 0 }}
@@ -258,22 +321,30 @@ export default function QuizPage() {
                                 transition={{ delay: 0.2, type: "spring" }}
                                 className={cn(
                                     "h-20 w-20 mx-auto rounded-full flex items-center justify-center mb-4",
-                                    passed ? "bg-emerald-100 dark:bg-emerald-500/20" : "bg-red-100 dark:bg-red-500/20"
+                                    requiresManual ? "bg-orange-100" : passed ? "bg-emerald-100" : "bg-red-100"
                                 )}
                             >
-                                {passed ? (
+                                {requiresManual ? (
+                                    <Clock className="h-10 w-10 text-orange-500" />
+                                ) : passed ? (
                                     <Trophy className="h-10 w-10 text-emerald-500" />
                                 ) : (
                                     <XCircle className="h-10 w-10 text-destructive" />
                                 )}
                             </motion.div>
                             <CardTitle className="text-2xl">
-                                {passed ? "Parabéns! 🎉" : "Não foi dessa vez 😕"}
+                                {requiresManual
+                                    ? "Aguardando Correção ⏳"
+                                    : passed
+                                        ? "Parabéns! 🎉"
+                                        : "Não foi dessa vez 😕"}
                             </CardTitle>
                             <CardDescription>
-                                {passed
-                                    ? "Você passou no quiz com sucesso!"
-                                    : "Continue estudando e tente novamente."}
+                                {requiresManual
+                                    ? "Seu quiz foi enviado e será corrigido pelo professor."
+                                    : passed
+                                        ? "Você passou no quiz com sucesso!"
+                                        : "Continue estudando e tente novamente."}
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-6">
@@ -291,7 +362,13 @@ export default function QuizPage() {
                                             cy="64"
                                         />
                                         <motion.circle
-                                            className={passed ? "text-emerald-500" : "text-destructive"}
+                                            className={
+                                                requiresManual
+                                                    ? "text-orange-500"
+                                                    : passed
+                                                        ? "text-emerald-500"
+                                                        : "text-destructive"
+                                            }
                                             strokeWidth="8"
                                             strokeLinecap="round"
                                             stroke="currentColor"
@@ -308,43 +385,69 @@ export default function QuizPage() {
                                             }}
                                         />
                                     </svg>
-                                    <div className="absolute inset-0 flex items-center justify-center">
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center">
                                         <motion.span
                                             className="text-3xl font-bold"
                                             initial={{ opacity: 0 }}
                                             animate={{ opacity: 1 }}
                                             transition={{ delay: 0.8 }}
                                         >
-                                            {score}%
+                                            {requiresManual ? "?" : `${score}%`}
                                         </motion.span>
+                                        {requiresManual && (
+                                            <span className="text-xs text-orange-600">Parcial</span>
+                                        )}
                                     </div>
                                 </div>
                             </div>
 
+                            {requiresManual && (
+                                <div className="p-4 rounded-lg bg-orange-50 border border-orange-200">
+                                    <div className="flex items-start gap-3">
+                                        <AlertCircle className="w-5 h-5 text-orange-600 mt-0.5" />
+                                        <div>
+                                            <p className="text-sm font-medium text-orange-900">
+                                                Correção em andamento
+                                            </p>
+                                            <p className="text-xs text-orange-700 mt-1">
+                                                Você será notificado quando a correção for concluída.
+                                                A nota final pode ser diferente após a correção manual.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Stats */}
-                            <div className="grid grid-cols-3 gap-4 text-center">
-                                <div className="p-3 rounded-lg bg-muted">
-                                    <p className="text-xl font-bold text-emerald-500">{correctAnswers}</p>
-                                    <p className="text-xs text-muted-foreground">Corretas</p>
+                            {!requiresManual && result?.results && (
+                                <div className="grid grid-cols-3 gap-4 text-center">
+                                    <div className="p-3 rounded-lg bg-muted">
+                                        <p className="text-xl font-bold text-emerald-500">
+                                            {result.results.filter((r: any) => r.isCorrect).length}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">Corretas</p>
+                                    </div>
+                                    <div className="p-3 rounded-lg bg-muted">
+                                        <p className="text-xl font-bold text-destructive">
+                                            {result.results.filter((r: any) => !r.isCorrect).length}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">Incorretas</p>
+                                    </div>
+                                    <div className="p-3 rounded-lg bg-muted">
+                                        <p className="text-xl font-bold">{questions.length}</p>
+                                        <p className="text-xs text-muted-foreground">Total</p>
+                                    </div>
                                 </div>
-                                <div className="p-3 rounded-lg bg-muted">
-                                    <p className="text-xl font-bold text-destructive">
-                                        {questions.length - correctAnswers}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">Incorretas</p>
-                                </div>
-                                <div className="p-3 rounded-lg bg-muted">
-                                    <p className="text-xl font-bold">{questions.length}</p>
-                                    <p className="text-xs text-muted-foreground">Total</p>
-                                </div>
-                            </div>
+                            )}
 
                             {/* Actions */}
                             <div className="flex gap-3">
-                                <Button variant="outline" className="flex-1 gap-2" onClick={restartQuiz}>
-                                    <RefreshCw className="h-4 w-4" />
-                                    Tentar Novamente
-                                </Button>
+                                {!requiresManual && (
+                                    <Button variant="outline" className="flex-1 gap-2" onClick={restartQuiz}>
+                                        <RefreshCw className="h-4 w-4" />
+                                        Tentar Novamente
+                                    </Button>
+                                )}
                                 <Link href="/student" className="flex-1">
                                     <Button className="w-full gap-2">
                                         <Home className="h-4 w-4" />
@@ -359,9 +462,9 @@ export default function QuizPage() {
         );
     }
 
-    // Quiz In Progress
+    // Quiz In Progress - Renderiza todos os tipos de questões
     return (
-        <div className="max-w-2xl mx-auto p-4 space-y-6">
+        <div className="max-w-3xl mx-auto p-4 space-y-6">
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
@@ -384,6 +487,36 @@ export default function QuizPage() {
             {/* Progress */}
             <Progress value={progress} className="h-2" />
 
+            {/* Question Navigation */}
+            <div className="flex gap-2 flex-wrap">
+                {questions.map((_: any, index: number) => {
+                    const hasAnswer = answers[index] && (
+                        answers[index].answer ||
+                        answers[index].answers?.length ||
+                        answers[index].matches?.length ||
+                        answers[index].order?.length ||
+                        answers[index].blanks?.some(b => b)
+                    );
+
+                    return (
+                        <button
+                            key={index}
+                            onClick={() => setCurrentQuestionIndex(index)}
+                            className={cn(
+                                "w-10 h-10 rounded-lg font-medium transition-all",
+                                currentQuestionIndex === index
+                                    ? "bg-indigo-600 text-white"
+                                    : hasAnswer
+                                        ? "bg-green-100 text-green-700 border border-green-300"
+                                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                            )}
+                        >
+                            {index + 1}
+                        </button>
+                    );
+                })}
+            </div>
+
             {/* Question Card */}
             {currentQuestion && (
                 <AnimatePresence mode="wait">
@@ -396,60 +529,44 @@ export default function QuizPage() {
                     >
                         <Card>
                             <CardHeader>
-                                <CardTitle className="text-lg">{currentQuestion.question}</CardTitle>
+                                <div className="flex items-center gap-2 mb-2">
+                                    <Badge variant="outline">
+                                        {getQuestionTypeLabel(currentQuestion.type)}
+                                    </Badge>
+                                    <Badge variant="secondary">
+                                        {currentQuestion.points} pts
+                                    </Badge>
+                                    {requiresManualGrading(currentQuestion.type) && (
+                                        <Badge className="bg-orange-100 text-orange-700 border-orange-300">
+                                            Correção Manual
+                                        </Badge>
+                                    )}
+                                </div>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                                <RadioGroup
-                                    value={selectedOption || ""}
-                                    onValueChange={setSelectedOption}
-                                    disabled={showFeedback}
-                                >
-                                    {currentQuestion.options?.map((option: string, index: number) => {
-                                        const optionId = String.fromCharCode(97 + index); // a, b, c, d...
-                                        const isSelected = selectedOption === option;
-                                        const isCorrect = option === currentQuestion.correctAnswer;
-                                        const showCorrect = showFeedback && isCorrect;
-                                        const showWrong = showFeedback && isSelected && !isCorrect;
-
-                                        return (
-                                            <motion.div
-                                                key={optionId}
-                                                whileHover={!showFeedback ? { scale: 1.01 } : {}}
-                                                whileTap={!showFeedback ? { scale: 0.99 } : {}}
-                                            >
-                                                <Label
-                                                    htmlFor={optionId}
-                                                    className={cn(
-                                                        "flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all",
-                                                        !showFeedback && isSelected && "border-primary bg-primary/5",
-                                                        !showFeedback && !isSelected && "border-transparent bg-muted hover:border-muted-foreground/20",
-                                                        showCorrect && "border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10",
-                                                        showWrong && "border-destructive bg-red-50 dark:bg-red-500/10"
-                                                    )}
-                                                >
-                                                    <RadioGroupItem value={option} id={optionId} />
-                                                    <span className="flex-1">{option}</span>
-                                                    {showCorrect && <CheckCircle2 className="h-5 w-5 text-emerald-500" />}
-                                                    {showWrong && <XCircle className="h-5 w-5 text-destructive" />}
-                                                </Label>
-                                            </motion.div>
-                                        );
-                                    })}
-                                </RadioGroup>
-
-                                {/* Feedback */}
-                                {showFeedback && currentQuestion.explanation && (
-                                    <motion.div
-                                        initial={{ opacity: 0, y: 10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        className="p-4 rounded-lg bg-muted"
-                                    >
-                                        <p className="text-sm font-medium mb-1">Explicação:</p>
-                                        <p className="text-sm text-muted-foreground">
-                                            {currentQuestion.explanation}
-                                        </p>
-                                    </motion.div>
-                                )}
+                                {/* Renderizar questão baseado no tipo */}
+                                <QuestionRenderer
+                                    question={{
+                                        type: currentQuestion.type,
+                                        question: currentQuestion.question,
+                                        options: currentQuestion.options,
+                                        correctAnswer: currentQuestion.correctAnswer,
+                                        correctAnswers: currentQuestion.correctAnswers,
+                                        matchPairs: currentQuestion.matchPairs,
+                                        correctOrder: currentQuestion.correctOrder,
+                                        blankAnswers: currentQuestion.blankAnswers,
+                                        mediaUrl: currentQuestion.mediaUrl,
+                                        mediaType: currentQuestion.mediaType,
+                                        userAnswer: typeof getCurrentAnswer() === 'string' ? getCurrentAnswer() as string : undefined,
+                                        userAnswers: Array.isArray(getCurrentAnswer()) && typeof getCurrentAnswer()?.[0] === 'string' ? getCurrentAnswer() as string[] : undefined,
+                                        userMatches: Array.isArray(getCurrentAnswer()) && getCurrentAnswer()?.[0]?.prompt ? getCurrentAnswer() as any : undefined,
+                                        userOrder: currentQuestion.type === 'sortable' ? getCurrentAnswer() as string[] : undefined,
+                                        userBlanks: currentQuestion.type === 'fill_blanks' ? getCurrentAnswer() as string[] : undefined,
+                                    }}
+                                    onAnswer={updateCurrentAnswer}
+                                    disabled={false}
+                                    showCorrection={false}
+                                />
                             </CardContent>
                         </Card>
                     </motion.div>
@@ -460,28 +577,28 @@ export default function QuizPage() {
             <div className="flex justify-between">
                 <Button
                     variant="outline"
-                    disabled={currentQuestionIndex === 0 || showFeedback}
-                    onClick={() => setCurrentQuestionIndex((prev) => prev - 1)}
+                    disabled={currentQuestionIndex === 0}
+                    onClick={prevQuestion}
                 >
                     <ArrowLeft className="h-4 w-4 mr-2" />
                     Anterior
                 </Button>
 
-                {!showFeedback ? (
+                {isLastQuestion ? (
                     <Button
                         className="gradient-bg border-0"
-                        disabled={!selectedOption}
-                        onClick={submitAnswer}
+                        onClick={finishQuiz}
+                        disabled={isSubmitting}
                     >
-                        Confirmar
-                        <CheckCircle2 className="h-4 w-4 ml-2" />
-                    </Button>
-                ) : (
-                    <Button onClick={nextQuestion} disabled={isSubmitting}>
                         {isSubmitting ? (
                             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                         ) : null}
-                        {isLastQuestion ? "Ver Resultado" : "Próxima"}
+                        Finalizar Quiz
+                        <CheckCircle2 className="h-4 w-4 ml-2" />
+                    </Button>
+                ) : (
+                    <Button onClick={nextQuestion}>
+                        Próxima
                         <ArrowRight className="h-4 w-4 ml-2" />
                     </Button>
                 )}

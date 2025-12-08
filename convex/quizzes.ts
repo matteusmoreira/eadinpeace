@@ -187,14 +187,22 @@ export const addQuestion = mutation({
     },
 });
 
-// Submit quiz attempt
+// Submit quiz attempt - Suporta todos os 9 tipos de questões
 export const submitAttempt = mutation({
     args: {
         quizId: v.id("quizzes"),
         userId: v.id("users"),
         answers: v.array(v.object({
             questionId: v.id("quizQuestions"),
-            answer: v.string(),
+            // Diferentes tipos de resposta
+            answer: v.optional(v.string()), // single_choice, true_false, short_answer, text_answer
+            answers: v.optional(v.array(v.string())), // multiple_choice
+            matches: v.optional(v.array(v.object({ // match_following
+                prompt: v.string(),
+                answer: v.string(),
+            }))),
+            order: v.optional(v.array(v.string())), // sortable
+            blanks: v.optional(v.array(v.string())), // fill_blanks
         })),
         timeSpent: v.number(),
     },
@@ -211,39 +219,151 @@ export const submitAttempt = mutation({
         // Calculate score
         let earnedPoints = 0;
         let totalPoints = 0;
+        let automaticPoints = 0;
+        let requiresManualGrading = false;
         const results = [];
 
         for (const question of questions) {
             totalPoints += question.points;
             const userAnswer = args.answers.find(a => a.questionId === question._id);
-            const isCorrect = userAnswer?.answer === question.correctAnswer;
 
-            if (isCorrect) {
-                earnedPoints += question.points;
+            let isCorrect = false;
+            let points = 0;
+            let needsManual = question.requiresManualGrading || false;
+
+            // Avaliar baseado no tipo de questão
+            switch (question.type) {
+                case "true_false":
+                case "single_choice":
+                case "short_answer":
+                    // Comparação simples de string
+                    isCorrect = userAnswer?.answer?.toLowerCase().trim() ===
+                        question.correctAnswer?.toLowerCase().trim();
+                    if (isCorrect) {
+                        earnedPoints += question.points;
+                        automaticPoints += question.points;
+                        points = question.points;
+                    }
+                    break;
+
+                case "multiple_choice":
+                    // Todas as respostas corretas devem estar selecionadas
+                    const userAnswers = userAnswer?.answers || [];
+                    const correctAnswers = question.correctAnswers || [];
+
+                    if (userAnswers.length === correctAnswers.length) {
+                        const sortedUser = [...userAnswers].sort();
+                        const sortedCorrect = [...correctAnswers].sort();
+                        isCorrect = sortedUser.every((a, i) => a === sortedCorrect[i]);
+                    }
+
+                    if (isCorrect) {
+                        earnedPoints += question.points;
+                        automaticPoints += question.points;
+                        points = question.points;
+                    }
+                    break;
+
+                case "match_following":
+                    // Verificar se todos os pares estão corretos
+                    const userMatches = userAnswer?.matches || [];
+                    const correctPairs = question.matchPairs || [];
+
+                    if (userMatches.length === correctPairs.length) {
+                        isCorrect = correctPairs.every(pair =>
+                            userMatches.some(um =>
+                                um.prompt === pair.prompt && um.answer === pair.answer
+                            )
+                        );
+                    }
+
+                    if (isCorrect) {
+                        earnedPoints += question.points;
+                        automaticPoints += question.points;
+                        points = question.points;
+                    }
+                    break;
+
+                case "sortable":
+                    // Verificar se a ordem está correta
+                    const userOrder = userAnswer?.order || [];
+                    const correctOrder = question.correctOrder || [];
+
+                    isCorrect = userOrder.length === correctOrder.length &&
+                        userOrder.every((item, i) => item === correctOrder[i]);
+
+                    if (isCorrect) {
+                        earnedPoints += question.points;
+                        automaticPoints += question.points;
+                        points = question.points;
+                    }
+                    break;
+
+                case "fill_blanks":
+                    // Verificar se todas as lacunas estão corretas
+                    const userBlanks = userAnswer?.blanks || [];
+                    const correctBlanks = question.blankAnswers || [];
+
+                    isCorrect = userBlanks.length === correctBlanks.length &&
+                        userBlanks.every((blank, i) =>
+                            blank.toLowerCase().trim() === correctBlanks[i]?.toLowerCase().trim()
+                        );
+
+                    if (isCorrect) {
+                        earnedPoints += question.points;
+                        automaticPoints += question.points;
+                        points = question.points;
+                    }
+                    break;
+
+                case "text_answer":
+                case "audio_video":
+                    // Requer correção manual
+                    needsManual = true;
+                    requiresManualGrading = true;
+                    isCorrect = false; // Será definido pelo professor
+                    points = 0; // Será atribuído pelo professor
+                    break;
             }
 
             results.push({
                 questionId: question._id,
-                userAnswer: userAnswer?.answer || "",
+                userAnswer: userAnswer?.answer,
+                userAnswers: userAnswer?.answers,
+                userMatches: userAnswer?.matches,
+                userOrder: userAnswer?.order,
+                userBlanks: userAnswer?.blanks,
                 correctAnswer: question.correctAnswer,
+                correctAnswers: question.correctAnswers,
                 isCorrect,
-                points: isCorrect ? question.points : 0,
+                points,
+                manualPoints: needsManual ? undefined : undefined,
+                instructorFeedback: undefined,
             });
         }
 
-        const score = Math.round((earnedPoints / totalPoints) * 100);
-        const passed = score >= quiz.passingScore;
+        const score = totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 0;
+        const passed = !requiresManualGrading && score >= quiz.passingScore;
+
+        // Determinar status de correção
+        const gradingStatus = requiresManualGrading ? "pending" : "auto_graded";
 
         const now = Date.now();
         const attemptId = await ctx.db.insert("quizAttempts", {
             quizId: args.quizId,
             userId: args.userId,
             score,
+            automaticScore: automaticPoints,
+            manualScore: 0,
             passed,
             timeSpent: args.timeSpent,
             answers: results,
+            gradingStatus,
             completedAt: now,
         });
+
+        // Se não requer correção manual, pode calcular notas do curso
+        // (Para correção manual, será feito após a correção)
 
         return {
             attemptId,
@@ -252,6 +372,8 @@ export const submitAttempt = mutation({
             earnedPoints,
             totalPoints,
             results,
+            gradingStatus,
+            requiresManualGrading,
         };
     },
 });
@@ -520,5 +642,64 @@ export const remove = mutation({
 
         // Delete quiz
         await ctx.db.delete(args.quizId);
+    },
+});
+
+// Get quiz by ID
+export const getById = query({
+    args: { quizId: v.id("quizzes") },
+    handler: async (ctx, args) => {
+        return await ctx.db.get(args.quizId);
+    },
+});
+
+// Get questions for a quiz
+export const getQuestions = query({
+    args: { quizId: v.id("quizzes") },
+    handler: async (ctx, args) => {
+        const questions = await ctx.db
+            .query("quizQuestions")
+            .withIndex("by_quiz", (q) => q.eq("quizId", args.quizId))
+            .collect();
+
+        return questions.sort((a, b) => a.order - b.order);
+    },
+});
+
+// Update question
+export const updateQuestion = mutation({
+    args: {
+        questionId: v.id("quizQuestions"),
+        question: v.optional(v.string()),
+        options: v.optional(v.array(v.string())),
+        correctAnswer: v.optional(v.string()),
+        correctAnswers: v.optional(v.array(v.string())),
+        points: v.optional(v.number()),
+        order: v.optional(v.number()),
+        explanation: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
+        const { questionId, ...updates } = args;
+
+        // Remove undefined values
+        const cleanUpdates: Record<string, any> = {};
+        Object.entries(updates).forEach(([key, value]) => {
+            if (value !== undefined) {
+                cleanUpdates[key] = value;
+            }
+        });
+
+        if (Object.keys(cleanUpdates).length > 0) {
+            cleanUpdates.updatedAt = Date.now();
+            await ctx.db.patch(questionId, cleanUpdates);
+        }
+    },
+});
+
+// Remove (delete) question
+export const removeQuestion = mutation({
+    args: { questionId: v.id("quizQuestions") },
+    handler: async (ctx, args) => {
+        await ctx.db.delete(args.questionId);
     },
 });
