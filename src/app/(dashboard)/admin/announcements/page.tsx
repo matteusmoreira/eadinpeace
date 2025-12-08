@@ -95,9 +95,10 @@ export default function AnnouncementsPage() {
     const [searchRole, setSearchRole] = useState<string>("all");
     const [selectedUsers, setSelectedUsers] = useState<SelectedUser[]>([]);
 
-    const convexUser = useQuery(api.users.getByClerkId, {
-        clerkId: user?.id || ""
-    });
+    const convexUser = useQuery(
+        api.users.getByClerkId,
+        user?.id ? { clerkId: user.id } : "skip"
+    );
 
     const announcements = useQuery(
         api.notifications.getAnnouncements,

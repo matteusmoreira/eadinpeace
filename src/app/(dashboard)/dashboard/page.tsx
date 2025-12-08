@@ -79,9 +79,10 @@ export default function DashboardPage() {
     const { user } = useUser();
 
     // Get user from Convex
-    const convexUser = useQuery(api.users.getByClerkId, {
-        clerkId: user?.id || ""
-    });
+    const convexUser = useQuery(
+        api.users.getByClerkId,
+        user?.id ? { clerkId: user.id } : "skip"
+    );
 
     // Get user stats
     const userStats = useQuery(api.users.getStats,

@@ -53,9 +53,10 @@ const getRankColor = (rank: number) => {
 export default function RankingPage() {
     const { user } = useUser();
 
-    const convexUser = useQuery(api.users.getByClerkId, {
-        clerkId: user?.id || ""
-    });
+    const convexUser = useQuery(
+        api.users.getByClerkId,
+        user?.id ? { clerkId: user.id } : "skip"
+    );
 
     const leaderboard = useQuery(
         api.leaderboard.getLeaderboard,

@@ -61,9 +61,10 @@ export default function ProfessorCoursesPage() {
     const { user } = useUser();
 
     // Get instructor ID from Convex user
-    const convexUser = useQuery(api.users.getByClerkId, {
-        clerkId: user?.id || ""
-    });
+    const convexUser = useQuery(
+        api.users.getByClerkId,
+        user?.id ? { clerkId: user.id } : "skip"
+    );
 
     // Get courses by instructor
     const courses = useQuery(

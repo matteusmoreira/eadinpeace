@@ -25,9 +25,10 @@ export default function StudentProgressPage() {
     const { user } = useUser();
 
     // Get Convex user
-    const convexUser = useQuery(api.users.getByClerkId, {
-        clerkId: user?.id || ""
-    });
+    const convexUser = useQuery(
+        api.users.getByClerkId,
+        user?.id ? { clerkId: user.id } : "skip"
+    );
 
     // Get enrollments with courses
     const enrollments = useQuery(
@@ -280,8 +281,8 @@ export default function StudentProgressPage() {
                                 <div
                                     key={i}
                                     className={`flex flex-col items-center p-4 rounded-lg transition-colors ${badge.unlocked
-                                            ? "bg-primary/10 hover:bg-primary/20"
-                                            : "bg-muted/50 opacity-50"
+                                        ? "bg-primary/10 hover:bg-primary/20"
+                                        : "bg-muted/50 opacity-50"
                                         }`}
                                     title={badge.description}
                                 >

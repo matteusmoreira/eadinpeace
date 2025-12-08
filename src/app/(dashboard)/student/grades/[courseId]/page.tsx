@@ -20,9 +20,10 @@ export default function StudentGradebookPage() {
     const courseId = params.courseId as string;
     const { user } = useUser();
 
-    const convexUser = useQuery(api.users.getByClerkId, {
-        clerkId: user?.id || "",
-    });
+    const convexUser = useQuery(
+        api.users.getByClerkId,
+        user?.id ? { clerkId: user.id } : "skip"
+    );
 
     const gradebook = useQuery(
         api.courseGrades.getStudentGradebook,

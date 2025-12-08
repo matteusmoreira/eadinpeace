@@ -66,9 +66,10 @@ export default function AdminCertificatesPage() {
     const [selectedCertificate, setSelectedCertificate] = useState<any>(null);
 
     // Get current user to find their organization
-    const currentUser = useQuery(api.users.getByClerkId, {
-        clerkId: user?.id || ""
-    });
+    const currentUser = useQuery(
+        api.users.getByClerkId,
+        user?.id ? { clerkId: user.id } : "skip"
+    );
 
     // Get certificates from organization
     const certificates = useQuery(api.certificates.getByOrganization,

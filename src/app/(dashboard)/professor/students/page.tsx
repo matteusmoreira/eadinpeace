@@ -55,9 +55,10 @@ export default function ProfessorStudentsPage() {
     const [courseFilter, setCourseFilter] = useState<string>("all");
 
     // Get Convex user
-    const convexUser = useQuery(api.users.getByClerkId, {
-        clerkId: user?.id || ""
-    });
+    const convexUser = useQuery(
+        api.users.getByClerkId,
+        user?.id ? { clerkId: user.id } : "skip"
+    );
 
     // Get professor's courses
     const courses = useQuery(

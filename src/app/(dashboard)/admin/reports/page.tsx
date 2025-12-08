@@ -44,9 +44,10 @@ export default function ReportsPage() {
     const { user } = useUser();
     const [selectedCourse, setSelectedCourse] = useState<string>("");
 
-    const convexUser = useQuery(api.users.getByClerkId, {
-        clerkId: user?.id || ""
-    });
+    const convexUser = useQuery(
+        api.users.getByClerkId,
+        user?.id ? { clerkId: user.id } : "skip"
+    );
 
     const organizationId = convexUser?.organizationId;
 

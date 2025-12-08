@@ -84,9 +84,10 @@ export default function ProfessorQuizzesPage() {
     const [isSaving, setIsSaving] = useState(false);
 
     // Get current user
-    const currentUser = useQuery(api.users.getByClerkId, {
-        clerkId: user?.id || ""
-    });
+    const currentUser = useQuery(
+        api.users.getByClerkId,
+        user?.id ? { clerkId: user.id } : "skip"
+    );
 
     // Get quizzes for this instructor
     const quizzes = useQuery(api.quizzes.getByInstructor,

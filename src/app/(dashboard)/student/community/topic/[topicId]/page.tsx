@@ -47,9 +47,10 @@ export default function TopicPage() {
 
     const topicId = params.topicId as Id<"forumTopics">;
 
-    const convexUser = useQuery(api.users.getByClerkId, {
-        clerkId: user?.id || ""
-    });
+    const convexUser = useQuery(
+        api.users.getByClerkId,
+        user?.id ? { clerkId: user.id } : "skip"
+    );
 
     const topic = useQuery(api.forum.getTopic, { topicId });
     const replies = useQuery(api.forum.getReplies, { topicId });

@@ -207,9 +207,10 @@ export default function CoursePlayerPage() {
     const playerRef = useRef<any>(null);
 
     // Get Convex user
-    const convexUser = useQuery(api.users.getByClerkId, {
-        clerkId: user?.id || ""
-    });
+    const convexUser = useQuery(
+        api.users.getByClerkId,
+        user?.id ? { clerkId: user.id } : "skip"
+    );
 
     // Get course with content
     const course = useQuery(api.courses.getWithContent, { courseId });

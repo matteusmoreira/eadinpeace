@@ -54,9 +54,10 @@ export default function QuizPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Get Convex user and quiz data
-    const convexUser = useQuery(api.users.getByClerkId, {
-        clerkId: user?.id || ""
-    });
+    const convexUser = useQuery(
+        api.users.getByClerkId,
+        user?.id ? { clerkId: user.id } : "skip"
+    );
 
     const quiz = useQuery(api.quizzes.getByLesson, { lessonId: quizId as any });
     const directQuiz = useQuery(api.quizzes.getByCourse, { courseId: quizId as any });

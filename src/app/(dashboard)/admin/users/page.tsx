@@ -78,9 +78,10 @@ export default function AdminUsersPage() {
     const [deleteId, setDeleteId] = useState<Id<"users"> | null>(null);
 
     // Get Convex user
-    const convexUser = useQuery(api.users.getByClerkId, {
-        clerkId: user?.id || ""
-    });
+    const convexUser = useQuery(
+        api.users.getByClerkId,
+        user?.id ? { clerkId: user.id } : "skip"
+    );
 
     // Get all users
     const allUsers = useQuery(api.users.getAll);

@@ -67,9 +67,10 @@ export default function StudentAchievementsPage() {
     const { user } = useUser();
 
     // Get user from Convex
-    const convexUser = useQuery(api.users.getByClerkId, {
-        clerkId: user?.id || ""
-    });
+    const convexUser = useQuery(
+        api.users.getByClerkId,
+        user?.id ? { clerkId: user.id } : "skip"
+    );
 
     // Get all achievements
     const allAchievements = useQuery(api.gamification.getAll);

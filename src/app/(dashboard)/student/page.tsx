@@ -38,9 +38,10 @@ export default function StudentDashboardPage() {
     const { user } = useUser();
 
     // Get Convex user
-    const convexUser = useQuery(api.users.getByClerkId, {
-        clerkId: user?.id || ""
-    });
+    const convexUser = useQuery(
+        api.users.getByClerkId,
+        user?.id ? { clerkId: user.id } : "skip"
+    );
 
     // Get user stats
     const stats = useQuery(

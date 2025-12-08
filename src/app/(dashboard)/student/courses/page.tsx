@@ -62,9 +62,10 @@ export default function StudentCoursesPage() {
     const { user } = useUser();
 
     // Get Convex user
-    const convexUser = useQuery(api.users.getByClerkId, {
-        clerkId: user?.id || ""
-    });
+    const convexUser = useQuery(
+        api.users.getByClerkId,
+        user?.id ? { clerkId: user.id } : "skip"
+    );
 
     // Get user's organization
     const organizationId = convexUser?.organizationId;

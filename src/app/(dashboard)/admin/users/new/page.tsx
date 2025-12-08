@@ -78,9 +78,10 @@ export default function AdminNewUserPage() {
     });
 
     // Get Convex user to get organizationId
-    const convexUser = useQuery(api.users.getByClerkId, {
-        clerkId: user?.id || ""
-    });
+    const convexUser = useQuery(
+        api.users.getByClerkId,
+        user?.id ? { clerkId: user.id } : "skip"
+    );
 
     const createUser = useMutation(api.users.create);
 

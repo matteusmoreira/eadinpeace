@@ -70,9 +70,10 @@ export default function AdminProfessorsPage() {
     const [isDeleting, setIsDeleting] = useState(false);
 
     // Get current user to find their organization
-    const currentUser = useQuery(api.users.getByClerkId, {
-        clerkId: user?.id || ""
-    });
+    const currentUser = useQuery(
+        api.users.getByClerkId,
+        user?.id ? { clerkId: user.id } : "skip"
+    );
 
     // Get all users from organization
     const allUsers = useQuery(api.users.getByOrganization,

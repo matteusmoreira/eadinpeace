@@ -43,9 +43,10 @@ export default function SearchPage() {
     const [categoryFilter, setCategoryFilter] = useState("");
     const [levelFilter, setLevelFilter] = useState("");
 
-    const convexUser = useQuery(api.users.getByClerkId, {
-        clerkId: user?.id || ""
-    });
+    const convexUser = useQuery(
+        api.users.getByClerkId,
+        user?.id ? { clerkId: user.id } : "skip"
+    );
 
     const searchResults = useQuery(
         api.search.globalSearch,

@@ -44,9 +44,10 @@ export default function AdminDashboardPage() {
     const { user } = useUser();
 
     // Get Convex user
-    const convexUser = useQuery(api.users.getByClerkId, {
-        clerkId: user?.id || ""
-    });
+    const convexUser = useQuery(
+        api.users.getByClerkId,
+        user?.id ? { clerkId: user.id } : "skip"
+    );
 
     // Get organization stats
     const organizationId = convexUser?.organizationId;

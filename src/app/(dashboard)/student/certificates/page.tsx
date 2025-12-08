@@ -42,9 +42,10 @@ export default function StudentCertificatesPage() {
     const [downloadingId, setDownloadingId] = useState<Id<"certificates"> | null>(null);
 
     // Get Convex user
-    const convexUser = useQuery(api.users.getByClerkId, {
-        clerkId: user?.id || ""
-    });
+    const convexUser = useQuery(
+        api.users.getByClerkId,
+        user?.id ? { clerkId: user.id } : "skip"
+    );
 
     // Get user's certificates
     const certificates = useQuery(

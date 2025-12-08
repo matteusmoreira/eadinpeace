@@ -44,9 +44,10 @@ export default function SettingsPage() {
     const [isLoading, setIsLoading] = useState(false);
 
     // Get Convex user
-    const convexUser = useQuery(api.users.getByClerkId, {
-        clerkId: user?.id || ""
-    });
+    const convexUser = useQuery(
+        api.users.getByClerkId,
+        user?.id ? { clerkId: user.id } : "skip"
+    );
 
     const [notifications, setNotifications] = useState({
         email: true,

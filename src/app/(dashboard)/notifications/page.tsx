@@ -87,9 +87,10 @@ export default function NotificationsPage() {
     const { user } = useUser();
 
     // Get Convex user
-    const convexUser = useQuery(api.users.getByClerkId, {
-        clerkId: user?.id || ""
-    });
+    const convexUser = useQuery(
+        api.users.getByClerkId,
+        user?.id ? { clerkId: user.id } : "skip"
+    );
 
     // Get notifications
     const notifications = useQuery(
