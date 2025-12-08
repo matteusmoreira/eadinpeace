@@ -158,6 +158,7 @@ export default function CommunityPage() {
         content: string;
         visibility: "public" | "followers" | "private";
         imageUrl?: string;
+        videoUrl?: string;
     }) => {
         if (!convexUser?.organizationId) return;
 
@@ -168,6 +169,7 @@ export default function CommunityPage() {
                 content: data.content,
                 visibility: data.visibility,
                 imageUrl: data.imageUrl,
+                videoUrl: data.videoUrl,
             });
             toast.success("Post publicado!");
         } catch (error) {

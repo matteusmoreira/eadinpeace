@@ -22,6 +22,7 @@ import {
     Users,
     Lock,
     Repeat2,
+    Play,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -42,6 +43,7 @@ interface Post {
     authorId: Id<"users">;
     content: string;
     imageUrl?: string;
+    videoUrl?: string;
     likesCount: number;
     commentsCount: number;
     sharesCount: number;
@@ -54,6 +56,7 @@ interface Post {
     originalPost?: {
         content: string;
         imageUrl?: string;
+        videoUrl?: string;
         author: Author | null;
     } | null;
     isLikedByUser: boolean;
@@ -93,6 +96,93 @@ const roleColors: Record<string, string> = {
     admin: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
     superadmin: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
 };
+
+// Função para extrair ID do vídeo de URLs do YouTube/Vimeo
+const extractVideoId = (url: string): { provider: "youtube" | "vimeo" | null; id: string | null } => {
+    // YouTube
+    const youtubeMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|v\/)|youtu\.be\/)([\w-]{11})/);
+    if (youtubeMatch) {
+        return { provider: "youtube", id: youtubeMatch[1] };
+    }
+
+    // Vimeo
+    const vimeoMatch = url.match(/(?:vimeo\.com\/)(\d+)/);
+    if (vimeoMatch) {
+        return { provider: "vimeo", id: vimeoMatch[1] };
+    }
+
+    return { provider: null, id: null };
+};
+
+// Componente de vídeo embutido
+function EmbeddedVideo({ url }: { url: string }) {
+    const [isLoading, setIsLoading] = useState(true);
+    const videoInfo = extractVideoId(url);
+
+    if (!videoInfo.provider || !videoInfo.id) {
+        return null;
+    }
+
+    return (
+        <div className="relative mt-3 rounded-lg overflow-hidden aspect-video bg-muted">
+            {isLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-muted">
+                    <Play className="h-12 w-12 text-muted-foreground animate-pulse" />
+                </div>
+            )}
+            {videoInfo.provider === "youtube" ? (
+                <iframe
+                    src={`https://www.youtube.com/embed/${videoInfo.id}`}
+                    title="YouTube video"
+                    className="w-full h-full"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    onLoad={() => setIsLoading(false)}
+                />
+            ) : (
+                <iframe
+                    src={`https://player.vimeo.com/video/${videoInfo.id}`}
+                    title="Vimeo video"
+                    className="w-full h-full"
+                    allow="autoplay; fullscreen; picture-in-picture"
+                    allowFullScreen
+                    onLoad={() => setIsLoading(false)}
+                />
+            )}
+        </div>
+    );
+}
+
+// Componente para renderizar texto com emojis e links clicáveis
+function FormattedContent({ content }: { content: string }) {
+    // Regex para detectar URLs
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+
+    const parts = content.split(urlRegex);
+
+    return (
+        <p className="whitespace-pre-wrap break-words">
+            {parts.map((part, index) => {
+                if (urlRegex.test(part)) {
+                    // Reset regex lastIndex
+                    urlRegex.lastIndex = 0;
+                    return (
+                        <a
+                            key={index}
+                            href={part}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline"
+                        >
+                            {part}
+                        </a>
+                    );
+                }
+                return <span key={index}>{part}</span>;
+            })}
+        </p>
+    );
+}
 
 export function PostCard({
     post,
@@ -134,6 +224,12 @@ export function PostCard({
         });
     };
 
+    // Determinar conteúdo a exibir (pode ser post original se for compartilhado)
+    const displayContent = post.isShared && post.originalPost ? post.originalPost.content : post.content;
+    const displayImageUrl = post.isShared && post.originalPost ? post.originalPost.imageUrl : post.imageUrl;
+    const displayVideoUrl = post.isShared && post.originalPost ? post.originalPost.videoUrl : post.videoUrl;
+    const displayAuthor = post.isShared && post.originalPost ? post.originalPost.author : post.author;
+
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -158,19 +254,11 @@ export function PostCard({
 
                     {/* Header do post */}
                     <div className="flex items-start gap-3">
-                        <Link href={`/student/community/profile/${post.isShared && post.originalPost ? post.originalPost.author?._id : post.authorId}`}>
+                        <Link href={`/student/community/profile/${displayAuthor?._id || post.authorId}`}>
                             <Avatar className="h-10 w-10 ring-2 ring-background shadow">
-                                <AvatarImage
-                                    src={post.isShared && post.originalPost
-                                        ? post.originalPost.author?.imageUrl
-                                        : post.author?.imageUrl
-                                    }
-                                />
+                                <AvatarImage src={displayAuthor?.imageUrl} />
                                 <AvatarFallback className="bg-gradient-to-br from-primary/80 to-primary text-primary-foreground">
-                                    {post.isShared && post.originalPost
-                                        ? post.originalPost.author?.firstName?.[0]
-                                        : post.author?.firstName?.[0]
-                                    }
+                                    {displayAuthor?.firstName?.[0]}
                                 </AvatarFallback>
                             </Avatar>
                         </Link>
@@ -178,28 +266,19 @@ export function PostCard({
                         <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
                                 <Link
-                                    href={`/student/community/profile/${post.isShared && post.originalPost ? post.originalPost.author?._id : post.authorId}`}
+                                    href={`/student/community/profile/${displayAuthor?._id || post.authorId}`}
                                     className="font-semibold hover:underline"
                                 >
-                                    {post.isShared && post.originalPost
-                                        ? `${post.originalPost.author?.firstName} ${post.originalPost.author?.lastName}`
-                                        : `${post.author?.firstName} ${post.author?.lastName}`
-                                    }
+                                    {displayAuthor?.firstName} {displayAuthor?.lastName}
                                 </Link>
                                 <Badge
                                     variant="secondary"
                                     className={cn(
                                         "text-xs px-1.5 py-0",
-                                        roleColors[post.isShared && post.originalPost
-                                            ? post.originalPost.author?.role || "student"
-                                            : post.author?.role || "student"
-                                        ]
+                                        roleColors[displayAuthor?.role || "student"]
                                     )}
                                 >
-                                    {roleLabels[post.isShared && post.originalPost
-                                        ? post.originalPost.author?.role || "student"
-                                        : post.author?.role || "student"
-                                    ]}
+                                    {roleLabels[displayAuthor?.role || "student"]}
                                 </Badge>
                             </div>
                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -244,23 +323,25 @@ export function PostCard({
                         "mt-3",
                         post.isShared && "bg-muted/50 rounded-lg p-3 border"
                     )}>
-                        <p className="whitespace-pre-wrap break-words">
-                            {post.isShared && post.originalPost
-                                ? post.originalPost.content
-                                : post.content
-                            }
-                        </p>
+                        <FormattedContent content={displayContent} />
 
                         {/* Imagem do post */}
-                        {(post.isShared && post.originalPost?.imageUrl || (!post.isShared && post.imageUrl)) && (
+                        {displayImageUrl && (
                             <div className="mt-3 rounded-lg overflow-hidden">
                                 <img
-                                    src={post.isShared ? post.originalPost?.imageUrl : post.imageUrl}
+                                    src={displayImageUrl}
                                     alt="Post image"
                                     className="w-full max-h-96 object-cover"
+                                    onError={(e) => {
+                                        // Esconder imagem se não carregar
+                                        (e.target as HTMLImageElement).style.display = 'none';
+                                    }}
                                 />
                             </div>
                         )}
+
+                        {/* Vídeo do post */}
+                        {displayVideoUrl && <EmbeddedVideo url={displayVideoUrl} />}
                     </div>
 
                     {/* Contadores */}

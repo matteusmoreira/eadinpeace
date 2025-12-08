@@ -16,6 +16,7 @@ export const createPost = mutation({
         content: v.string(),
         imageUrl: v.optional(v.string()),
         imageStorageId: v.optional(v.id("_storage")),
+        videoUrl: v.optional(v.string()), // URL de vídeo (YouTube, Vimeo, etc)
         visibility: v.union(
             v.literal("public"),
             v.literal("followers"),
@@ -30,6 +31,7 @@ export const createPost = mutation({
             content: args.content,
             imageUrl: args.imageUrl,
             imageStorageId: args.imageStorageId,
+            videoUrl: args.videoUrl,
             visibility: args.visibility,
             likesCount: 0,
             commentsCount: 0,
@@ -70,6 +72,7 @@ export const sharePost = mutation({
             content: originalPost.content,
             imageUrl: originalPost.imageUrl,
             imageStorageId: originalPost.imageStorageId,
+            videoUrl: originalPost.videoUrl,
             visibility: args.visibility,
             likesCount: 0,
             commentsCount: 0,

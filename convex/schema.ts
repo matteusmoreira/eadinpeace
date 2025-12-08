@@ -717,6 +717,7 @@ export default defineSchema({
         content: v.string(),
         imageUrl: v.optional(v.string()),
         imageStorageId: v.optional(v.id("_storage")),
+        videoUrl: v.optional(v.string()), // URL de vídeo (YouTube, Vimeo, etc)
         likesCount: v.number(),
         commentsCount: v.number(),
         sharesCount: v.number(),
