@@ -192,9 +192,10 @@ const menuSections: MenuSection[] = [
 
 interface SidebarProps {
     role: UserRole;
+    isMobile?: boolean;
 }
 
-export function Sidebar({ role }: SidebarProps) {
+export function Sidebar({ role, isMobile = false }: SidebarProps) {
     const pathname = usePathname();
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [isHovering, setIsHovering] = useState(false);
@@ -205,9 +206,12 @@ export function Sidebar({ role }: SidebarProps) {
         section.roles.includes(role)
     );
 
-    const showExpanded = !isCollapsed || isHovering;
+    const showExpanded = isMobile ? true : (!isCollapsed || isHovering);
 
     useEffect(() => {
+        // Only handle resize for desktop mode to auto-collapse on smaller desktop screens if needed
+        if (isMobile) return;
+
         const handleResize = () => {
             if (window.innerWidth < 1024) {
                 setIsCollapsed(true);
@@ -216,7 +220,7 @@ export function Sidebar({ role }: SidebarProps) {
         handleResize();
         window.addEventListener("resize", handleResize);
         return () => window.removeEventListener("resize", handleResize);
-    }, []);
+    }, [isMobile]);
 
     const roleLabels: Record<UserRole, { label: string; color: string }> = {
         superadmin: { label: "Super Admin", color: "gradient-bg" },
@@ -229,13 +233,17 @@ export function Sidebar({ role }: SidebarProps) {
         <TooltipProvider delayDuration={0}>
             <motion.aside
                 initial={false}
-                animate={{ width: showExpanded ? 280 : 80 }}
+                animate={{
+                    width: isMobile ? "100%" : (showExpanded ? 280 : 80)
+                }}
                 transition={{ duration: 0.3, ease: "easeInOut" }}
-                onMouseEnter={() => isCollapsed && setIsHovering(true)}
-                onMouseLeave={() => setIsHovering(false)}
+                onMouseEnter={() => !isMobile && isCollapsed && setIsHovering(true)}
+                onMouseLeave={() => !isMobile && setIsHovering(false)}
                 className={cn(
-                    "fixed left-0 top-0 z-40 h-screen border-r border-sidebar-border bg-sidebar",
-                    "flex flex-col shadow-lg overflow-hidden"
+                    "flex flex-col shadow-lg overflow-hidden bg-sidebar transition-all",
+                    isMobile
+                        ? "h-full w-full border-none"
+                        : "fixed left-0 top-0 z-40 h-screen border-r border-sidebar-border"
                 )}
             >
                 {/* Logo */}
@@ -268,7 +276,7 @@ export function Sidebar({ role }: SidebarProps) {
                             </motion.div>
                         )}
                     </AnimatePresence>
-                    {showExpanded && (
+                    {showExpanded && !isMobile && (
                         <Button
                             variant="ghost"
                             size="icon"

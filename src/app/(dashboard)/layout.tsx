@@ -89,7 +89,7 @@ export default function DashboardLayout({
             {/* Mobile Sidebar */}
             <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
                 <SheetContent side="left" className="p-0 w-[280px]">
-                    <Sidebar role={userRole} />
+                    <Sidebar role={userRole} isMobile={true} />
                 </SheetContent>
             </Sheet>
 
