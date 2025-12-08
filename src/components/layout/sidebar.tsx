@@ -125,6 +125,13 @@ const menuSections: MenuSection[] = [
             { title: "Anúncios", href: "/admin/announcements", icon: Bell },
         ],
     },
+    {
+        title: "Configurações",
+        roles: ["admin"],
+        items: [
+            { title: "Vídeo/Bunny", href: "/admin/settings", icon: Settings },
+        ],
+    },
 
     // ===== PROFESSOR =====
     {

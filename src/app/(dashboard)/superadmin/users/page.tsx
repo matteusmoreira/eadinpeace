@@ -103,7 +103,7 @@ export default function UsersPage() {
 
     // Convex queries
     const users = useQuery(api.users.getAll);
-    const stats = useQuery(api.users.getGlobalStats);
+    const stats = useQuery(api.users.getGlobalStats, {});
     const removeUser = useMutation(api.users.remove);
 
     const isLoading = users === undefined;
@@ -188,12 +188,12 @@ export default function UsersPage() {
                         <CardContent className="pt-6">
                             <div className="flex items-center gap-3">
                                 <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${role === "superadmin" ? "gradient-bg" :
-                                        role === "admin" ? "bg-primary/10" :
-                                            role === "professor" ? "bg-amber-500/10" : "bg-slate-100 dark:bg-slate-800"
+                                    role === "admin" ? "bg-primary/10" :
+                                        role === "professor" ? "bg-amber-500/10" : "bg-slate-100 dark:bg-slate-800"
                                     }`}>
                                     <config.icon className={`h-5 w-5 ${role === "superadmin" ? "text-white" :
-                                            role === "admin" ? "text-primary" :
-                                                role === "professor" ? "text-amber-500" : "text-slate-600"
+                                        role === "admin" ? "text-primary" :
+                                            role === "professor" ? "text-amber-500" : "text-slate-600"
                                         }`} />
                                 </div>
                                 <div>

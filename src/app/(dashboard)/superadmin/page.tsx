@@ -41,7 +41,7 @@ const planColors = {
 export default function SuperadminDashboardPage() {
     // Convex queries
     const orgStats = useQuery(api.organizations.getGlobalStats);
-    const userStats = useQuery(api.users.getGlobalStats);
+    const userStats = useQuery(api.users.getGlobalStats, {});
     const organizations = useQuery(api.organizations.getAll);
 
     const isLoading = orgStats === undefined || userStats === undefined;

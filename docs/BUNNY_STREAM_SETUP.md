@@ -2,40 +2,23 @@
 
 Este documento explica como configurar o Bunny Stream para streaming de vídeos na plataforma.
 
-## 1. Criar conta no Bunny.net
+## Opção 1: Configuração via Painel Admin (Recomendado)
 
-1. Acesse [bunny.net](https://bunny.net) e crie uma conta
-2. No dashboard, vá para **Stream** > **Video Libraries**
-3. Clique em **Add Video Library** e dê um nome
+A forma mais fácil de configurar o Bunny Stream é através do painel de administração:
 
-## 2. Obter credenciais
+1. Acesse o painel como **Administrador**
+2. No menu lateral, vá para **Configurações > Vídeo/Bunny**
+3. Preencha as credenciais:
+   - **API Key**: Chave de API do Bunny
+   - **Library ID**: ID da Video Library
+   - **CDN Hostname**: Hostname do CDN (opcional)
+4. Ative a opção "Ativar Bunny Stream"
+5. Clique em "Testar Conexão" para verificar
+6. Salve as alterações
 
-### API Key
-1. Acesse **Account** > **API** no menu
-2. Copie a **API Key**
-3. Adicione ao `.env.local`:
-   ```
-   NEXT_PUBLIC_BUNNY_API_KEY=sua-api-key
-   ```
+## Opção 2: Configuração via Variáveis de Ambiente
 
-### Library ID
-1. Vá para **Stream** > **Video Libraries**
-2. Selecione sua library
-3. O **Library ID** está na URL ou nas configurações
-4. Adicione ao `.env.local`:
-   ```
-   NEXT_PUBLIC_BUNNY_LIBRARY_ID=seu-library-id
-   ```
-
-### CDN Hostname
-1. Na sua Video Library, vá para **Delivery**
-2. Copie o **Hostname** (ex: `vz-xxxxxx.b-cdn.net`)
-3. Adicione ao `.env.local`:
-   ```
-   NEXT_PUBLIC_BUNNY_CDN_HOSTNAME=vz-xxxxxx.b-cdn.net
-   ```
-
-## 3. Variáveis de ambiente completas
+Você também pode configurar via variáveis de ambiente no arquivo `.env.local`:
 
 ```env
 # Bunny Stream
@@ -43,6 +26,31 @@ NEXT_PUBLIC_BUNNY_API_KEY=sua-api-key-aqui
 NEXT_PUBLIC_BUNNY_LIBRARY_ID=12345
 NEXT_PUBLIC_BUNNY_CDN_HOSTNAME=vz-xxxxxx.b-cdn.net
 ```
+
+> **Nota**: As configurações do painel admin têm prioridade sobre as variáveis de ambiente.
+
+## Obtendo as Credenciais no Bunny.net
+
+### 1. Criar conta no Bunny.net
+
+1. Acesse [bunny.net](https://bunny.net) e crie uma conta
+2. No dashboard, vá para **Stream** > **Video Libraries**
+3. Clique em **Add Video Library** e dê um nome
+
+### 2. Obter credenciais
+
+#### API Key
+1. Acesse **Account** > **API** no menu
+2. Copie a **API Key**
+
+#### Library ID
+1. Vá para **Stream** > **Video Libraries**
+2. Selecione sua library
+3. O **Library ID** está na URL ou nas configurações
+
+#### CDN Hostname
+1. Na sua Video Library, vá para **Delivery**
+2. Copie o **Hostname** (ex: `vz-xxxxxx.b-cdn.net`)
 
 ## 4. Uso nos componentes
 

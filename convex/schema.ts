@@ -522,4 +522,26 @@ export default defineSchema({
     })
         .index("by_reply", ["replyId"])
         .index("by_user", ["userId"]),
+
+    // Organization Settings (Video providers, integrations, etc.)
+    organizationSettings: defineTable({
+        organizationId: v.id("organizations"),
+        // Bunny Stream Settings
+        bunnyApiKey: v.optional(v.string()),
+        bunnyLibraryId: v.optional(v.string()),
+        bunnyCdnHostname: v.optional(v.string()),
+        bunnyEnabled: v.optional(v.boolean()),
+        // Other video provider settings can be added here
+        // YouTube API settings
+        youtubeApiKey: v.optional(v.string()),
+        // General settings
+        defaultVideoProvider: v.optional(v.union(
+            v.literal("youtube"),
+            v.literal("bunny"),
+            v.literal("upload")
+        )),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_organization", ["organizationId"]),
 });

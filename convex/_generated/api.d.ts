@@ -19,6 +19,7 @@ import type * as forum from "../forum.js";
 import type * as gamification from "../gamification.js";
 import type * as leaderboard from "../leaderboard.js";
 import type * as notifications from "../notifications.js";
+import type * as organizationSettings from "../organizationSettings.js";
 import type * as organizations from "../organizations.js";
 import type * as payments from "../payments.js";
 import type * as plans from "../plans.js";
@@ -45,6 +46,7 @@ declare const fullApi: ApiFromModules<{
   gamification: typeof gamification;
   leaderboard: typeof leaderboard;
   notifications: typeof notifications;
+  organizationSettings: typeof organizationSettings;
   organizations: typeof organizations;
   payments: typeof payments;
   plans: typeof plans;

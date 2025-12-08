@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,10 +16,14 @@ import {
     AlertCircle,
     Cloud,
     FileVideo,
+    Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BunnyStreamService } from "@/lib/bunny";
+import { useBunnyStream } from "@/hooks/use-bunny-stream";
+import { Id } from "../../convex/_generated/dataModel";
 import { toast } from "sonner";
+import Link from "next/link";
 
 interface BunnyVideoUploadProps {
     onUploadComplete?: (videoId: string, videoUrl: string) => void;
@@ -27,6 +31,10 @@ interface BunnyVideoUploadProps {
     maxSizeMB?: number;
     acceptedFormats?: string[];
     className?: string;
+    // Nova prop: organizationId para buscar credenciais do banco
+    organizationId?: Id<"organizations">;
+    // Ou pode passar um serviço já configurado
+    bunnyService?: BunnyStreamService;
 }
 
 interface UploadState {
@@ -46,6 +54,8 @@ export function BunnyVideoUpload({
     maxSizeMB = DEFAULT_MAX_SIZE_MB,
     acceptedFormats = DEFAULT_ACCEPTED_FORMATS,
     className,
+    organizationId,
+    bunnyService: externalBunnyService,
 }: BunnyVideoUploadProps) {
     const [uploadState, setUploadState] = useState<UploadState>({
         status: "idle",
@@ -53,7 +63,27 @@ export function BunnyVideoUpload({
     });
     const [isDragging, setIsDragging] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const bunnyService = useRef(new BunnyStreamService());
+
+    // Se organizationId foi fornecido, usa hook para buscar credenciais
+    const orgBunny = useBunnyStream(organizationId);
+
+    // Determina qual serviço usar: externo > hook > fallback
+    const bunnyServiceRef = useRef<BunnyStreamService | null>(null);
+
+    useEffect(() => {
+        if (externalBunnyService) {
+            bunnyServiceRef.current = externalBunnyService;
+        } else if (organizationId && orgBunny.bunnyService) {
+            bunnyServiceRef.current = orgBunny.bunnyService;
+        } else {
+            bunnyServiceRef.current = new BunnyStreamService();
+        }
+    }, [externalBunnyService, organizationId, orgBunny.bunnyService]);
+
+    // Helper para obter o serviço atual
+    const getBunnyService = () => {
+        return bunnyServiceRef.current || new BunnyStreamService();
+    };
 
     const resetUpload = () => {
         setUploadState({ status: "idle", progress: 0 });
@@ -85,8 +115,9 @@ export function BunnyVideoUpload({
         }
 
         // Check if Bunny is configured
-        if (!bunnyService.current.isConfigured()) {
-            const configError = "Bunny Stream não está configurado. Verifique as variáveis de ambiente.";
+        const bunny = getBunnyService();
+        if (!bunny.isConfigured()) {
+            const configError = "Bunny Stream não está configurado. Configure em Configurações > Vídeo/Bunny.";
             setUploadState({ status: "error", progress: 0, error: configError });
             onError?.(configError);
             toast.error(configError);
@@ -102,7 +133,7 @@ export function BunnyVideoUpload({
             });
 
             const title = file.name.replace(/\.[^/.]+$/, ""); // Remove extension
-            const { videoId } = await bunnyService.current.createVideo(title);
+            const { videoId } = await bunny.createVideo(title);
 
             // Step 2: Upload the file
             setUploadState({
@@ -112,7 +143,7 @@ export function BunnyVideoUpload({
                 fileName: file.name
             });
 
-            await bunnyService.current.uploadVideo(videoId, file, (progress) => {
+            await bunny.uploadVideo(videoId, file, (progress: number) => {
                 setUploadState((prev) => ({ ...prev, progress }));
             });
 
@@ -125,7 +156,7 @@ export function BunnyVideoUpload({
             });
 
             // Get the embed URL
-            const videoUrl = bunnyService.current.getEmbedUrl(videoId);
+            const videoUrl = bunny.getEmbedUrl(videoId);
 
             // Complete
             setUploadState({
