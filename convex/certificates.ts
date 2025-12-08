@@ -157,35 +157,57 @@ export const issue = mutation({
 export const getByOrganization = query({
     args: { organizationId: v.id("organizations") },
     handler: async (ctx, args) => {
-        // Get all courses for this organization
-        const courses = await ctx.db
-            .query("courses")
-            .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
-            .collect();
+        try {
+            // Get all courses for this organization
+            const courses = await ctx.db
+                .query("courses")
+                .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+                .collect();
 
-        const courseIds = courses.map(c => c._id);
+            if (!courses || courses.length === 0) {
+                return [];
+            }
 
-        // Get all certificates for these courses
-        const allCertificates = await ctx.db.query("certificates").collect();
-        const certificates = allCertificates.filter(cert =>
-            courseIds.some(id => id === cert.courseId)
-        );
+            const courseIds = courses.map(c => c._id);
 
-        // Enrich with user and course data
-        const enrichedCertificates = await Promise.all(
-            certificates.map(async (cert) => {
-                const user = await ctx.db.get(cert.userId);
-                const course = courses.find(c => c._id === cert.courseId);
-                return {
-                    ...cert,
-                    userName: user ? `${user.firstName} ${user.lastName}` : "Usuário",
-                    userEmail: user?.email || "",
-                    courseName: course?.title || "Curso",
-                };
-            })
-        );
+            // Get all certificates for these courses
+            const allCertificates = await ctx.db.query("certificates").collect();
+            const certificates = allCertificates.filter(cert =>
+                cert && cert.courseId && courseIds.some(id => id === cert.courseId)
+            );
 
-        return enrichedCertificates.sort((a, b) => b.issuedAt - a.issuedAt);
+            if (certificates.length === 0) {
+                return [];
+            }
+
+            // Enrich with user and course data
+            const enrichedCertificates = await Promise.all(
+                certificates.map(async (cert) => {
+                    try {
+                        const user = cert.userId ? await ctx.db.get(cert.userId) : null;
+                        const course = courses.find(c => c._id === cert.courseId);
+                        return {
+                            ...cert,
+                            userName: user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || "Usuário" : "Usuário",
+                            userEmail: user?.email || "",
+                            courseName: course?.title || "Curso",
+                        };
+                    } catch {
+                        return {
+                            ...cert,
+                            userName: "Usuário",
+                            userEmail: "",
+                            courseName: "Curso",
+                        };
+                    }
+                })
+            );
+
+            return enrichedCertificates.sort((a, b) => (b.issuedAt || 0) - (a.issuedAt || 0));
+        } catch (error) {
+            console.error("[getByOrganization] Error:", error);
+            return [];
+        }
     },
 });
 
@@ -193,37 +215,58 @@ export const getByOrganization = query({
 export const getOrganizationStats = query({
     args: { organizationId: v.id("organizations") },
     handler: async (ctx, args) => {
-        // Get all courses for this organization
-        const courses = await ctx.db
-            .query("courses")
-            .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
-            .collect();
+        try {
+            // Get all courses for this organization
+            const courses = await ctx.db
+                .query("courses")
+                .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+                .collect();
 
-        const courseIds = courses.map(c => c._id);
+            if (!courses || courses.length === 0) {
+                return {
+                    total: 0,
+                    thisMonth: 0,
+                    coursesWithCertificates: 0,
+                    downloads: 0,
+                };
+            }
 
-        // Get all certificates for these courses
-        const allCertificates = await ctx.db.query("certificates").collect();
-        const certificates = allCertificates.filter(cert =>
-            courseIds.some(id => id === cert.courseId)
-        );
+            const courseIds = courses.map(c => c._id);
 
-        // Get this month's certificates
-        const now = new Date();
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-        const thisMonthCerts = certificates.filter(c => c.issuedAt >= startOfMonth);
+            // Get all certificates for these courses
+            const allCertificates = await ctx.db.query("certificates").collect();
+            const certificates = allCertificates.filter(cert =>
+                cert && cert.courseId && courseIds.some(id => id === cert.courseId)
+            );
 
-        // Get unique courses with certificates
-        const coursesWithCerts = [...new Set(certificates.map(c => c.courseId))];
+            // Get this month's certificates
+            const now = new Date();
+            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+            const thisMonthCerts = certificates.filter(c =>
+                typeof c.issuedAt === "number" && c.issuedAt >= startOfMonth
+            );
 
-        // Count downloads (we'll track this in the future)
-        const downloads = 0;
+            // Get unique courses with certificates
+            const coursesWithCerts = [...new Set(certificates.map(c => c.courseId))];
 
-        return {
-            total: certificates.length,
-            thisMonth: thisMonthCerts.length,
-            coursesWithCertificates: coursesWithCerts.length,
-            downloads,
-        };
+            // Count downloads (we'll track this in the future)
+            const downloads = 0;
+
+            return {
+                total: certificates.length,
+                thisMonth: thisMonthCerts.length,
+                coursesWithCertificates: coursesWithCerts.length,
+                downloads,
+            };
+        } catch (error) {
+            console.error("[getOrganizationStats] Error:", error);
+            return {
+                total: 0,
+                thisMonth: 0,
+                coursesWithCertificates: 0,
+                downloads: 0,
+            };
+        }
     },
 });
 
@@ -231,20 +274,31 @@ export const getOrganizationStats = query({
 export const getGlobalStats = query({
     args: {},
     handler: async (ctx) => {
-        const certificates = await ctx.db.query("certificates").collect();
+        try {
+            const certificates = await ctx.db.query("certificates").collect();
 
-        // Get unique courses
-        const courseIds = [...new Set(certificates.map(c => c.courseId))];
+            // Get unique courses
+            const courseIds = [...new Set(certificates.filter(c => c?.courseId).map(c => c.courseId))];
 
-        // Get this month's certificates
-        const now = new Date();
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-        const thisMonthCerts = certificates.filter(c => c.issuedAt >= startOfMonth);
+            // Get this month's certificates
+            const now = new Date();
+            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+            const thisMonthCerts = certificates.filter(c =>
+                typeof c.issuedAt === "number" && c.issuedAt >= startOfMonth
+            );
 
-        return {
-            total: certificates.length,
-            thisMonth: thisMonthCerts.length,
-            uniqueCourses: courseIds.length,
-        };
+            return {
+                total: certificates.length,
+                thisMonth: thisMonthCerts.length,
+                uniqueCourses: courseIds.length,
+            };
+        } catch (error) {
+            console.error("[getGlobalStats] Error:", error);
+            return {
+                total: 0,
+                thisMonth: 0,
+                uniqueCourses: 0,
+            };
+        }
     },
 });
