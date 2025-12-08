@@ -378,47 +378,80 @@ export const getGlobalStats = query({
             const previousPeriodStart = periodStart - periodMs;
 
             // Users created in this period vs previous period
-            const usersThisPeriod = users.filter(u => u.createdAt && u.createdAt >= periodStart).length;
-            const usersPreviousPeriod = users.filter(u => u.createdAt && u.createdAt >= previousPeriodStart && u.createdAt < periodStart).length;
-            const userGrowth = usersPreviousPeriod > 0 ? ((usersThisPeriod - usersPreviousPeriod) / usersPreviousPeriod * 100) : usersThisPeriod > 0 ? 100 : 0;
+            // Verificar se createdAt existe e é um número válido
+            const usersThisPeriod = users.filter(u =>
+                typeof u.createdAt === "number" && u.createdAt >= periodStart
+            ).length;
+            const usersPreviousPeriod = users.filter(u =>
+                typeof u.createdAt === "number" && u.createdAt >= previousPeriodStart && u.createdAt < periodStart
+            ).length;
+            const userGrowth = usersPreviousPeriod > 0
+                ? ((usersThisPeriod - usersPreviousPeriod) / usersPreviousPeriod * 100)
+                : usersThisPeriod > 0 ? 100 : 0;
 
             // Organizations created in this period vs previous period
-            const orgsThisPeriod = organizations.filter(o => o.createdAt && o.createdAt >= periodStart).length;
-            const orgsPreviousPeriod = organizations.filter(o => o.createdAt && o.createdAt >= previousPeriodStart && o.createdAt < periodStart).length;
-            const orgGrowth = orgsPreviousPeriod > 0 ? ((orgsThisPeriod - orgsPreviousPeriod) / orgsPreviousPeriod * 100) : orgsThisPeriod > 0 ? 100 : 0;
+            // Verificar se createdAt existe e é um número válido
+            const orgsThisPeriod = organizations.filter(o =>
+                typeof o.createdAt === "number" && o.createdAt >= periodStart
+            ).length;
+            const orgsPreviousPeriod = organizations.filter(o =>
+                typeof o.createdAt === "number" && o.createdAt >= previousPeriodStart && o.createdAt < periodStart
+            ).length;
+            const orgGrowth = orgsPreviousPeriod > 0
+                ? ((orgsThisPeriod - orgsPreviousPeriod) / orgsPreviousPeriod * 100)
+                : orgsThisPeriod > 0 ? 100 : 0;
 
             // Active users growth (based on lastLoginAt)
-            const activeUsersThisPeriod = users.filter(u => u.isActive && u.lastLoginAt && u.lastLoginAt >= periodStart).length;
-            const activeUsersPreviousPeriod = users.filter(u => u.isActive && u.lastLoginAt && u.lastLoginAt >= previousPeriodStart && u.lastLoginAt < periodStart).length;
-            const activeGrowth = activeUsersPreviousPeriod > 0 ? ((activeUsersThisPeriod - activeUsersPreviousPeriod) / activeUsersPreviousPeriod * 100) : activeUsersThisPeriod > 0 ? 100 : 0;
+            // Verificar todos os campos antes de usar
+            const activeUsersThisPeriod = users.filter(u =>
+                u.isActive === true && typeof u.lastLoginAt === "number" && u.lastLoginAt >= periodStart
+            ).length;
+            const activeUsersPreviousPeriod = users.filter(u =>
+                u.isActive === true && typeof u.lastLoginAt === "number" && u.lastLoginAt >= previousPeriodStart && u.lastLoginAt < periodStart
+            ).length;
+            const activeGrowth = activeUsersPreviousPeriod > 0
+                ? ((activeUsersThisPeriod - activeUsersPreviousPeriod) / activeUsersPreviousPeriod * 100)
+                : activeUsersThisPeriod > 0 ? 100 : 0;
+
+            // Contar usuários ativos de forma segura
+            const activeUsersCount = users.filter((u) => u.isActive === true).length;
+            const pendingUsersCount = users.filter((u) => u.isActive === false || u.isActive === undefined).length;
+
+            // Contar cursos publicados de forma segura  
+            const publishedCoursesCount = courses.filter(c => c.isPublished === true).length;
+
+            // Contar enrollments concluídos de forma segura
+            const completedEnrollmentsCount = enrollments.filter(e =>
+                e.completedAt !== undefined && e.completedAt !== null && typeof e.completedAt === "number"
+            ).length;
 
             return {
-                total: users.length,
+                total: users.length || 0,
                 byRole: {
-                    superadmin: users.filter((u) => u.role === "superadmin").length,
-                    admin: users.filter((u) => u.role === "admin").length,
-                    professor: users.filter((u) => u.role === "professor").length,
-                    student: users.filter((u) => u.role === "student").length,
+                    superadmin: users.filter((u) => u.role === "superadmin").length || 0,
+                    admin: users.filter((u) => u.role === "admin").length || 0,
+                    professor: users.filter((u) => u.role === "professor").length || 0,
+                    student: users.filter((u) => u.role === "student").length || 0,
                 },
-                active: users.filter((u) => u.isActive === true).length,
-                pending: users.filter((u) => u.isActive === false || u.isActive === undefined).length,
+                active: activeUsersCount || 0,
+                pending: pendingUsersCount || 0,
                 // Growth metrics
                 growth: {
-                    users: Math.round(userGrowth * 10) / 10,
-                    organizations: Math.round(orgGrowth * 10) / 10,
-                    activeUsers: Math.round(activeGrowth * 10) / 10,
+                    users: Math.round((userGrowth || 0) * 10) / 10,
+                    organizations: Math.round((orgGrowth || 0) * 10) / 10,
+                    activeUsers: Math.round((activeGrowth || 0) * 10) / 10,
                 },
                 // Additional stats
                 courses: {
-                    total: courses.length,
-                    published: courses.filter(c => c.isPublished === true).length,
+                    total: courses.length || 0,
+                    published: publishedCoursesCount || 0,
                 },
                 enrollments: {
-                    total: enrollments.length,
-                    completed: enrollments.filter(e => e.completedAt !== undefined && e.completedAt !== null).length,
+                    total: enrollments.length || 0,
+                    completed: completedEnrollmentsCount || 0,
                 },
                 certificates: {
-                    total: certificates.length,
+                    total: certificates.length || 0,
                 },
             };
         } catch (error) {

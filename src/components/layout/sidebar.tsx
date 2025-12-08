@@ -315,8 +315,8 @@ export function Sidebar({ role, isMobile = false }: SidebarProps) {
                 )}
 
                 {/* Navigation */}
-                <ScrollArea className="flex-1 py-4">
-                    <nav className="space-y-6 px-3">
+                <ScrollArea className="flex-1 overflow-hidden">
+                    <nav className="space-y-6 px-3 py-4">
                         {filteredSections.map((section, sectionIndex) => (
                             <div key={section.title}>
                                 {/* Section Title */}
@@ -384,10 +384,8 @@ export function Sidebar({ role, isMobile = false }: SidebarProps) {
                     </nav>
                 </ScrollArea>
 
-                <Separator />
-
                 {/* User Profile */}
-                <div className="p-3 shrink-0 border-t border-sidebar-border mt-auto">
+                <div className="p-3 shrink-0 border-t border-sidebar-border">
                     <div
                         className={cn(
                             "flex items-center gap-3 rounded-lg p-2",
