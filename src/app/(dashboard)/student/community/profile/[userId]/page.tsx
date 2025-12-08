@@ -53,9 +53,10 @@ export default function UserProfilePage() {
     const initialTab = searchParams.get("tab") || "posts";
 
     // Current user
-    const currentUser = useQuery(api.users.getByClerkId, {
-        clerkId: clerkUser?.id || ""
-    });
+    const currentUser = useQuery(
+        api.users.getByClerkId,
+        clerkUser?.id ? { clerkId: clerkUser.id } : "skip"
+    );
 
     // Profile data
     const profile = useQuery(

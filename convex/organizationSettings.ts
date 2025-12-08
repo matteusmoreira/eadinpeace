@@ -7,6 +7,12 @@ export const getSettings = query({
         organizationId: v.id("organizations"),
     },
     handler: async (ctx, args) => {
+        // Verify that the organization exists
+        const organization = await ctx.db.get(args.organizationId);
+        if (!organization) {
+            return null;
+        }
+
         const settings = await ctx.db
             .query("organizationSettings")
             .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
@@ -15,6 +21,7 @@ export const getSettings = query({
         return settings;
     },
 });
+
 
 // Get Bunny Stream settings (public-safe version without sensitive data)
 export const getBunnyConfig = query({

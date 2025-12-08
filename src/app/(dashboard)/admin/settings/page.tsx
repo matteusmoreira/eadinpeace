@@ -53,10 +53,11 @@ export default function BunnySettingsPage() {
     const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-    // Queries and mutations
+    // Queries and mutations - Skip if there's no valid organizationId
+    const hasValidOrgId = organizationId !== undefined && organizationId !== null;
     const settings = useQuery(
         api.organizationSettings.getSettings,
-        organizationId ? { organizationId } : "skip"
+        hasValidOrgId ? { organizationId } : "skip"
     );
     const updateBunnySettings = useMutation(api.organizationSettings.updateBunnySettings);
 
@@ -147,6 +148,24 @@ export default function BunnySettingsPage() {
         return (
             <div className="flex items-center justify-center min-h-[400px]">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (!hasValidOrgId) {
+        return (
+            <div className="container max-w-4xl mx-auto py-8 px-4">
+                <Card className="border-2">
+                    <CardContent className="pt-6">
+                        <div className="flex flex-col items-center justify-center py-12 text-center">
+                            <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
+                            <h2 className="text-xl font-semibold mb-2">Organização não encontrada</h2>
+                            <p className="text-muted-foreground">
+                                Você precisa estar associado a uma organização para acessar estas configurações.
+                            </p>
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
         );
     }
