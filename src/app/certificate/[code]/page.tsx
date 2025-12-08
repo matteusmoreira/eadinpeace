@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -23,12 +24,54 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
+import { generateCertificatePDF } from "@/lib/certificate-pdf";
+import { toast } from "sonner";
 
 export default function CertificateVerifyPage() {
     const params = useParams();
     const code = params.code as string;
+    const [isDownloading, setIsDownloading] = useState(false);
 
     const certificate = useQuery(api.certificates.getByCode, { code });
+
+    const formatDate = (timestamp: number) => {
+        return new Date(timestamp).toLocaleDateString("pt-BR", {
+            day: "2-digit",
+            month: "long",
+            year: "numeric",
+        });
+    };
+
+    const formatDuration = (seconds: number) => {
+        const hours = Math.floor(seconds / 3600);
+        if (hours === 0) return "< 1 hora";
+        return `${hours} hora${hours > 1 ? "s" : ""}`;
+    };
+
+    const handleDownload = async () => {
+        if (!certificate) return;
+
+        setIsDownloading(true);
+        try {
+            await generateCertificatePDF({
+                code: certificate.code,
+                userName: `${certificate.user?.firstName || ""} ${certificate.user?.lastName || ""}`.trim(),
+                courseTitle: certificate.course?.title || "Curso",
+                instructorName: certificate.instructor
+                    ? `${certificate.instructor.firstName} ${certificate.instructor.lastName}`
+                    : undefined,
+                organizationName: certificate.organization?.name,
+                issuedAt: certificate.issuedAt,
+                courseDuration: certificate.course?.duration,
+            });
+            toast.success("Certificado baixado com sucesso!");
+        } catch (error) {
+            console.error("Erro ao gerar PDF:", error);
+            toast.error("Erro ao gerar o certificado. Tente novamente.");
+        } finally {
+            setIsDownloading(false);
+        }
+    };
 
     if (certificate === undefined) {
         return (
@@ -61,20 +104,6 @@ export default function CertificateVerifyPage() {
             </div>
         );
     }
-
-    const formatDate = (timestamp: number) => {
-        return new Date(timestamp).toLocaleDateString("pt-BR", {
-            day: "2-digit",
-            month: "long",
-            year: "numeric",
-        });
-    };
-
-    const formatDuration = (seconds: number) => {
-        const hours = Math.floor(seconds / 3600);
-        if (hours === 0) return "< 1 hora";
-        return `${hours} hora${hours > 1 ? "s" : ""}`;
-    };
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4 md:p-8">
@@ -184,9 +213,19 @@ export default function CertificateVerifyPage() {
                                 <span className="text-primary">{typeof window !== "undefined" ? window.location.origin : ""}/certificate/{code}</span>
                             </p>
                             <div className="flex gap-2">
-                                <Button variant="outline" size="sm" className="gap-2">
-                                    <Download className="h-4 w-4" />
-                                    Download PDF
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="gap-2"
+                                    onClick={handleDownload}
+                                    disabled={isDownloading}
+                                >
+                                    {isDownloading ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <Download className="h-4 w-4" />
+                                    )}
+                                    {isDownloading ? "Gerando..." : "Download PDF"}
                                 </Button>
                                 <Button variant="outline" size="sm" className="gap-2">
                                     <Share2 className="h-4 w-4" />

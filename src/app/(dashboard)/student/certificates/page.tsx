@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +23,9 @@ import { useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { useUser } from "@clerk/nextjs";
 import { cn } from "@/lib/utils";
+import { generateCertificatePDF } from "@/lib/certificate-pdf";
+import { toast } from "sonner";
+import { Id } from "@convex/_generated/dataModel";
 
 const container = {
     hidden: { opacity: 0 },
@@ -35,6 +39,7 @@ const item = {
 
 export default function StudentCertificatesPage() {
     const { user } = useUser();
+    const [downloadingId, setDownloadingId] = useState<Id<"certificates"> | null>(null);
 
     // Get Convex user
     const convexUser = useQuery(api.users.getByClerkId, {
@@ -61,6 +66,30 @@ export default function StudentCertificatesPage() {
         const hours = Math.floor(seconds / 3600);
         if (hours === 0) return "< 1h";
         return `${hours}h`;
+    };
+
+    const handleDownload = async (cert: NonNullable<typeof certificates>[number]) => {
+        if (!user) return;
+
+        setDownloadingId(cert._id);
+        try {
+            await generateCertificatePDF({
+                code: cert.code,
+                userName: `${user.firstName || ""} ${user.lastName || ""}`.trim(),
+                courseTitle: cert.course?.title || "Curso",
+                instructorName: cert.instructor
+                    ? `${cert.instructor.firstName} ${cert.instructor.lastName}`
+                    : undefined,
+                issuedAt: cert.issuedAt,
+                courseDuration: cert.course?.duration,
+            });
+            toast.success("Certificado baixado com sucesso!");
+        } catch (error) {
+            console.error("Erro ao gerar PDF:", error);
+            toast.error("Erro ao gerar o certificado. Tente novamente.");
+        } finally {
+            setDownloadingId(null);
+        }
     };
 
     return (
@@ -183,8 +212,17 @@ export default function StudentCertificatesPage() {
                                             Visualizar
                                         </Button>
                                     </Link>
-                                    <Button variant="outline" size="icon">
-                                        <Download className="h-4 w-4" />
+                                    <Button
+                                        variant="outline"
+                                        size="icon"
+                                        onClick={() => handleDownload(cert)}
+                                        disabled={downloadingId === cert._id}
+                                    >
+                                        {downloadingId === cert._id ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <Download className="h-4 w-4" />
+                                        )}
                                     </Button>
                                     <Button variant="outline" size="icon">
                                         <Share2 className="h-4 w-4" />
