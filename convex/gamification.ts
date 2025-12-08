@@ -103,19 +103,27 @@ export const getStats = query({
     handler: async (ctx) => {
         const achievements = await ctx.db.query("achievements").collect();
 
-        const stats = await Promise.all(
-            achievements.map(async (achievement) => {
-                const userAchievements = await ctx.db
-                    .query("userAchievements")
-                    .withIndex("by_achievement", (q) => q.eq("achievementId", achievement._id))
-                    .collect();
+        if (!achievements || achievements.length === 0) {
+            return [];
+        }
 
-                return {
-                    ...achievement,
-                    unlockedCount: userAchievements.length,
-                };
-            })
-        );
+        // Get all user achievements at once for better performance
+        const allUserAchievements = await ctx.db
+            .query("userAchievements")
+            .collect();
+
+        // Create a map for counting
+        const achievementCounts = new Map<string, number>();
+        for (const ua of allUserAchievements) {
+            const id = ua.achievementId;
+            achievementCounts.set(id, (achievementCounts.get(id) || 0) + 1);
+        }
+
+        // Build stats
+        const stats = achievements.map((achievement) => ({
+            ...achievement,
+            unlockedCount: achievementCounts.get(achievement._id) || 0,
+        }));
 
         return stats;
     },
