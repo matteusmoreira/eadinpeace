@@ -348,78 +348,110 @@ export const getGlobalStats = query({
         ))
     },
     handler: async (ctx, args) => {
-        const users = await ctx.db.query("users").collect();
-        const organizations = await ctx.db.query("organizations").collect();
-        const enrollments = await ctx.db.query("enrollments").collect();
-        const certificates = await ctx.db.query("certificates").collect();
-        const courses = await ctx.db.query("courses").collect();
+        try {
+            const users = await ctx.db.query("users").collect();
+            const organizations = await ctx.db.query("organizations").collect();
+            const enrollments = await ctx.db.query("enrollments").collect();
+            const certificates = await ctx.db.query("certificates").collect();
+            const courses = await ctx.db.query("courses").collect();
 
-        // Calculate period in milliseconds based on selected period
-        const now = Date.now();
-        let periodMs: number;
-        switch (args.period || "30d") {
-            case "7d":
-                periodMs = 7 * 24 * 60 * 60 * 1000;
-                break;
-            case "90d":
-                periodMs = 90 * 24 * 60 * 60 * 1000;
-                break;
-            case "1y":
-                periodMs = 365 * 24 * 60 * 60 * 1000;
-                break;
-            case "30d":
-            default:
-                periodMs = 30 * 24 * 60 * 60 * 1000;
-                break;
+            // Calculate period in milliseconds based on selected period
+            const now = Date.now();
+            let periodMs: number;
+            switch (args.period || "30d") {
+                case "7d":
+                    periodMs = 7 * 24 * 60 * 60 * 1000;
+                    break;
+                case "90d":
+                    periodMs = 90 * 24 * 60 * 60 * 1000;
+                    break;
+                case "1y":
+                    periodMs = 365 * 24 * 60 * 60 * 1000;
+                    break;
+                case "30d":
+                default:
+                    periodMs = 30 * 24 * 60 * 60 * 1000;
+                    break;
+            }
+
+            const periodStart = now - periodMs;
+            const previousPeriodStart = periodStart - periodMs;
+
+            // Users created in this period vs previous period
+            const usersThisPeriod = users.filter(u => u.createdAt && u.createdAt >= periodStart).length;
+            const usersPreviousPeriod = users.filter(u => u.createdAt && u.createdAt >= previousPeriodStart && u.createdAt < periodStart).length;
+            const userGrowth = usersPreviousPeriod > 0 ? ((usersThisPeriod - usersPreviousPeriod) / usersPreviousPeriod * 100) : usersThisPeriod > 0 ? 100 : 0;
+
+            // Organizations created in this period vs previous period
+            const orgsThisPeriod = organizations.filter(o => o.createdAt && o.createdAt >= periodStart).length;
+            const orgsPreviousPeriod = organizations.filter(o => o.createdAt && o.createdAt >= previousPeriodStart && o.createdAt < periodStart).length;
+            const orgGrowth = orgsPreviousPeriod > 0 ? ((orgsThisPeriod - orgsPreviousPeriod) / orgsPreviousPeriod * 100) : orgsThisPeriod > 0 ? 100 : 0;
+
+            // Active users growth (based on lastLoginAt)
+            const activeUsersThisPeriod = users.filter(u => u.isActive && u.lastLoginAt && u.lastLoginAt >= periodStart).length;
+            const activeUsersPreviousPeriod = users.filter(u => u.isActive && u.lastLoginAt && u.lastLoginAt >= previousPeriodStart && u.lastLoginAt < periodStart).length;
+            const activeGrowth = activeUsersPreviousPeriod > 0 ? ((activeUsersThisPeriod - activeUsersPreviousPeriod) / activeUsersPreviousPeriod * 100) : activeUsersThisPeriod > 0 ? 100 : 0;
+
+            return {
+                total: users.length,
+                byRole: {
+                    superadmin: users.filter((u) => u.role === "superadmin").length,
+                    admin: users.filter((u) => u.role === "admin").length,
+                    professor: users.filter((u) => u.role === "professor").length,
+                    student: users.filter((u) => u.role === "student").length,
+                },
+                active: users.filter((u) => u.isActive === true).length,
+                pending: users.filter((u) => u.isActive === false || u.isActive === undefined).length,
+                // Growth metrics
+                growth: {
+                    users: Math.round(userGrowth * 10) / 10,
+                    organizations: Math.round(orgGrowth * 10) / 10,
+                    activeUsers: Math.round(activeGrowth * 10) / 10,
+                },
+                // Additional stats
+                courses: {
+                    total: courses.length,
+                    published: courses.filter(c => c.isPublished === true).length,
+                },
+                enrollments: {
+                    total: enrollments.length,
+                    completed: enrollments.filter(e => e.completedAt !== undefined && e.completedAt !== null).length,
+                },
+                certificates: {
+                    total: certificates.length,
+                },
+            };
+        } catch (error) {
+            console.error("[getGlobalStats] Error:", error);
+            // Return safe default values
+            return {
+                total: 0,
+                byRole: {
+                    superadmin: 0,
+                    admin: 0,
+                    professor: 0,
+                    student: 0,
+                },
+                active: 0,
+                pending: 0,
+                growth: {
+                    users: 0,
+                    organizations: 0,
+                    activeUsers: 0,
+                },
+                courses: {
+                    total: 0,
+                    published: 0,
+                },
+                enrollments: {
+                    total: 0,
+                    completed: 0,
+                },
+                certificates: {
+                    total: 0,
+                },
+            };
         }
-
-        const periodStart = now - periodMs;
-        const previousPeriodStart = periodStart - periodMs;
-
-        // Users created in this period vs previous period
-        const usersThisPeriod = users.filter(u => u.createdAt && u.createdAt >= periodStart).length;
-        const usersPreviousPeriod = users.filter(u => u.createdAt && u.createdAt >= previousPeriodStart && u.createdAt < periodStart).length;
-        const userGrowth = usersPreviousPeriod > 0 ? ((usersThisPeriod - usersPreviousPeriod) / usersPreviousPeriod * 100) : usersThisPeriod > 0 ? 100 : 0;
-
-        // Organizations created in this period vs previous period
-        const orgsThisPeriod = organizations.filter(o => o.createdAt && o.createdAt >= periodStart).length;
-        const orgsPreviousPeriod = organizations.filter(o => o.createdAt && o.createdAt >= previousPeriodStart && o.createdAt < periodStart).length;
-        const orgGrowth = orgsPreviousPeriod > 0 ? ((orgsThisPeriod - orgsPreviousPeriod) / orgsPreviousPeriod * 100) : orgsThisPeriod > 0 ? 100 : 0;
-
-        // Active users growth (based on lastLoginAt)
-        const activeUsersThisPeriod = users.filter(u => u.isActive && u.lastLoginAt && u.lastLoginAt >= periodStart).length;
-        const activeUsersPreviousPeriod = users.filter(u => u.isActive && u.lastLoginAt && u.lastLoginAt >= previousPeriodStart && u.lastLoginAt < periodStart).length;
-        const activeGrowth = activeUsersPreviousPeriod > 0 ? ((activeUsersThisPeriod - activeUsersPreviousPeriod) / activeUsersPreviousPeriod * 100) : activeUsersThisPeriod > 0 ? 100 : 0;
-
-        return {
-            total: users.length,
-            byRole: {
-                superadmin: users.filter((u) => u.role === "superadmin").length,
-                admin: users.filter((u) => u.role === "admin").length,
-                professor: users.filter((u) => u.role === "professor").length,
-                student: users.filter((u) => u.role === "student").length,
-            },
-            active: users.filter((u) => u.isActive).length,
-            pending: users.filter((u) => !u.isActive).length,
-            // Growth metrics
-            growth: {
-                users: Math.round(userGrowth * 10) / 10,
-                organizations: Math.round(orgGrowth * 10) / 10,
-                activeUsers: Math.round(activeGrowth * 10) / 10,
-            },
-            // Additional stats
-            courses: {
-                total: courses.length,
-                published: courses.filter(c => c.isPublished).length,
-            },
-            enrollments: {
-                total: enrollments.length,
-                completed: enrollments.filter(e => e.completedAt).length,
-            },
-            certificates: {
-                total: certificates.length,
-            },
-        };
     },
 });
 
