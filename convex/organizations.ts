@@ -71,6 +71,8 @@ export const create = mutation({
         logo: v.optional(v.string()),
         primaryColor: v.optional(v.string()),
         plan: v.union(v.literal("starter"), v.literal("professional"), v.literal("enterprise")),
+        maxUsers: v.optional(v.number()), // Optional: override plan defaults
+        maxCourses: v.optional(v.number()), // Optional: override plan defaults
         clerkOrgId: v.optional(v.string()),
         // Optional: Create admin user at same time
         adminEmail: v.optional(v.string()),
@@ -91,14 +93,14 @@ export const create = mutation({
             throw new Error("Slug já existe");
         }
 
-        // Set limits based on plan
+        // Set limits based on plan (defaults) or use provided values
         const planLimits = {
             starter: { maxUsers: 50, maxCourses: 10 },
             professional: { maxUsers: 500, maxCourses: 50 },
             enterprise: { maxUsers: 10000, maxCourses: 500 },
         };
 
-        const limits = planLimits[args.plan];
+        const defaultLimits = planLimits[args.plan];
 
         const orgId = await ctx.db.insert("organizations", {
             name: args.name,
@@ -106,8 +108,8 @@ export const create = mutation({
             logo: args.logo,
             primaryColor: args.primaryColor || "#6366F1",
             plan: args.plan,
-            maxUsers: limits.maxUsers,
-            maxCourses: limits.maxCourses,
+            maxUsers: args.maxUsers ?? defaultLimits.maxUsers,
+            maxCourses: args.maxCourses ?? defaultLimits.maxCourses,
             isActive: true,
             clerkOrgId: args.clerkOrgId,
             createdAt: now,

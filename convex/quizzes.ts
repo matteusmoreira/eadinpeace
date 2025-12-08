@@ -366,6 +366,144 @@ export const updateQuestion = mutation({
     },
 });
 
+// Get all quizzes available for a student (from enrolled courses)
+export const getStudentQuizzes = query({
+    args: { userId: v.id("users") },
+    handler: async (ctx, args) => {
+        // Get user's enrollments
+        const enrollments = await ctx.db
+            .query("enrollments")
+            .withIndex("by_user", (q) => q.eq("userId", args.userId))
+            .collect();
+
+        if (enrollments.length === 0) {
+            return {
+                quizzes: [],
+                stats: {
+                    available: 0,
+                    completed: 0,
+                    approvalRate: 0,
+                    bestScore: 0,
+                },
+            };
+        }
+
+        const allQuizzes = [];
+        const courseIds = enrollments.map((e) => e.courseId);
+
+        for (const courseId of courseIds) {
+            const course = await ctx.db.get(courseId);
+            if (!course) continue;
+
+            // Get published quizzes for this course
+            const quizzes = await ctx.db
+                .query("quizzes")
+                .withIndex("by_course", (q) => q.eq("courseId", courseId))
+                .filter((q) => q.eq(q.field("isPublished"), true))
+                .collect();
+
+            for (const quiz of quizzes) {
+                // Get questions count
+                const questions = await ctx.db
+                    .query("quizQuestions")
+                    .withIndex("by_quiz", (q) => q.eq("quizId", quiz._id))
+                    .collect();
+
+                // Get user's attempts for this quiz
+                const userAttempts = await ctx.db
+                    .query("quizAttempts")
+                    .filter((q) =>
+                        q.and(
+                            q.eq(q.field("quizId"), quiz._id),
+                            q.eq(q.field("userId"), args.userId)
+                        )
+                    )
+                    .collect();
+
+                // Calculate best score and status
+                const bestAttempt = userAttempts.length > 0
+                    ? userAttempts.reduce((best, current) =>
+                        current.score > best.score ? current : best
+                    )
+                    : null;
+
+                const lastAttempt = userAttempts.length > 0
+                    ? userAttempts.reduce((last, current) =>
+                        current.completedAt > last.completedAt ? current : last
+                    )
+                    : null;
+
+                // Determine status
+                let status: "pending" | "passed" | "failed" = "pending";
+                if (userAttempts.length > 0) {
+                    status = bestAttempt && bestAttempt.score >= quiz.passingScore ? "passed" : "failed";
+                }
+
+                // Get lesson name if quiz is associated with a lesson
+                let lessonName = null;
+                if (quiz.lessonId) {
+                    const lesson = await ctx.db.get(quiz.lessonId);
+                    lessonName = lesson?.title || null;
+                }
+
+                // Format last attempt date
+                let lastAttemptFormatted = null;
+                if (lastAttempt) {
+                    const now = Date.now();
+                    const diff = now - lastAttempt.completedAt;
+                    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                    const hours = Math.floor(diff / (1000 * 60 * 60));
+                    const minutes = Math.floor(diff / (1000 * 60));
+
+                    if (days > 0) {
+                        lastAttemptFormatted = `Há ${days} dia${days > 1 ? "s" : ""}`;
+                    } else if (hours > 0) {
+                        lastAttemptFormatted = `Há ${hours} hora${hours > 1 ? "s" : ""}`;
+                    } else {
+                        lastAttemptFormatted = `Há ${minutes} minuto${minutes > 1 ? "s" : ""}`;
+                    }
+                }
+
+                allQuizzes.push({
+                    id: quiz._id,
+                    title: quiz.title,
+                    courseName: course.title,
+                    lessonName,
+                    questions: questions.length,
+                    timeLimit: quiz.timeLimit ? Math.round(quiz.timeLimit / 60) : null, // Convert to minutes
+                    passingScore: quiz.passingScore,
+                    attempts: userAttempts.length,
+                    bestScore: bestAttempt?.score || null,
+                    lastAttempt: lastAttemptFormatted,
+                    status,
+                    maxAttempts: quiz.maxAttempts || null,
+                });
+            }
+        }
+
+        // Calculate overall stats
+        const completedQuizzes = allQuizzes.filter((q) => q.attempts > 0);
+        const passedQuizzes = allQuizzes.filter((q) => q.status === "passed");
+        const allBestScores = allQuizzes
+            .filter((q) => q.bestScore !== null)
+            .map((q) => q.bestScore as number);
+
+        return {
+            quizzes: allQuizzes,
+            stats: {
+                available: allQuizzes.length,
+                completed: completedQuizzes.length,
+                approvalRate: completedQuizzes.length > 0
+                    ? Math.round((passedQuizzes.length / completedQuizzes.length) * 100)
+                    : 0,
+                bestScore: allBestScores.length > 0
+                    ? Math.max(...allBestScores)
+                    : 0,
+            },
+        };
+    },
+});
+
 // Delete quiz
 export const remove = mutation({
     args: { quizId: v.id("quizzes") },

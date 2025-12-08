@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
     Trophy,
     Clock,
@@ -13,10 +14,13 @@ import {
     Play,
     BookOpen,
     Target,
-    TrendingUp,
+    AlertCircle,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { useQuery } from "convex/react";
+import { api } from "@/../convex/_generated/api";
+import { useCurrentUser } from "@/hooks/use-current-user";
 
 const container = {
     hidden: { opacity: 0 },
@@ -31,70 +35,62 @@ const item = {
     show: { opacity: 1, y: 0 },
 };
 
-// Mock quizzes data
-const mockQuizzes = [
-    {
-        id: "quiz1",
-        title: "Fundamentos de JavaScript",
-        courseName: "JavaScript do Zero",
-        lessonName: "Variáveis e Tipos de Dados",
-        questions: 5,
-        timeLimit: 10,
-        passingScore: 70,
-        attempts: 2,
-        bestScore: 80,
-        lastAttempt: "Há 2 dias",
-        status: "passed",
-    },
-    {
-        id: "quiz2",
-        title: "Funções e Escopo",
-        courseName: "JavaScript do Zero",
-        lessonName: "Funções",
-        questions: 8,
-        timeLimit: 15,
-        passingScore: 70,
-        attempts: 1,
-        bestScore: 62,
-        lastAttempt: "Há 5 dias",
-        status: "failed",
-    },
-    {
-        id: "quiz3",
-        title: "Arrays e Objetos",
-        courseName: "JavaScript do Zero",
-        lessonName: "Estruturas de Dados",
-        questions: 10,
-        timeLimit: 20,
-        passingScore: 70,
-        attempts: 0,
-        bestScore: null,
-        lastAttempt: null,
-        status: "pending",
-    },
-    {
-        id: "quiz4",
-        title: "Introdução ao React",
-        courseName: "React do Zero ao Avançado",
-        lessonName: "Primeiros Passos",
-        questions: 6,
-        timeLimit: 12,
-        passingScore: 70,
-        attempts: 0,
-        bestScore: null,
-        lastAttempt: null,
-        status: "pending",
-    },
-];
-
-const stats = [
-    { label: "Quizzes Disponíveis", value: "12", icon: BookOpen, color: "text-primary" },
-    { label: "Concluídos", value: "4", icon: CheckCircle2, color: "text-emerald-500" },
-    { label: "Taxa de Aprovação", value: "75%", icon: Target, color: "text-amber-500" },
-    { label: "Melhor Nota", value: "95%", icon: Trophy, color: "text-violet-500" },
-];
-
 export default function StudentQuizzesPage() {
+    const { user, isLoading: isUserLoading } = useCurrentUser();
+
+    const quizzesData = useQuery(
+        api.quizzes.getStudentQuizzes,
+        user ? { userId: user._id } : "skip"
+    );
+
+    const isLoading = isUserLoading || quizzesData === undefined;
+
+    // Stats for display
+    const stats = quizzesData
+        ? [
+            { label: "Quizzes Disponíveis", value: String(quizzesData.stats.available), icon: BookOpen, color: "text-primary" },
+            { label: "Concluídos", value: String(quizzesData.stats.completed), icon: CheckCircle2, color: "text-emerald-500" },
+            { label: "Taxa de Aprovação", value: `${quizzesData.stats.approvalRate}%`, icon: Target, color: "text-amber-500" },
+            { label: "Melhor Nota", value: `${quizzesData.stats.bestScore}%`, icon: Trophy, color: "text-violet-500" },
+        ]
+        : [];
+
+    if (isLoading) {
+        return (
+            <div className="space-y-6">
+                <div>
+                    <Skeleton className="h-8 w-48 mb-2" />
+                    <Skeleton className="h-4 w-72" />
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    {[1, 2, 3, 4].map((i) => (
+                        <Card key={i}>
+                            <CardContent className="pt-6">
+                                <Skeleton className="h-16 w-full" />
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+
+                <div className="space-y-4">
+                    <Skeleton className="h-6 w-40" />
+                    <div className="grid gap-4 md:grid-cols-2">
+                        {[1, 2, 3, 4].map((i) => (
+                            <Card key={i}>
+                                <CardContent className="pt-6">
+                                    <Skeleton className="h-40 w-full" />
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    const quizzes = quizzesData?.quizzes || [];
+
     return (
         <motion.div
             variants={container}
@@ -133,104 +129,130 @@ export default function StudentQuizzesPage() {
             <motion.div variants={item} className="space-y-4">
                 <h2 className="text-lg font-semibold">Quizzes Disponíveis</h2>
 
-                <div className="grid gap-4 md:grid-cols-2">
-                    {mockQuizzes.map((quiz) => (
-                        <Card
-                            key={quiz.id}
-                            className={cn(
-                                "group hover:shadow-lg transition-all duration-300",
-                                quiz.status === "passed" && "border-emerald-200 dark:border-emerald-800",
-                                quiz.status === "failed" && "border-amber-200 dark:border-amber-800"
-                            )}
-                        >
-                            <CardHeader className="pb-3">
-                                <div className="flex items-start justify-between gap-2">
-                                    <div>
-                                        <CardTitle className="text-base">{quiz.title}</CardTitle>
-                                        <CardDescription className="line-clamp-1">
-                                            {quiz.courseName} • {quiz.lessonName}
-                                        </CardDescription>
-                                    </div>
-                                    {quiz.status === "passed" && (
-                                        <Badge className="bg-emerald-500 shrink-0">
-                                            <CheckCircle2 className="h-3 w-3 mr-1" />
-                                            Aprovado
-                                        </Badge>
-                                    )}
-                                    {quiz.status === "failed" && (
-                                        <Badge variant="secondary" className="bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400 shrink-0">
-                                            <XCircle className="h-3 w-3 mr-1" />
-                                            Tentar Novamente
-                                        </Badge>
-                                    )}
-                                    {quiz.status === "pending" && (
-                                        <Badge variant="outline" className="shrink-0">
-                                            Pendente
-                                        </Badge>
-                                    )}
-                                </div>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                {/* Quiz Info */}
-                                <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
-                                    <div className="flex items-center gap-1">
-                                        <BookOpen className="h-3.5 w-3.5" />
-                                        {quiz.questions} questões
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                        <Clock className="h-3.5 w-3.5" />
-                                        {quiz.timeLimit} min
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                        <Target className="h-3.5 w-3.5" />
-                                        Mínimo {quiz.passingScore}%
-                                    </div>
-                                </div>
-
-                                {/* Best Score */}
-                                {quiz.bestScore !== null && (
-                                    <div className="space-y-1">
-                                        <div className="flex justify-between text-sm">
-                                            <span className="text-muted-foreground">Melhor nota</span>
-                                            <span className={cn(
-                                                "font-medium",
-                                                quiz.bestScore >= quiz.passingScore ? "text-emerald-500" : "text-amber-500"
-                                            )}>
-                                                {quiz.bestScore}%
-                                            </span>
-                                        </div>
-                                        <Progress
-                                            value={quiz.bestScore}
-                                            className={cn(
-                                                "h-2",
-                                                quiz.bestScore >= quiz.passingScore
-                                                    ? "[&>div]:bg-emerald-500"
-                                                    : "[&>div]:bg-amber-500"
-                                            )}
-                                        />
-                                        <p className="text-xs text-muted-foreground">
-                                            {quiz.attempts} tentativa{quiz.attempts !== 1 && "s"} • Última: {quiz.lastAttempt}
-                                        </p>
-                                    </div>
+                {quizzes.length === 0 ? (
+                    <Card className="p-8">
+                        <div className="flex flex-col items-center justify-center text-center space-y-4">
+                            <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center">
+                                <AlertCircle className="h-8 w-8 text-muted-foreground" />
+                            </div>
+                            <div>
+                                <h3 className="font-semibold text-lg">Nenhum quiz disponível</h3>
+                                <p className="text-muted-foreground text-sm">
+                                    Matricule-se em cursos para ter acesso aos quizzes disponíveis.
+                                </p>
+                            </div>
+                            <Link href="/student/courses">
+                                <Button className="gap-2">
+                                    <BookOpen className="h-4 w-4" />
+                                    Explorar Cursos
+                                </Button>
+                            </Link>
+                        </div>
+                    </Card>
+                ) : (
+                    <div className="grid gap-4 md:grid-cols-2">
+                        {quizzes.map((quiz) => (
+                            <Card
+                                key={quiz.id}
+                                className={cn(
+                                    "group hover:shadow-lg transition-all duration-300",
+                                    quiz.status === "passed" && "border-emerald-200 dark:border-emerald-800",
+                                    quiz.status === "failed" && "border-amber-200 dark:border-amber-800"
                                 )}
-
-                                {/* CTA */}
-                                <Link href={`/student/quiz/${quiz.id}`}>
-                                    <Button
-                                        className={cn(
-                                            "w-full gap-2",
-                                            quiz.status === "pending" && "gradient-bg border-0"
+                            >
+                                <CardHeader className="pb-3">
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div>
+                                            <CardTitle className="text-base">{quiz.title}</CardTitle>
+                                            <CardDescription className="line-clamp-1">
+                                                {quiz.courseName}
+                                                {quiz.lessonName && ` • ${quiz.lessonName}`}
+                                            </CardDescription>
+                                        </div>
+                                        {quiz.status === "passed" && (
+                                            <Badge className="bg-emerald-500 shrink-0">
+                                                <CheckCircle2 className="h-3 w-3 mr-1" />
+                                                Aprovado
+                                            </Badge>
                                         )}
-                                        variant={quiz.status === "pending" ? "default" : "outline"}
-                                    >
-                                        <Play className="h-4 w-4" />
-                                        {quiz.status === "pending" ? "Iniciar Quiz" : "Refazer Quiz"}
-                                    </Button>
-                                </Link>
-                            </CardContent>
-                        </Card>
-                    ))}
-                </div>
+                                        {quiz.status === "failed" && (
+                                            <Badge variant="secondary" className="bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400 shrink-0">
+                                                <XCircle className="h-3 w-3 mr-1" />
+                                                Tentar Novamente
+                                            </Badge>
+                                        )}
+                                        {quiz.status === "pending" && (
+                                            <Badge variant="outline" className="shrink-0">
+                                                Pendente
+                                            </Badge>
+                                        )}
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    {/* Quiz Info */}
+                                    <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
+                                        <div className="flex items-center gap-1">
+                                            <BookOpen className="h-3.5 w-3.5" />
+                                            {quiz.questions} questões
+                                        </div>
+                                        {quiz.timeLimit && (
+                                            <div className="flex items-center gap-1">
+                                                <Clock className="h-3.5 w-3.5" />
+                                                {quiz.timeLimit} min
+                                            </div>
+                                        )}
+                                        <div className="flex items-center gap-1">
+                                            <Target className="h-3.5 w-3.5" />
+                                            Mínimo {quiz.passingScore}%
+                                        </div>
+                                    </div>
+
+                                    {/* Best Score */}
+                                    {quiz.bestScore !== null && (
+                                        <div className="space-y-1">
+                                            <div className="flex justify-between text-sm">
+                                                <span className="text-muted-foreground">Melhor nota</span>
+                                                <span className={cn(
+                                                    "font-medium",
+                                                    quiz.bestScore >= quiz.passingScore ? "text-emerald-500" : "text-amber-500"
+                                                )}>
+                                                    {quiz.bestScore}%
+                                                </span>
+                                            </div>
+                                            <Progress
+                                                value={quiz.bestScore}
+                                                className={cn(
+                                                    "h-2",
+                                                    quiz.bestScore >= quiz.passingScore
+                                                        ? "[&>div]:bg-emerald-500"
+                                                        : "[&>div]:bg-amber-500"
+                                                )}
+                                            />
+                                            <p className="text-xs text-muted-foreground">
+                                                {quiz.attempts} tentativa{quiz.attempts !== 1 && "s"}
+                                                {quiz.lastAttempt && ` • Última: ${quiz.lastAttempt}`}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {/* CTA */}
+                                    <Link href={`/student/quiz/${quiz.id}`}>
+                                        <Button
+                                            className={cn(
+                                                "w-full gap-2",
+                                                quiz.status === "pending" && "gradient-bg border-0"
+                                            )}
+                                            variant={quiz.status === "pending" ? "default" : "outline"}
+                                        >
+                                            <Play className="h-4 w-4" />
+                                            {quiz.status === "pending" ? "Iniciar Quiz" : "Refazer Quiz"}
+                                        </Button>
+                                    </Link>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                )}
             </motion.div>
         </motion.div>
     );

@@ -5,8 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
     ArrowLeft,
     Save,
@@ -20,14 +20,16 @@ import {
     Eye,
     EyeOff,
     RefreshCw,
+    AlertCircle,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { toast } from "sonner";
+import { Id } from "@convex/_generated/dataModel";
 
 const container = {
     hidden: { opacity: 0 },
@@ -42,55 +44,96 @@ const item = {
     show: { opacity: 1, y: 0 },
 };
 
-const plans = [
+// Fallback plans for when no plans exist in database
+const fallbackPlans = [
     {
-        value: "starter" as const,
-        label: "Starter",
-        price: "R$ 99/mês",
-        users: "Até 50 usuários",
-        courses: "Até 10 cursos",
-        color: "bg-slate-100 dark:bg-slate-800",
+        _id: "starter" as unknown as Id<"subscriptionPlans">,
+        name: "Starter",
+        description: "Ideal para pequenas organizações",
+        price: 9900,
+        interval: "monthly" as const,
+        maxUsers: 50,
+        maxCourses: 10,
         features: ["Suporte por email", "Relatórios básicos"],
+        isActive: true,
     },
     {
-        value: "professional" as const,
-        label: "Professional",
-        price: "R$ 299/mês",
-        users: "Até 500 usuários",
-        courses: "Até 50 cursos",
-        color: "bg-primary/10",
-        popular: true,
+        _id: "professional" as unknown as Id<"subscriptionPlans">,
+        name: "Professional",
+        description: "Para organizações em crescimento",
+        price: 29900,
+        interval: "monthly" as const,
+        maxUsers: 500,
+        maxCourses: 50,
         features: ["Suporte prioritário", "Relatórios avançados", "API Access"],
+        isActive: true,
+        popular: true,
     },
     {
-        value: "enterprise" as const,
-        label: "Enterprise",
-        price: "R$ 999/mês",
-        users: "Até 10.000 usuários",
-        courses: "Até 500 cursos",
-        color: "gradient-bg",
+        _id: "enterprise" as unknown as Id<"subscriptionPlans">,
+        name: "Enterprise",
+        description: "Para grandes organizações",
+        price: 99900,
+        interval: "monthly" as const,
+        maxUsers: 10000,
+        maxCourses: 500,
         features: ["Suporte 24/7", "Customização", "SLA garantido", "White-label"],
+        isActive: true,
     },
 ];
+
+// Map plan name to literal type
+function getPlanType(planName: string): "starter" | "professional" | "enterprise" {
+    const normalized = planName.toLowerCase();
+    if (normalized.includes("enterprise")) return "enterprise";
+    if (normalized.includes("professional") || normalized.includes("pro")) return "professional";
+    return "starter";
+}
+
+// Format price from cents to BRL
+function formatPrice(priceInCents: number, interval: string): string {
+    const value = priceInCents / 100;
+    const formatted = new Intl.NumberFormat("pt-BR", {
+        style: "currency",
+        currency: "BRL",
+    }).format(value);
+    return `${formatted}/${interval === "monthly" ? "mês" : "ano"}`;
+}
 
 export default function NewOrganizationPage() {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
     const [formData, setFormData] = useState({
         name: "",
         slug: "",
         description: "",
         logo: "",
-        plan: "starter" as "starter" | "professional" | "enterprise",
         adminFirstName: "",
         adminLastName: "",
         adminEmail: "",
         adminPassword: "",
     });
 
-    // Convex
+    // Fetch plans from database
+    const plansData = useQuery(api.plans.getAll);
     const createOrganization = useMutation(api.organizations.create);
+
+    // Use real plans or fallback
+    const plans = plansData && plansData.length > 0
+        ? plansData.filter(p => p.isActive).sort((a, b) => a.price - b.price)
+        : fallbackPlans;
+
+    // Set default plan when plans load
+    useEffect(() => {
+        if (plans.length > 0 && !selectedPlanId) {
+            setSelectedPlanId(String(plans[0]._id));
+        }
+    }, [plans, selectedPlanId]);
+
+    // Get selected plan
+    const selectedPlan = plans.find(p => String(p._id) === selectedPlanId);
 
     // Gerar senha aleatória
     const generatePassword = () => {
@@ -115,6 +158,12 @@ export default function NewOrganizationPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (!selectedPlan) {
+            toast.error("Selecione um plano");
+            return;
+        }
+
         setIsLoading(true);
 
         try {
@@ -147,7 +196,9 @@ export default function NewOrganizationPage() {
                 name: formData.name,
                 slug: formData.slug,
                 logo: formData.logo || undefined,
-                plan: formData.plan,
+                plan: getPlanType(selectedPlan.name),
+                maxUsers: selectedPlan.maxUsers,
+                maxCourses: selectedPlan.maxCourses,
                 adminEmail: formData.adminEmail || undefined,
                 adminFirstName: formData.adminFirstName || undefined,
                 adminLastName: formData.adminLastName || undefined,
@@ -161,6 +212,21 @@ export default function NewOrganizationPage() {
         } finally {
             setIsLoading(false);
         }
+    };
+
+    // Determine if a plan should be marked as "popular"
+    const isPopular = (plan: typeof plans[0], index: number) => {
+        return "popular" in plan ? plan.popular : index === 1;
+    };
+
+    // Get color class based on plan index
+    const getPlanColor = (index: number) => {
+        const colors = [
+            "bg-slate-100 dark:bg-slate-800",
+            "bg-primary/10",
+            "gradient-bg",
+        ];
+        return colors[index] || colors[0];
     };
 
     return (
@@ -255,64 +321,83 @@ export default function NewOrganizationPage() {
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <div className="grid gap-4 md:grid-cols-3">
-                                {plans.map((plan) => (
-                                    <div
-                                        key={plan.value}
-                                        className={cn(
-                                            "relative p-4 rounded-lg border-2 cursor-pointer transition-all",
-                                            formData.plan === plan.value
-                                                ? "border-primary shadow-lg"
-                                                : "border-muted hover:border-muted-foreground/50"
-                                        )}
-                                        onClick={() =>
-                                            setFormData((prev) => ({ ...prev, plan: plan.value }))
-                                        }
-                                    >
-                                        {plan.popular && (
-                                            <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                                                <span className="bg-primary text-primary-foreground text-xs px-2 py-1 rounded-full flex items-center gap-1">
-                                                    <Sparkles className="h-3 w-3" />
-                                                    Popular
-                                                </span>
+                            {plansData === undefined ? (
+                                <div className="grid gap-4 md:grid-cols-3">
+                                    {[1, 2, 3].map((i) => (
+                                        <Skeleton key={i} className="h-64 w-full" />
+                                    ))}
+                                </div>
+                            ) : plans.length === 0 ? (
+                                <div className="p-8 text-center">
+                                    <AlertCircle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                                    <h3 className="font-semibold mb-2">Nenhum plano disponível</h3>
+                                    <p className="text-muted-foreground text-sm mb-4">
+                                        Crie planos de assinatura antes de cadastrar organizações.
+                                    </p>
+                                    <Link href="/superadmin/plans">
+                                        <Button>Gerenciar Planos</Button>
+                                    </Link>
+                                </div>
+                            ) : (
+                                <div className="grid gap-4 md:grid-cols-3">
+                                    {plans.map((plan, index) => (
+                                        <div
+                                            key={String(plan._id)}
+                                            className={cn(
+                                                "relative p-4 rounded-lg border-2 cursor-pointer transition-all",
+                                                selectedPlanId === String(plan._id)
+                                                    ? "border-primary shadow-lg"
+                                                    : "border-muted hover:border-muted-foreground/50"
+                                            )}
+                                            onClick={() => setSelectedPlanId(String(plan._id))}
+                                        >
+                                            {isPopular(plan, index) && (
+                                                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                                                    <span className="bg-primary text-primary-foreground text-xs px-2 py-1 rounded-full flex items-center gap-1">
+                                                        <Sparkles className="h-3 w-3" />
+                                                        Popular
+                                                    </span>
+                                                </div>
+                                            )}
+
+                                            <div className={cn("h-2 w-full rounded-t-sm mb-3", getPlanColor(index))} />
+
+                                            <h3 className="font-bold">{plan.name}</h3>
+                                            <p className="text-2xl font-bold mt-1">
+                                                {formatPrice(plan.price, plan.interval)}
+                                            </p>
+
+                                            <Separator className="my-3" />
+
+                                            <div className="space-y-2 text-sm">
+                                                <div className="flex items-center gap-2">
+                                                    <Users className="h-4 w-4 text-muted-foreground" />
+                                                    Até {plan.maxUsers.toLocaleString()} usuários
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <BookOpen className="h-4 w-4 text-muted-foreground" />
+                                                    Até {plan.maxCourses} cursos
+                                                </div>
                                             </div>
-                                        )}
 
-                                        <div className={cn("h-2 w-full rounded-t-sm mb-3", plan.color)} />
+                                            <ul className="mt-3 space-y-1">
+                                                {plan.features.map((feature, i) => (
+                                                    <li key={i} className="text-xs text-muted-foreground flex items-center gap-1">
+                                                        <span className="text-emerald-500">✓</span>
+                                                        {feature}
+                                                    </li>
+                                                ))}
+                                            </ul>
 
-                                        <h3 className="font-bold">{plan.label}</h3>
-                                        <p className="text-2xl font-bold mt-1">{plan.price}</p>
-
-                                        <Separator className="my-3" />
-
-                                        <div className="space-y-2 text-sm">
-                                            <div className="flex items-center gap-2">
-                                                <Users className="h-4 w-4 text-muted-foreground" />
-                                                {plan.users}
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <BookOpen className="h-4 w-4 text-muted-foreground" />
-                                                {plan.courses}
-                                            </div>
+                                            {selectedPlanId === String(plan._id) && (
+                                                <div className="absolute top-2 right-2 h-5 w-5 rounded-full bg-primary flex items-center justify-center">
+                                                    <div className="h-2 w-2 rounded-full bg-white" />
+                                                </div>
+                                            )}
                                         </div>
-
-                                        <ul className="mt-3 space-y-1">
-                                            {plan.features.map((feature, i) => (
-                                                <li key={i} className="text-xs text-muted-foreground flex items-center gap-1">
-                                                    <span className="text-emerald-500">✓</span>
-                                                    {feature}
-                                                </li>
-                                            ))}
-                                        </ul>
-
-                                        {formData.plan === plan.value && (
-                                            <div className="absolute top-2 right-2 h-5 w-5 rounded-full bg-primary flex items-center justify-center">
-                                                <div className="h-2 w-2 rounded-full bg-white" />
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
+                                    ))}
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
 
@@ -419,7 +504,7 @@ export default function NewOrganizationPage() {
                         <Button
                             type="submit"
                             className="gap-2 gradient-bg border-0"
-                            disabled={isLoading}
+                            disabled={isLoading || !selectedPlan}
                         >
                             {isLoading ? (
                                 <>
