@@ -1,5 +1,13 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalMutation } from "./_generated/server";
+import { internal } from "./_generated/api";
+
+// Point values for different actions
+const POINT_VALUES = {
+    lesson_complete: 10,
+    course_complete: 100,
+    certificate_earned: 50,
+};
 
 // Get all enrollments (for admin/professor views)
 export const getAll = query({
@@ -136,6 +144,12 @@ export const updateLessonProgress = mutation({
     handler: async (ctx, args) => {
         const now = Date.now();
 
+        // Get user to find their organization
+        const user = await ctx.db.get(args.userId);
+        if (!user || !user.organizationId) {
+            throw new Error("User or organization not found");
+        }
+
         // Update or create lesson progress
         const existingProgress = await ctx.db
             .query("lessonProgress")
@@ -143,6 +157,9 @@ export const updateLessonProgress = mutation({
                 q.eq("userId", args.userId).eq("lessonId", args.lessonId)
             )
             .first();
+
+        const wasAlreadyCompleted = existingProgress?.isCompleted ?? false;
+        const isNewlyCompleted = args.isCompleted && !wasAlreadyCompleted;
 
         if (existingProgress) {
             await ctx.db.patch(existingProgress._id, {
@@ -160,6 +177,18 @@ export const updateLessonProgress = mutation({
                 isCompleted: args.isCompleted,
                 completedAt: args.isCompleted ? now : undefined,
                 lastWatchedAt: now,
+            });
+        }
+
+        // Award points for completing a lesson (only if newly completed)
+        if (isNewlyCompleted) {
+            await addPointsToUser(ctx, {
+                userId: args.userId,
+                organizationId: user.organizationId,
+                points: POINT_VALUES.lesson_complete,
+                type: "lesson_complete",
+                description: "Aula concluída",
+                metadata: { lessonId: args.lessonId, courseId: args.courseId },
             });
         }
 
@@ -185,6 +214,7 @@ export const updateLessonProgress = mutation({
 
             const progress = Math.round((completedLessons.length / allLessons.length) * 100);
             const isComplete = progress === 100;
+            const wasAlreadyComplete = enrollment.completedAt !== undefined;
 
             await ctx.db.patch(enrollment._id, {
                 completedLessons,
@@ -193,8 +223,19 @@ export const updateLessonProgress = mutation({
                 lastAccessedAt: now,
             });
 
-            // If course completed, create certificate
-            if (isComplete && !enrollment.completedAt) {
+            // If course completed (newly), create certificate and award points
+            if (isComplete && !wasAlreadyComplete) {
+                // Award points for completing the course
+                await addPointsToUser(ctx, {
+                    userId: args.userId,
+                    organizationId: user.organizationId,
+                    points: POINT_VALUES.course_complete,
+                    type: "course_complete",
+                    description: "Curso concluído",
+                    metadata: { courseId: args.courseId },
+                });
+
+                // Create certificate
                 const code = `CERT-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
                 await ctx.db.insert("certificates", {
                     userId: args.userId,
@@ -202,10 +243,88 @@ export const updateLessonProgress = mutation({
                     code,
                     issuedAt: now,
                 });
+
+                // Award points for earning the certificate
+                await addPointsToUser(ctx, {
+                    userId: args.userId,
+                    organizationId: user.organizationId,
+                    points: POINT_VALUES.certificate_earned,
+                    type: "certificate_earned",
+                    description: "Certificado obtido",
+                    metadata: { courseId: args.courseId, certificateCode: code },
+                });
             }
         }
     },
 });
+
+// Helper function to add points to a user
+async function addPointsToUser(
+    ctx: any,
+    args: {
+        userId: any;
+        organizationId: any;
+        points: number;
+        type: "lesson_complete" | "course_complete" | "quiz_pass" | "certificate_earned" | "streak_bonus" | "forum_participation" | "helpful_answer" | "admin_adjustment";
+        description: string;
+        metadata?: any;
+    }
+) {
+    const now = Date.now();
+
+    // Create transaction record
+    await ctx.db.insert("pointTransactions", {
+        userId: args.userId,
+        points: args.points,
+        type: args.type,
+        description: args.description,
+        metadata: args.metadata,
+        createdAt: now,
+    });
+
+    // Update or create user points
+    const existingPoints = await ctx.db
+        .query("userPoints")
+        .withIndex("by_user", (q: any) => q.eq("userId", args.userId))
+        .first();
+
+    if (existingPoints) {
+        // Update counters based on type
+        const updates: any = {
+            totalPoints: existingPoints.totalPoints + args.points,
+            lastActivityAt: now,
+            updatedAt: now,
+        };
+
+        if (args.type === "lesson_complete") {
+            updates.lessonsCompleted = existingPoints.lessonsCompleted + 1;
+        } else if (args.type === "course_complete") {
+            updates.coursesCompleted = existingPoints.coursesCompleted + 1;
+        } else if (args.type === "quiz_pass") {
+            updates.quizzesPassed = existingPoints.quizzesPassed + 1;
+        } else if (args.type === "certificate_earned") {
+            updates.certificatesEarned = existingPoints.certificatesEarned + 1;
+        }
+
+        await ctx.db.patch(existingPoints._id, updates);
+    } else {
+        // Create new record
+        await ctx.db.insert("userPoints", {
+            userId: args.userId,
+            organizationId: args.organizationId,
+            totalPoints: args.points,
+            coursesCompleted: args.type === "course_complete" ? 1 : 0,
+            lessonsCompleted: args.type === "lesson_complete" ? 1 : 0,
+            quizzesPassed: args.type === "quiz_pass" ? 1 : 0,
+            certificatesEarned: args.type === "certificate_earned" ? 1 : 0,
+            currentStreak: 0,
+            longestStreak: 0,
+            lastActivityAt: now,
+            updatedAt: now,
+        });
+    }
+}
+
 
 // Get course progress for user
 export const getCourseProgress = query({

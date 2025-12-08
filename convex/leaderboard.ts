@@ -289,3 +289,101 @@ export const getWeeklyLeaders = query({
             .slice(0, 3);
     },
 });
+
+// Sync points for all existing users based on their completed lessons and certificates
+// This should be run once to migrate existing data
+export const syncExistingPoints = mutation({
+    args: {},
+    handler: async (ctx) => {
+        const now = Date.now();
+        let usersProcessed = 0;
+        let pointsAwarded = 0;
+
+        // Get all lesson progress records
+        const allLessonProgress = await ctx.db.query("lessonProgress").collect();
+        const completedLessons = allLessonProgress.filter(lp => lp.isCompleted);
+
+        // Get all certificates
+        const certificates = await ctx.db.query("certificates").collect();
+
+        // Get all users
+        const users = await ctx.db.query("users").collect();
+
+        for (const user of users) {
+            if (!user.organizationId) continue;
+
+            // Check if user already has points
+            const existingPoints = await ctx.db
+                .query("userPoints")
+                .withIndex("by_user", (q) => q.eq("userId", user._id))
+                .first();
+
+            if (existingPoints) continue; // Skip users who already have points
+
+            // Count completed lessons for this user
+            const userCompletedLessons = completedLessons.filter(
+                lp => lp.userId === user._id
+            );
+            const lessonsCount = userCompletedLessons.length;
+
+            // Count certificates for this user
+            const userCertificates = certificates.filter(
+                cert => cert.userId === user._id
+            );
+            const certificatesCount = userCertificates.length;
+
+            if (lessonsCount === 0 && certificatesCount === 0) continue;
+
+            // Calculate total points
+            const lessonPoints = lessonsCount * 10; // 10 points per lesson
+            const coursePoints = certificatesCount * 100; // 100 points per course
+            const certificatePoints = certificatesCount * 50; // 50 points per certificate
+            const totalPoints = lessonPoints + coursePoints + certificatePoints;
+
+            // Create userPoints record
+            await ctx.db.insert("userPoints", {
+                userId: user._id,
+                organizationId: user.organizationId,
+                totalPoints,
+                coursesCompleted: certificatesCount,
+                lessonsCompleted: lessonsCount,
+                quizzesPassed: 0,
+                certificatesEarned: certificatesCount,
+                currentStreak: 0,
+                longestStreak: 0,
+                lastActivityAt: now,
+                updatedAt: now,
+            });
+
+            // Create transaction records for history
+            if (lessonsCount > 0) {
+                await ctx.db.insert("pointTransactions", {
+                    userId: user._id,
+                    points: lessonPoints,
+                    type: "lesson_complete" as const,
+                    description: `Sincronização: ${lessonsCount} aulas concluídas`,
+                    createdAt: now,
+                });
+            }
+
+            if (certificatesCount > 0) {
+                await ctx.db.insert("pointTransactions", {
+                    userId: user._id,
+                    points: coursePoints + certificatePoints,
+                    type: "course_complete" as const,
+                    description: `Sincronização: ${certificatesCount} cursos e certificados`,
+                    createdAt: now,
+                });
+            }
+
+            usersProcessed++;
+            pointsAwarded += totalPoints;
+        }
+
+        return {
+            success: true,
+            usersProcessed,
+            totalPointsAwarded: pointsAwarded,
+        };
+    },
+});
