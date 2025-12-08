@@ -1,0 +1,319 @@
+"use client";
+
+import { useState } from "react";
+import { motion } from "framer-motion";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+    Heart,
+    MessageCircle,
+    Share2,
+    MoreHorizontal,
+    Trash2,
+    Globe,
+    Users,
+    Lock,
+    Repeat2,
+} from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { cn } from "@/lib/utils";
+import { Id } from "@convex/_generated/dataModel";
+import Link from "next/link";
+
+interface Author {
+    _id: Id<"users">;
+    firstName: string;
+    lastName: string;
+    imageUrl?: string;
+    role: string;
+}
+
+interface Post {
+    _id: Id<"socialPosts">;
+    authorId: Id<"users">;
+    content: string;
+    imageUrl?: string;
+    likesCount: number;
+    commentsCount: number;
+    sharesCount: number;
+    visibility: "public" | "followers" | "private";
+    isShared: boolean;
+    originalPostId?: Id<"socialPosts">;
+    shareComment?: string;
+    createdAt: number;
+    author: Author | null;
+    originalPost?: {
+        content: string;
+        imageUrl?: string;
+        author: Author | null;
+    } | null;
+    isLikedByUser: boolean;
+}
+
+interface PostCardProps {
+    post: Post;
+    currentUserId: Id<"users">;
+    onLike: (postId: Id<"socialPosts">) => void;
+    onComment: (postId: Id<"socialPosts">) => void;
+    onShare: (postId: Id<"socialPosts">) => void;
+    onDelete: (postId: Id<"socialPosts">) => void;
+}
+
+const visibilityIcons = {
+    public: <Globe className="h-3 w-3" />,
+    followers: <Users className="h-3 w-3" />,
+    private: <Lock className="h-3 w-3" />,
+};
+
+const visibilityLabels = {
+    public: "Público",
+    followers: "Seguidores",
+    private: "Privado",
+};
+
+const roleLabels: Record<string, string> = {
+    student: "Aluno",
+    professor: "Professor",
+    admin: "Admin",
+    superadmin: "Super Admin",
+};
+
+const roleColors: Record<string, string> = {
+    student: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+    professor: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+    admin: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+    superadmin: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+};
+
+export function PostCard({
+    post,
+    currentUserId,
+    onLike,
+    onComment,
+    onShare,
+    onDelete,
+}: PostCardProps) {
+    const [isLiked, setIsLiked] = useState(post.isLikedByUser);
+    const [likesCount, setLikesCount] = useState(post.likesCount);
+    const [isLiking, setIsLiking] = useState(false);
+
+    const isOwnPost = post.authorId === currentUserId;
+
+    const handleLike = async () => {
+        if (isLiking) return;
+        setIsLiking(true);
+
+        // Optimistic update
+        setIsLiked(!isLiked);
+        setLikesCount(isLiked ? likesCount - 1 : likesCount + 1);
+
+        try {
+            await onLike(post._id);
+        } catch {
+            // Reverter se falhar
+            setIsLiked(isLiked);
+            setLikesCount(post.likesCount);
+        } finally {
+            setIsLiking(false);
+        }
+    };
+
+    const formatDate = (timestamp: number) => {
+        return formatDistanceToNow(new Date(timestamp), {
+            addSuffix: true,
+            locale: ptBR,
+        });
+    };
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+        >
+            <Card className="overflow-hidden hover:shadow-lg transition-shadow">
+                <CardContent className="p-4">
+                    {/* Se for compartilhamento, mostrar quem compartilhou */}
+                    {post.isShared && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3 pb-3 border-b">
+                            <Repeat2 className="h-4 w-4" />
+                            <Link
+                                href={`/student/community/profile/${post.authorId}`}
+                                className="font-medium hover:underline"
+                            >
+                                {post.author?.firstName} {post.author?.lastName}
+                            </Link>
+                            <span>compartilhou</span>
+                        </div>
+                    )}
+
+                    {/* Header do post */}
+                    <div className="flex items-start gap-3">
+                        <Link href={`/student/community/profile/${post.isShared && post.originalPost ? post.originalPost.author?._id : post.authorId}`}>
+                            <Avatar className="h-10 w-10 ring-2 ring-background shadow">
+                                <AvatarImage
+                                    src={post.isShared && post.originalPost
+                                        ? post.originalPost.author?.imageUrl
+                                        : post.author?.imageUrl
+                                    }
+                                />
+                                <AvatarFallback className="bg-gradient-to-br from-primary/80 to-primary text-primary-foreground">
+                                    {post.isShared && post.originalPost
+                                        ? post.originalPost.author?.firstName?.[0]
+                                        : post.author?.firstName?.[0]
+                                    }
+                                </AvatarFallback>
+                            </Avatar>
+                        </Link>
+
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <Link
+                                    href={`/student/community/profile/${post.isShared && post.originalPost ? post.originalPost.author?._id : post.authorId}`}
+                                    className="font-semibold hover:underline"
+                                >
+                                    {post.isShared && post.originalPost
+                                        ? `${post.originalPost.author?.firstName} ${post.originalPost.author?.lastName}`
+                                        : `${post.author?.firstName} ${post.author?.lastName}`
+                                    }
+                                </Link>
+                                <Badge
+                                    variant="secondary"
+                                    className={cn(
+                                        "text-xs px-1.5 py-0",
+                                        roleColors[post.isShared && post.originalPost
+                                            ? post.originalPost.author?.role || "student"
+                                            : post.author?.role || "student"
+                                        ]
+                                    )}
+                                >
+                                    {roleLabels[post.isShared && post.originalPost
+                                        ? post.originalPost.author?.role || "student"
+                                        : post.author?.role || "student"
+                                    ]}
+                                </Badge>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <span>{formatDate(post.createdAt)}</span>
+                                <span>•</span>
+                                <span className="flex items-center gap-1">
+                                    {visibilityIcons[post.visibility]}
+                                    {visibilityLabels[post.visibility]}
+                                </span>
+                            </div>
+                        </div>
+
+                        {isOwnPost && (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                        <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem
+                                        onClick={() => onDelete(post._id)}
+                                        className="text-destructive focus:text-destructive"
+                                    >
+                                        <Trash2 className="h-4 w-4 mr-2" />
+                                        Excluir
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        )}
+                    </div>
+
+                    {/* Comentário do compartilhamento */}
+                    {post.isShared && post.shareComment && (
+                        <p className="mt-3 text-sm italic text-muted-foreground">
+                            "{post.shareComment}"
+                        </p>
+                    )}
+
+                    {/* Conteúdo do post */}
+                    <div className={cn(
+                        "mt-3",
+                        post.isShared && "bg-muted/50 rounded-lg p-3 border"
+                    )}>
+                        <p className="whitespace-pre-wrap break-words">
+                            {post.isShared && post.originalPost
+                                ? post.originalPost.content
+                                : post.content
+                            }
+                        </p>
+
+                        {/* Imagem do post */}
+                        {(post.isShared && post.originalPost?.imageUrl || (!post.isShared && post.imageUrl)) && (
+                            <div className="mt-3 rounded-lg overflow-hidden">
+                                <img
+                                    src={post.isShared ? post.originalPost?.imageUrl : post.imageUrl}
+                                    alt="Post image"
+                                    className="w-full max-h-96 object-cover"
+                                />
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Contadores */}
+                    {(likesCount > 0 || post.commentsCount > 0 || post.sharesCount > 0) && (
+                        <div className="flex items-center gap-4 mt-3 pt-3 border-t text-sm text-muted-foreground">
+                            {likesCount > 0 && (
+                                <span>{likesCount} curtida{likesCount !== 1 ? "s" : ""}</span>
+                            )}
+                            {post.commentsCount > 0 && (
+                                <span>{post.commentsCount} comentário{post.commentsCount !== 1 ? "s" : ""}</span>
+                            )}
+                            {post.sharesCount > 0 && (
+                                <span>{post.sharesCount} compartilhamento{post.sharesCount !== 1 ? "s" : ""}</span>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Ações */}
+                    <div className="flex items-center gap-1 mt-3 pt-3 border-t">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleLike}
+                            disabled={isLiking}
+                            className={cn(
+                                "flex-1 gap-2",
+                                isLiked && "text-red-500 hover:text-red-600"
+                            )}
+                        >
+                            <Heart className={cn("h-4 w-4", isLiked && "fill-current")} />
+                            Curtir
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onComment(post._id)}
+                            className="flex-1 gap-2"
+                        >
+                            <MessageCircle className="h-4 w-4" />
+                            Comentar
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onShare(post._id)}
+                            className="flex-1 gap-2"
+                        >
+                            <Share2 className="h-4 w-4" />
+                            Compartilhar
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
+        </motion.div>
+    );
+}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { api } from "@convex/_generated/api";
 import { useUser } from "@clerk/nextjs";
 import { useState } from "react";
 import {
@@ -25,7 +25,7 @@ export default function QuestionBankPage() {
     const [difficultyFilter, setDifficultyFilter] = useState<string[]>([]);
     const [showFilters, setShowFilters] = useState(false);
 
-    const currentUser = useQuery(api.users.getCurrentUser);
+    const currentUser = useQuery(api.users.getByClerkId, user?.id ? { clerkId: user.id } : "skip");
     const questions = useQuery(
         api.questionBank.search,
         currentUser?.organizationId
@@ -187,8 +187,8 @@ export default function QuestionBankPage() {
                                                 }
                                             }}
                                             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${typeFilter.includes(type.value)
-                                                    ? "bg-indigo-100 text-indigo-700"
-                                                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                                ? "bg-indigo-100 text-indigo-700"
+                                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                                                 }`}
                                         >
                                             {type.label}
@@ -216,8 +216,8 @@ export default function QuestionBankPage() {
                                                 }
                                             }}
                                             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${difficultyFilter.includes(diff.value)
-                                                    ? getDifficultyClass(diff.color, true)
-                                                    : getDifficultyClass(diff.color, false)
+                                                ? getDifficultyClass(diff.color, true)
+                                                : getDifficultyClass(diff.color, false)
                                                 }`}
                                         >
                                             {diff.label}

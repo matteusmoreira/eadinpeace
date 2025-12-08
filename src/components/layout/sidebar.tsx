@@ -186,9 +186,23 @@ const menuSections: MenuSection[] = [
         title: "Comunidade",
         roles: ["student"],
         items: [
-            { title: "Fórum", href: "/student/community", icon: MessageSquare },
+            { title: "Comunidade", href: "/student/community", icon: MessageSquare },
             { title: "Ranking", href: "/student/ranking", icon: Trophy },
             { title: "Notificações", href: "/student/notifications", icon: Bell },
+        ],
+    },
+    {
+        title: "Comunidade",
+        roles: ["professor"],
+        items: [
+            { title: "Comunidade", href: "/student/community", icon: MessageSquare },
+        ],
+    },
+    {
+        title: "Comunidade",
+        roles: ["admin"],
+        items: [
+            { title: "Comunidade", href: "/student/community", icon: MessageSquare },
         ],
     },
 

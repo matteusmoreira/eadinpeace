@@ -705,4 +705,105 @@ export default defineSchema({
         .index("by_user", ["userId"])
         .index("by_course", ["courseId"])
         .index("by_user_course", ["userId", "courseId"]),
+
+    // ================================
+    // SOCIAL NETWORK FEATURES
+    // ================================
+
+    // Posts do Feed Social
+    socialPosts: defineTable({
+        authorId: v.id("users"),
+        organizationId: v.id("organizations"),
+        content: v.string(),
+        imageUrl: v.optional(v.string()),
+        imageStorageId: v.optional(v.id("_storage")),
+        likesCount: v.number(),
+        commentsCount: v.number(),
+        sharesCount: v.number(),
+        // Privacidade do post
+        visibility: v.union(
+            v.literal("public"),      // Todos da organização podem ver
+            v.literal("followers"),   // Apenas seguidores podem ver
+            v.literal("private")      // Apenas o autor pode ver
+        ),
+        // Compartilhamento
+        isShared: v.boolean(),
+        originalPostId: v.optional(v.id("socialPosts")),
+        shareComment: v.optional(v.string()),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_author", ["authorId"])
+        .index("by_organization", ["organizationId"])
+        .index("by_created", ["organizationId", "createdAt"])
+        .index("by_visibility", ["organizationId", "visibility"]),
+
+    // Curtidas em Posts
+    postLikes: defineTable({
+        postId: v.id("socialPosts"),
+        userId: v.id("users"),
+        createdAt: v.number(),
+    })
+        .index("by_post", ["postId"])
+        .index("by_user", ["userId"])
+        .index("by_post_user", ["postId", "userId"]),
+
+    // Comentários em Posts
+    postComments: defineTable({
+        postId: v.id("socialPosts"),
+        authorId: v.id("users"),
+        content: v.string(),
+        parentId: v.optional(v.id("postComments")),
+        likesCount: v.number(),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_post", ["postId"])
+        .index("by_author", ["authorId"])
+        .index("by_parent", ["parentId"]),
+
+    // Curtidas em Comentários
+    commentLikesOnPosts: defineTable({
+        commentId: v.id("postComments"),
+        userId: v.id("users"),
+        createdAt: v.number(),
+    })
+        .index("by_comment", ["commentId"])
+        .index("by_user", ["userId"])
+        .index("by_comment_user", ["commentId", "userId"]),
+
+    // Sistema de Seguidores
+    userFollows: defineTable({
+        followerId: v.id("users"),
+        followingId: v.id("users"),
+        createdAt: v.number(),
+    })
+        .index("by_follower", ["followerId"])
+        .index("by_following", ["followingId"])
+        .index("by_pair", ["followerId", "followingId"]),
+
+    // Conversas Privadas
+    conversations: defineTable({
+        organizationId: v.id("organizations"),
+        participantIds: v.array(v.id("users")),
+        lastMessageAt: v.number(),
+        lastMessagePreview: v.optional(v.string()),
+        lastMessageSenderId: v.optional(v.id("users")),
+        createdAt: v.number(),
+    })
+        .index("by_organization", ["organizationId"])
+        .index("by_last_message", ["lastMessageAt"]),
+
+    // Mensagens Diretas
+    directMessages: defineTable({
+        conversationId: v.id("conversations"),
+        senderId: v.id("users"),
+        content: v.string(),
+        isRead: v.boolean(),
+        readAt: v.optional(v.number()),
+        createdAt: v.number(),
+    })
+        .index("by_conversation", ["conversationId"])
+        .index("by_sender", ["senderId"])
+        .index("by_conversation_created", ["conversationId", "createdAt"]),
 });

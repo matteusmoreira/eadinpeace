@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { api } from "@convex/_generated/api";
 import { useState } from "react";
 import {
     Plus,
@@ -12,19 +12,22 @@ import {
     FileText,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useUser } from "@clerk/nextjs";
 
 interface Criterion {
     name: string;
     description: string;
+    maxPoints: number;
     levels: {
-        name: string;
+        label: string;
         points: number;
         description: string;
     }[];
 }
 
 export default function RubricsPage() {
-    const currentUser = useQuery(api.users.getCurrentUser);
+    const { user } = useUser();
+    const currentUser = useQuery(api.users.getByClerkId, user?.id ? { clerkId: user.id } : "skip");
     const rubrics = useQuery(
         api.gradingRubrics.getByOrganization,
         currentUser?.organizationId
@@ -46,11 +49,12 @@ export default function RubricsPage() {
             {
                 name: "",
                 description: "",
+                maxPoints: 10,
                 levels: [
-                    { name: "Excelente", points: 100, description: "" },
-                    { name: "Bom", points: 75, description: "" },
-                    { name: "Regular", points: 50, description: "" },
-                    { name: "Insuficiente", points: 25, description: "" },
+                    { label: "Excelente", points: 100, description: "" },
+                    { label: "Bom", points: 75, description: "" },
+                    { label: "Regular", points: 50, description: "" },
+                    { label: "Insuficiente", points: 25, description: "" },
                 ],
             },
         ] as Criterion[],
@@ -64,11 +68,12 @@ export default function RubricsPage() {
                 {
                     name: "",
                     description: "",
+                    maxPoints: 10,
                     levels: [
-                        { name: "Excelente", points: 100, description: "" },
-                        { name: "Bom", points: 75, description: "" },
-                        { name: "Regular", points: 50, description: "" },
-                        { name: "Insuficiente", points: 25, description: "" },
+                        { label: "Excelente", points: 100, description: "" },
+                        { label: "Bom", points: 75, description: "" },
+                        { label: "Regular", points: 50, description: "" },
+                        { label: "Insuficiente", points: 25, description: "" },
                     ],
                 },
             ],
@@ -147,11 +152,12 @@ export default function RubricsPage() {
                 {
                     name: "",
                     description: "",
+                    maxPoints: 10,
                     levels: [
-                        { name: "Excelente", points: 100, description: "" },
-                        { name: "Bom", points: 75, description: "" },
-                        { name: "Regular", points: 50, description: "" },
-                        { name: "Insuficiente", points: 25, description: "" },
+                        { label: "Excelente", points: 100, description: "" },
+                        { label: "Bom", points: 75, description: "" },
+                        { label: "Regular", points: 50, description: "" },
+                        { label: "Insuficiente", points: 25, description: "" },
                     ],
                 },
             ],
@@ -269,7 +275,7 @@ export default function RubricsPage() {
                                         <div className="grid grid-cols-4 gap-2">
                                             {criterion.levels.map((level, levelIndex) => (
                                                 <div key={levelIndex} className="p-2 bg-white rounded border">
-                                                    <p className="text-xs font-medium text-gray-700">{level.name}</p>
+                                                    <p className="text-xs font-medium text-gray-700">{level.label}</p>
                                                     <p className="text-lg font-bold text-indigo-600">{level.points}%</p>
                                                 </div>
                                             ))}

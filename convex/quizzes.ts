@@ -160,13 +160,31 @@ export const addQuestion = mutation({
     args: {
         quizId: v.id("quizzes"),
         type: v.union(
-            v.literal("multiple_choice"),
             v.literal("true_false"),
-            v.literal("short_answer")
+            v.literal("single_choice"),
+            v.literal("multiple_choice"),
+            v.literal("short_answer"),
+            v.literal("text_answer"),
+            v.literal("match_following"),
+            v.literal("sortable"),
+            v.literal("fill_blanks"),
+            v.literal("audio_video")
         ),
         question: v.string(),
         options: v.optional(v.array(v.string())),
-        correctAnswer: v.string(),
+        correctAnswer: v.optional(v.string()),
+        correctAnswers: v.optional(v.array(v.string())),
+        matchPairs: v.optional(v.array(v.object({
+            prompt: v.string(),
+            promptImage: v.optional(v.string()),
+            answer: v.string(),
+            answerImage: v.optional(v.string()),
+        }))),
+        correctOrder: v.optional(v.array(v.string())),
+        blankPositions: v.optional(v.array(v.number())),
+        blankAnswers: v.optional(v.array(v.string())),
+        mediaUrl: v.optional(v.string()),
+        mediaType: v.optional(v.union(v.literal("audio"), v.literal("video"))),
         explanation: v.optional(v.string()),
         points: v.number(),
     },
@@ -177,10 +195,13 @@ export const addQuestion = mutation({
             .withIndex("by_quiz", (q) => q.eq("quizId", args.quizId))
             .collect();
 
+        const requiresManualGrading = args.type === "text_answer" || args.type === "audio_video";
+
         const now = Date.now();
         return await ctx.db.insert("quizQuestions", {
             ...args,
             order: existingQuestions.length,
+            requiresManualGrading,
             createdAt: now,
             updatedAt: now,
         });
@@ -469,24 +490,6 @@ export const deleteQuestion = mutation({
     },
 });
 
-// Update question
-export const updateQuestion = mutation({
-    args: {
-        questionId: v.id("quizQuestions"),
-        question: v.optional(v.string()),
-        options: v.optional(v.array(v.string())),
-        correctAnswer: v.optional(v.string()),
-        explanation: v.optional(v.string()),
-        points: v.optional(v.number()),
-    },
-    handler: async (ctx, args) => {
-        const { questionId, ...updates } = args;
-        await ctx.db.patch(questionId, {
-            ...updates,
-            updatedAt: Date.now(),
-        });
-    },
-});
 
 // Get all quizzes available for a student (from enrolled courses)
 export const getStudentQuizzes = query({
@@ -674,6 +677,17 @@ export const updateQuestion = mutation({
         options: v.optional(v.array(v.string())),
         correctAnswer: v.optional(v.string()),
         correctAnswers: v.optional(v.array(v.string())),
+        matchPairs: v.optional(v.array(v.object({
+            prompt: v.string(),
+            promptImage: v.optional(v.string()),
+            answer: v.string(),
+            answerImage: v.optional(v.string()),
+        }))),
+        correctOrder: v.optional(v.array(v.string())),
+        blankPositions: v.optional(v.array(v.number())),
+        blankAnswers: v.optional(v.array(v.string())),
+        mediaUrl: v.optional(v.string()),
+        mediaType: v.optional(v.union(v.literal("audio"), v.literal("video"))),
         points: v.optional(v.number()),
         order: v.optional(v.number()),
         explanation: v.optional(v.string()),

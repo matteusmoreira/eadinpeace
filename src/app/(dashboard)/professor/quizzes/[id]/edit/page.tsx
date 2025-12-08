@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { api } from "@convex/_generated/api";
 import { useRouter, useParams } from "next/navigation";
+import { useUser } from "@clerk/nextjs";
 import {
     ArrowLeft,
     Save,
@@ -25,7 +26,7 @@ import {
     requiresManualGrading,
 } from "@/components/quiz/QuestionRenderer";
 import { QuestionBankBrowser } from "@/components/quiz/QuestionBankBrowser";
-import { Id } from "@/convex/_generated/dataModel";
+import { Id } from "@convex/_generated/dataModel";
 
 // Tipos locais
 interface LocalQuestion {
@@ -51,16 +52,19 @@ export default function EditQuizPage() {
     const router = useRouter();
     const params = useParams();
     const quizId = params.id as string;
+    const { user } = useUser();
 
-    const currentUser = useQuery(api.users.getCurrentUser);
+    const currentUser = useQuery(api.users.getByClerkId, user?.id ? { clerkId: user.id } : "skip");
     const quiz = useQuery(api.quizzes.getById, { quizId: quizId as any });
     const quizQuestions = useQuery(api.quizzes.getQuestions, { quizId: quizId as any });
     const courses = useQuery(
-        api.courses.getByProfessor,
-        currentUser?._id ? { professorId: currentUser._id } : "skip"
+        api.courses.getByInstructor,
+        currentUser?._id ? { instructorId: currentUser._id } : "skip"
     );
 
     const updateQuiz = useMutation(api.quizzes.update);
+    const publishQuiz = useMutation(api.quizzes.publish);
+    const unpublishQuiz = useMutation(api.quizzes.unpublish);
     const addQuestion = useMutation(api.quizzes.addQuestion);
     const updateQuestion = useMutation(api.quizzes.updateQuestion);
     const removeQuestion = useMutation(api.quizzes.removeQuestion);
@@ -95,7 +99,7 @@ export default function EditQuizPage() {
                 title: quiz.title,
                 description: quiz.description || "",
                 courseId: quiz.courseId,
-                duration: quiz.duration || 30,
+                duration: quiz.timeLimit || 30,
                 passingScore: quiz.passingScore || 70,
                 maxAttempts: quiz.maxAttempts || 3,
                 isPublished: quiz.isPublished || false,
@@ -186,6 +190,7 @@ export default function EditQuizPage() {
 
     // Salvar Quiz
     const handleSave = async () => {
+        if (!quiz) return;
         if (!quizData.title.trim()) {
             toast.error("Digite o título do quiz");
             return;
@@ -198,11 +203,19 @@ export default function EditQuizPage() {
                 quizId: quizId as any,
                 title: quizData.title,
                 description: quizData.description,
-                duration: quizData.duration,
+                timeLimit: quizData.duration,
                 passingScore: quizData.passingScore,
                 maxAttempts: quizData.maxAttempts,
-                isPublished: quizData.isPublished,
             });
+
+            // Atualizar status de publicação
+            if (quizData.isPublished !== quiz.isPublished) {
+                if (quizData.isPublished) {
+                    await publishQuiz({ quizId: quizId as any });
+                } else {
+                    await unpublishQuiz({ quizId: quizId as any });
+                }
+            }
 
             // Processar questões
             for (let i = 0; i < questions.length; i++) {
@@ -220,7 +233,6 @@ export default function EditQuizPage() {
                         options: q.options.filter((o) => o.trim()).length > 0 ? q.options.filter((o) => o.trim()) : undefined,
                         correctAnswer: q.correctAnswer || undefined,
                         points: q.points,
-                        order: i,
                     });
                 } else if (q._id) {
                     // Atualizar questão existente
@@ -230,7 +242,6 @@ export default function EditQuizPage() {
                         options: q.options.filter((o) => o.trim()).length > 0 ? q.options.filter((o) => o.trim()) : undefined,
                         correctAnswer: q.correctAnswer || undefined,
                         points: q.points,
-                        order: i,
                     });
                 }
             }
@@ -709,8 +720,8 @@ function TrueFalseEditor({ question, onUpdate }: { question: LocalQuestion; onUp
                 <button
                     onClick={() => onUpdate({ correctAnswer: "true" })}
                     className={`p-4 rounded-lg border-2 transition-all ${question.correctAnswer === "true"
-                            ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                            : "border-gray-300 hover:border-indigo-300"
+                        ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                        : "border-gray-300 hover:border-indigo-300"
                         }`}
                 >
                     Verdadeiro
@@ -718,8 +729,8 @@ function TrueFalseEditor({ question, onUpdate }: { question: LocalQuestion; onUp
                 <button
                     onClick={() => onUpdate({ correctAnswer: "false" })}
                     className={`p-4 rounded-lg border-2 transition-all ${question.correctAnswer === "false"
-                            ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                            : "border-gray-300 hover:border-indigo-300"
+                        ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                        : "border-gray-300 hover:border-indigo-300"
                         }`}
                 >
                     Falso

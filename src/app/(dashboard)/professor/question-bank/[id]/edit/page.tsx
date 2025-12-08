@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { api } from "@convex/_generated/api";
 import { useRouter, useParams } from "next/navigation";
 import { ArrowLeft, Save, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
@@ -104,7 +104,6 @@ export default function EditQuestionPage() {
         try {
             await updateQuestion({
                 questionId: questionId as any,
-                type: formData.type,
                 question: formData.question,
                 options: formData.options.filter((opt) => opt.trim()).length > 0
                     ? formData.options.filter((opt) => opt.trim())
@@ -258,8 +257,8 @@ export default function EditQuestionPage() {
                                 <button
                                     onClick={() => setFormData({ ...formData, correctAnswer: "true" })}
                                     className={`p-4 rounded-lg border-2 transition-all ${formData.correctAnswer === "true"
-                                            ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                                            : "border-gray-300 text-gray-700 hover:border-indigo-300"
+                                        ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                                        : "border-gray-300 text-gray-700 hover:border-indigo-300"
                                         }`}
                                 >
                                     Verdadeiro
@@ -267,8 +266,8 @@ export default function EditQuestionPage() {
                                 <button
                                     onClick={() => setFormData({ ...formData, correctAnswer: "false" })}
                                     className={`p-4 rounded-lg border-2 transition-all ${formData.correctAnswer === "false"
-                                            ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                                            : "border-gray-300 text-gray-700 hover:border-indigo-300"
+                                        ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                                        : "border-gray-300 text-gray-700 hover:border-indigo-300"
                                         }`}
                                 >
                                     Falso

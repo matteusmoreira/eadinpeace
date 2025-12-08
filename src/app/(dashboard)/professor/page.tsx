@@ -52,16 +52,16 @@ export default function ProfessorDashboardPage() {
         convexUser?._id ? { instructorId: convexUser._id } : "skip"
     );
 
-    // Get grading stats for professor
+    // Get grading stats for professor (by organization)
     const gradingStats = useQuery(
         api.quizzesGrading.getGradingStats,
-        convexUser?._id ? { professorId: convexUser._id } : "skip"
+        convexUser?.organizationId ? { organizationId: convexUser.organizationId } : "skip"
     );
 
     // Get pending grading attempts
     const pendingGrading = useQuery(
         api.quizzesGrading.getPendingGrading,
-        convexUser?._id ? { professorId: convexUser._id } : "skip"
+        convexUser?._id ? { instructorId: convexUser._id } : "skip"
     );
 
     const isLoading = courses === undefined;
@@ -88,9 +88,9 @@ export default function ProfessorDashboardPage() {
         .slice(0, 3);
 
     // Grading stats
-    const pendingCount = gradingStats?.pending || 0;
+    const pendingCount = gradingStats?.pendingGrading || 0;
     const gradedCount = gradingStats?.graded || 0;
-    const averageScore = gradingStats?.averageScore || 0;
+    const averageScore = gradingStats?.avgScore || 0;
 
     const formatDuration = (seconds: number) => {
         const hours = Math.floor(seconds / 3600);
@@ -195,7 +195,7 @@ export default function ProfessorDashboardPage() {
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-sm text-muted-foreground">Total Quizzes</p>
-                                        <p className="text-3xl font-bold">{gradingStats?.total || 0}</p>
+                                        <p className="text-3xl font-bold">{gradingStats?.totalAttempts || 0}</p>
                                         <p className="text-xs text-muted-foreground">criados</p>
                                     </div>
                                     <div className="h-12 w-12 rounded-xl bg-indigo-500/10 flex items-center justify-center">

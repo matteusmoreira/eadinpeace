@@ -3,13 +3,17 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@convex/_generated/api";
+import { useUser } from "@clerk/nextjs";
+import { toast } from "sonner";
+import { Id } from "@convex/_generated/dataModel";
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import {
     Dialog,
     DialogContent,
@@ -17,7 +21,6 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-    DialogTrigger,
 } from "@/components/ui/dialog";
 import {
     Select,
@@ -27,126 +30,267 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import {
-    MessageSquare,
-    Plus,
-    MessagesSquare,
-    Eye,
-    Clock,
-    CheckCircle2,
-    Pin,
-    Lock,
-    Loader2,
     Users,
-    BookOpen,
-    HelpCircle,
-    Lightbulb,
-    Megaphone,
+    Loader2,
+    Heart,
+    MessageCircle,
+    Share2,
+    MoreHorizontal,
+    Trash2,
+    Globe,
+    Lock,
+    Image,
+    X,
+    Repeat2,
+    TrendingUp,
 } from "lucide-react";
-import { useQuery, useMutation } from "convex/react";
-import { api } from "@convex/_generated/api";
-import { useUser } from "@clerk/nextjs";
-import { toast } from "sonner";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { Id } from "@convex/_generated/dataModel";
 
-const categoryIcons: Record<string, React.ReactNode> = {
-    general: <MessagesSquare className="h-5 w-5" />,
-    help: <HelpCircle className="h-5 w-5" />,
-    ideas: <Lightbulb className="h-5 w-5" />,
-    courses: <BookOpen className="h-5 w-5" />,
-    announcements: <Megaphone className="h-5 w-5" />,
+import { CreatePostForm } from "@/components/social/CreatePostForm";
+import { PostCard } from "@/components/social/PostCard";
+import { SuggestedUsers } from "@/components/social/SuggestedUsers";
+import { CommentSection } from "@/components/social/CommentSection";
+import { MessagesPanel } from "@/components/social/MessagesPanel";
+
+const roleLabels: Record<string, string> = {
+    student: "Aluno",
+    professor: "Professor",
+    admin: "Admin",
+    superadmin: "Super Admin",
+};
+
+const roleColors: Record<string, string> = {
+    student: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+    professor: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+    admin: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+    superadmin: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
 };
 
 export default function CommunityPage() {
     const { user } = useUser();
-    const [isDialogOpen, setIsDialogOpen] = useState(false);
-    const [selectedCategory, setSelectedCategory] = useState<Id<"forumCategories"> | null>(null);
-    const [title, setTitle] = useState("");
-    const [content, setContent] = useState("");
-    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
+    const [shareDialogPost, setShareDialogPost] = useState<Id<"socialPosts"> | null>(null);
+    const [shareComment, setShareComment] = useState("");
+    const [shareVisibility, setShareVisibility] = useState<"public" | "followers" | "private">("public");
+    const [isSharing, setIsSharing] = useState(false);
+    const [selectedConversation, setSelectedConversation] = useState<Id<"conversations"> | null>(null);
 
+    // Queries
     const convexUser = useQuery(api.users.getByClerkId, {
         clerkId: user?.id || ""
     });
 
-    const categories = useQuery(
-        api.forum.getCategories,
-        convexUser?.organizationId
-            ? { organizationId: convexUser.organizationId }
+    const feedData = useQuery(
+        api.social.getFeed,
+        convexUser?.organizationId && convexUser?._id
+            ? {
+                organizationId: convexUser.organizationId,
+                userId: convexUser._id,
+                limit: 20,
+            }
             : "skip"
     );
 
-    const recentTopics = useQuery(
-        api.forum.getRecentTopics,
-        convexUser?.organizationId
-            ? { organizationId: convexUser.organizationId, limit: 10 }
+    const suggestedUsers = useQuery(
+        api.social.getSuggestedUsers,
+        convexUser?.organizationId && convexUser?._id
+            ? {
+                userId: convexUser._id,
+                organizationId: convexUser.organizationId,
+                limit: 5,
+            }
             : "skip"
     );
 
-    const createTopic = useMutation(api.forum.createTopic);
-    const createCategory = useMutation(api.forum.createCategory);
+    const followStats = useQuery(
+        api.social.getFollowStats,
+        convexUser?._id ? { userId: convexUser._id } : "skip"
+    );
 
-    const handleCreateTopic = async () => {
-        if (!title.trim() || !content.trim() || !selectedCategory || !convexUser) {
-            toast.error("Preencha todos os campos");
-            return;
-        }
+    const conversations = useQuery(
+        api.social.getConversations,
+        convexUser?._id && convexUser?.organizationId
+            ? { userId: convexUser._id, organizationId: convexUser.organizationId }
+            : "skip"
+    );
 
-        setIsSubmitting(true);
-        try {
-            const topicId = await createTopic({
-                categoryId: selectedCategory,
-                organizationId: convexUser.organizationId!,
-                authorId: convexUser._id,
-                title: title.trim(),
-                content: content.trim(),
-            });
+    const unreadCount = useQuery(
+        api.social.getUnreadCount,
+        convexUser?._id && convexUser?.organizationId
+            ? { userId: convexUser._id, organizationId: convexUser.organizationId }
+            : "skip"
+    );
 
-            toast.success("Tópico criado com sucesso!");
-            setIsDialogOpen(false);
-            setTitle("");
-            setContent("");
-            setSelectedCategory(null);
-        } catch (error) {
-            toast.error("Erro ao criar tópico");
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
+    const messages = useQuery(
+        api.social.getMessages,
+        selectedConversation ? { conversationId: selectedConversation } : "skip"
+    );
 
-    // Create default categories if none exist
-    const handleCreateDefaultCategories = async () => {
+    // Mutations
+    const createPost = useMutation(api.social.createPost);
+    const toggleLike = useMutation(api.social.toggleLike);
+    const sharePost = useMutation(api.social.sharePost);
+    const deletePost = useMutation(api.social.deletePost);
+    const toggleFollow = useMutation(api.social.toggleFollow);
+    const addComment = useMutation(api.social.addComment);
+    const getComments = useQuery(
+        api.social.getComments,
+        expandedComments.size > 0 && convexUser
+            ? { postId: Array.from(expandedComments)[0] as Id<"socialPosts">, userId: convexUser._id }
+            : "skip"
+    );
+    const toggleCommentLike = useMutation(api.social.toggleCommentLike);
+    const deleteComment = useMutation(api.social.deleteComment);
+    const sendMessage = useMutation(api.social.sendMessage);
+    const markMessagesAsRead = useMutation(api.social.markMessagesAsRead);
+
+    // Handlers
+    const handleCreatePost = async (data: {
+        content: string;
+        visibility: "public" | "followers" | "private";
+        imageUrl?: string;
+    }) => {
         if (!convexUser?.organizationId) return;
 
-        const defaultCategories = [
-            { name: "Geral", description: "Discussões gerais sobre a plataforma", icon: "general" },
-            { name: "Dúvidas", description: "Tire suas dúvidas sobre os cursos", icon: "help" },
-            { name: "Ideias", description: "Sugira melhorias e novas funcionalidades", icon: "ideas" },
-            { name: "Cursos", description: "Discussões sobre conteúdo dos cursos", icon: "courses" },
-        ];
-
-        for (const cat of defaultCategories) {
-            await createCategory({
+        try {
+            await createPost({
+                authorId: convexUser._id,
                 organizationId: convexUser.organizationId,
-                name: cat.name,
-                description: cat.description,
-                icon: cat.icon,
+                content: data.content,
+                visibility: data.visibility,
+                imageUrl: data.imageUrl,
             });
+            toast.success("Post publicado!");
+        } catch (error) {
+            toast.error("Erro ao publicar post");
         }
-
-        toast.success("Categorias criadas!");
     };
 
-    const formatDate = (timestamp: number) => {
-        return formatDistanceToNow(new Date(timestamp), {
-            addSuffix: true,
-            locale: ptBR,
+    const handleLike = async (postId: Id<"socialPosts">) => {
+        if (!convexUser) return;
+        try {
+            await toggleLike({ postId, userId: convexUser._id });
+        } catch (error) {
+            toast.error("Erro ao curtir post");
+        }
+    };
+
+    const handleShare = async () => {
+        if (!shareDialogPost || !convexUser?.organizationId) return;
+
+        setIsSharing(true);
+        try {
+            await sharePost({
+                originalPostId: shareDialogPost,
+                authorId: convexUser._id,
+                organizationId: convexUser.organizationId,
+                shareComment: shareComment || undefined,
+                visibility: shareVisibility,
+            });
+            toast.success("Post compartilhado!");
+            setShareDialogPost(null);
+            setShareComment("");
+            setShareVisibility("public");
+        } catch (error) {
+            toast.error("Erro ao compartilhar post");
+        } finally {
+            setIsSharing(false);
+        }
+    };
+
+    const handleDelete = async (postId: Id<"socialPosts">) => {
+        if (!convexUser) return;
+        try {
+            await deletePost({ postId, userId: convexUser._id });
+            toast.success("Post excluído");
+        } catch (error) {
+            toast.error("Erro ao excluir post");
+        }
+    };
+
+    const handleFollow = async (userId: Id<"users">) => {
+        if (!convexUser) return;
+        try {
+            await toggleFollow({ followerId: convexUser._id, followingId: userId });
+        } catch (error) {
+            toast.error("Erro ao seguir usuário");
+        }
+    };
+
+    const handleAddComment = async (postId: Id<"socialPosts">, content: string, parentId?: Id<"postComments">) => {
+        if (!convexUser) return;
+        try {
+            await addComment({
+                postId,
+                authorId: convexUser._id,
+                content,
+                parentId,
+            });
+        } catch (error) {
+            toast.error("Erro ao adicionar comentário");
+        }
+    };
+
+    const handleLikeComment = async (commentId: Id<"postComments">) => {
+        if (!convexUser) return;
+        try {
+            await toggleCommentLike({ commentId, userId: convexUser._id });
+        } catch (error) {
+            toast.error("Erro ao curtir comentário");
+        }
+    };
+
+    const handleDeleteComment = async (commentId: Id<"postComments">) => {
+        if (!convexUser) return;
+        try {
+            await deleteComment({ commentId, userId: convexUser._id });
+            toast.success("Comentário excluído");
+        } catch (error) {
+            toast.error("Erro ao excluir comentário");
+        }
+    };
+
+    const handleSendMessage = async (conversationId: Id<"conversations">, content: string) => {
+        if (!convexUser) return;
+        try {
+            await sendMessage({ conversationId, senderId: convexUser._id, content });
+        } catch (error) {
+            toast.error("Erro ao enviar mensagem");
+        }
+    };
+
+    const handleMarkAsRead = async (conversationId: Id<"conversations">) => {
+        if (!convexUser) return;
+        try {
+            await markMessagesAsRead({ conversationId, userId: convexUser._id });
+        } catch (error) {
+            console.error("Erro ao marcar como lida:", error);
+        }
+    };
+
+    const toggleComments = (postId: Id<"socialPosts">) => {
+        setExpandedComments((prev) => {
+            const next = new Set(prev);
+            if (next.has(postId)) {
+                next.delete(postId);
+            } else {
+                next.clear();
+                next.add(postId);
+            }
+            return next;
         });
     };
 
-    if (!convexUser || categories === undefined || recentTopics === undefined) {
+    // Loading state
+    if (!convexUser || feedData === undefined) {
         return (
             <div className="flex items-center justify-center min-h-[400px]">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -164,218 +308,226 @@ export default function CommunityPage() {
                         Comunidade
                     </h1>
                     <p className="text-muted-foreground">
-                        Conecte-se com outros alunos e tire suas dúvidas
+                        Conecte-se, compartilhe e interaja com a comunidade
                     </p>
                 </div>
-                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                    <DialogTrigger asChild>
-                        <Button className="gap-2 gradient-bg border-0">
-                            <Plus className="h-4 w-4" />
-                            Novo Tópico
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-lg">
-                        <DialogHeader>
-                            <DialogTitle>Criar Novo Tópico</DialogTitle>
-                            <DialogDescription>
-                                Inicie uma discussão com a comunidade
-                            </DialogDescription>
-                        </DialogHeader>
-                        <div className="space-y-4 py-4">
-                            <div className="space-y-2">
-                                <Label>Categoria</Label>
-                                <Select
-                                    value={selectedCategory?.toString()}
-                                    onValueChange={(v) => setSelectedCategory(v as Id<"forumCategories">)}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Selecione uma categoria" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {categories.map((cat) => (
-                                            <SelectItem key={cat._id} value={cat._id}>
-                                                {cat.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="title">Título</Label>
-                                <Input
-                                    id="title"
-                                    value={title}
-                                    onChange={(e) => setTitle(e.target.value)}
-                                    placeholder="Título do tópico"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="content">Conteúdo</Label>
-                                <Textarea
-                                    id="content"
-                                    value={content}
-                                    onChange={(e) => setContent(e.target.value)}
-                                    placeholder="Descreva sua dúvida ou discussão..."
-                                    className="min-h-[150px]"
-                                />
-                            </div>
-                        </div>
-                        <DialogFooter>
-                            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                                Cancelar
-                            </Button>
-                            <Button onClick={handleCreateTopic} disabled={isSubmitting}>
-                                {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                                Criar Tópico
-                            </Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
+
+                {/* Mensagens */}
+                <MessagesPanel
+                    currentUserId={convexUser._id}
+                    conversations={conversations || []}
+                    unreadTotal={unreadCount || 0}
+                    onSelectConversation={setSelectedConversation}
+                    onSendMessage={handleSendMessage}
+                    onMarkAsRead={handleMarkAsRead}
+                    selectedConversation={selectedConversation}
+                    messages={messages || []}
+                    isLoadingMessages={selectedConversation !== null && messages === undefined}
+                    isLoadingConversations={conversations === undefined}
+                />
             </div>
 
-            {/* No Categories - Show setup button */}
-            {categories.length === 0 && (
-                <Card>
-                    <CardContent className="flex flex-col items-center justify-center py-12">
-                        <MessagesSquare className="h-12 w-12 text-muted-foreground/50 mb-4" />
-                        <h3 className="text-lg font-medium mb-2">Fórum não configurado</h3>
-                        <p className="text-muted-foreground text-center mb-4">
-                            Crie as categorias iniciais para começar a usar o fórum
-                        </p>
-                        {(convexUser.role === "admin" || convexUser.role === "superadmin") && (
-                            <Button onClick={handleCreateDefaultCategories}>
-                                Criar Categorias Padrão
-                            </Button>
-                        )}
-                    </CardContent>
-                </Card>
-            )}
-
-            {categories.length > 0 && (
-                <div className="grid lg:grid-cols-3 gap-6">
-                    {/* Categories */}
-                    <div className="lg:col-span-1 space-y-4">
-                        <h2 className="font-semibold text-lg">Categorias</h2>
-                        <div className="space-y-2">
-                            {categories.map((category) => (
-                                <Link
-                                    key={category._id}
-                                    href={`/student/community/category/${category._id}`}
+            {/* Main Layout */}
+            <div className="grid lg:grid-cols-12 gap-6">
+                {/* Sidebar Esquerda - Perfil */}
+                <div className="lg:col-span-3 space-y-4">
+                    <Card>
+                        <CardContent className="pt-6">
+                            <div className="flex flex-col items-center text-center">
+                                <Avatar className="h-20 w-20 ring-4 ring-background shadow-lg">
+                                    <AvatarImage src={convexUser.imageUrl} />
+                                    <AvatarFallback className="bg-gradient-to-br from-primary/80 to-primary text-primary-foreground text-2xl">
+                                        {convexUser.firstName?.[0]}
+                                    </AvatarFallback>
+                                </Avatar>
+                                <h3 className="mt-4 font-semibold text-lg">
+                                    {convexUser.firstName} {convexUser.lastName}
+                                </h3>
+                                <Badge
+                                    variant="secondary"
+                                    className={cn("mt-1", roleColors[convexUser.role])}
                                 >
-                                    <motion.div
-                                        whileHover={{ x: 4 }}
-                                        className="flex items-center gap-3 p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                                    {roleLabels[convexUser.role]}
+                                </Badge>
+
+                                {/* Stats */}
+                                <div className="flex items-center justify-center gap-6 mt-4 pt-4 border-t w-full">
+                                    <Link
+                                        href={`/student/community/profile/${convexUser._id}?tab=followers`}
+                                        className="text-center hover:text-primary transition-colors"
                                     >
-                                        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-                                            {categoryIcons[category.icon || "general"] || <MessagesSquare className="h-5 w-5" />}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="font-medium">{category.name}</p>
-                                            <p className="text-sm text-muted-foreground truncate">
-                                                {category.description}
-                                            </p>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="font-medium">{category.topicCount}</p>
-                                            <p className="text-xs text-muted-foreground">tópicos</p>
-                                        </div>
-                                    </motion.div>
+                                        <p className="font-bold text-lg">{followStats?.followersCount || 0}</p>
+                                        <p className="text-xs text-muted-foreground">Seguidores</p>
+                                    </Link>
+                                    <Link
+                                        href={`/student/community/profile/${convexUser._id}?tab=following`}
+                                        className="text-center hover:text-primary transition-colors"
+                                    >
+                                        <p className="font-bold text-lg">{followStats?.followingCount || 0}</p>
+                                        <p className="text-xs text-muted-foreground">Seguindo</p>
+                                    </Link>
+                                </div>
+
+                                <Link
+                                    href={`/student/community/profile/${convexUser._id}`}
+                                    className="w-full mt-4"
+                                >
+                                    <Button variant="outline" className="w-full">
+                                        Ver Meu Perfil
+                                    </Button>
                                 </Link>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* Feed Central */}
+                <div className="lg:col-span-6 space-y-4">
+                    {/* Create Post */}
+                    <CreatePostForm
+                        author={{
+                            _id: convexUser._id,
+                            firstName: convexUser.firstName,
+                            lastName: convexUser.lastName,
+                            imageUrl: convexUser.imageUrl,
+                        }}
+                        onSubmit={handleCreatePost}
+                    />
+
+                    {/* Posts */}
+                    {feedData.posts.length === 0 ? (
+                        <Card>
+                            <CardContent className="flex flex-col items-center justify-center py-12">
+                                <MessageCircle className="h-12 w-12 text-muted-foreground/50 mb-4" />
+                                <h3 className="text-lg font-medium mb-2">Nenhum post ainda</h3>
+                                <p className="text-muted-foreground text-center">
+                                    Seja o primeiro a compartilhar algo com a comunidade!
+                                </p>
+                            </CardContent>
+                        </Card>
+                    ) : (
+                        <div className="space-y-4">
+                            {feedData.posts.map((post, index) => (
+                                <motion.div
+                                    key={post._id}
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: index * 0.05 }}
+                                >
+                                    <PostCard
+                                        post={post}
+                                        currentUserId={convexUser._id}
+                                        onLike={handleLike}
+                                        onComment={toggleComments}
+                                        onShare={(postId) => setShareDialogPost(postId)}
+                                        onDelete={handleDelete}
+                                    />
+
+                                    {/* Comentários expandidos */}
+                                    {expandedComments.has(post._id) && (
+                                        <Card className="mt-2 border-t-0 rounded-t-none">
+                                            <CardContent className="pt-4">
+                                                <CommentSection
+                                                    postId={post._id}
+                                                    comments={getComments || []}
+                                                    currentUserId={convexUser._id}
+                                                    onAddComment={(content, parentId) =>
+                                                        handleAddComment(post._id, content, parentId)
+                                                    }
+                                                    onLikeComment={handleLikeComment}
+                                                    onDeleteComment={handleDeleteComment}
+                                                />
+                                            </CardContent>
+                                        </Card>
+                                    )}
+                                </motion.div>
                             ))}
                         </div>
-                    </div>
-
-                    {/* Recent Topics */}
-                    <div className="lg:col-span-2">
-                        <h2 className="font-semibold text-lg mb-4">Discussões Recentes</h2>
-                        {recentTopics.length === 0 ? (
-                            <Card>
-                                <CardContent className="flex flex-col items-center justify-center py-12">
-                                    <MessageSquare className="h-12 w-12 text-muted-foreground/50 mb-4" />
-                                    <h3 className="text-lg font-medium mb-2">Nenhum tópico ainda</h3>
-                                    <p className="text-muted-foreground text-center">
-                                        Seja o primeiro a iniciar uma discussão!
-                                    </p>
-                                </CardContent>
-                            </Card>
-                        ) : (
-                            <div className="space-y-3">
-                                {recentTopics.map((topic, index) => (
-                                    <motion.div
-                                        key={topic._id}
-                                        initial={{ opacity: 0, y: 10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ delay: index * 0.05 }}
-                                    >
-                                        <Link href={`/student/community/topic/${topic._id}`}>
-                                            <Card className="hover:bg-muted/50 transition-colors">
-                                                <CardContent className="p-4">
-                                                    <div className="flex items-start gap-4">
-                                                        <Avatar className="h-10 w-10">
-                                                            <AvatarImage src={topic.author?.imageUrl} />
-                                                            <AvatarFallback>
-                                                                {topic.author?.firstName?.[0]}
-                                                            </AvatarFallback>
-                                                        </Avatar>
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="flex items-center gap-2 flex-wrap mb-1">
-                                                                {topic.isPinned && (
-                                                                    <Badge variant="secondary" className="text-xs gap-1">
-                                                                        <Pin className="h-3 w-3" />
-                                                                        Fixado
-                                                                    </Badge>
-                                                                )}
-                                                                {topic.isLocked && (
-                                                                    <Badge variant="outline" className="text-xs gap-1">
-                                                                        <Lock className="h-3 w-3" />
-                                                                        Fechado
-                                                                    </Badge>
-                                                                )}
-                                                                {topic.isSolved && (
-                                                                    <Badge className="text-xs gap-1 bg-emerald-500">
-                                                                        <CheckCircle2 className="h-3 w-3" />
-                                                                        Resolvido
-                                                                    </Badge>
-                                                                )}
-                                                                <Badge variant="outline" className="text-xs">
-                                                                    {topic.categoryName}
-                                                                </Badge>
-                                                            </div>
-                                                            <h3 className="font-medium line-clamp-1">
-                                                                {topic.title}
-                                                            </h3>
-                                                            <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
-                                                                {topic.content}
-                                                            </p>
-                                                            <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                                                                <span>
-                                                                    {topic.author?.firstName} {topic.author?.lastName}
-                                                                </span>
-                                                                <span className="flex items-center gap-1">
-                                                                    <Clock className="h-3 w-3" />
-                                                                    {formatDate(topic.createdAt)}
-                                                                </span>
-                                                                <span className="flex items-center gap-1">
-                                                                    <MessageSquare className="h-3 w-3" />
-                                                                    {topic.replyCount} respostas
-                                                                </span>
-                                                                <span className="flex items-center gap-1">
-                                                                    <Eye className="h-3 w-3" />
-                                                                    {topic.viewCount}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </CardContent>
-                                            </Card>
-                                        </Link>
-                                    </motion.div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
+                    )}
                 </div>
-            )}
+
+                {/* Sidebar Direita - Sugestões */}
+                <div className="lg:col-span-3 space-y-4">
+                    <SuggestedUsers
+                        users={suggestedUsers || []}
+                        currentUserId={convexUser._id}
+                        onFollow={handleFollow}
+                        isLoading={suggestedUsers === undefined}
+                    />
+
+                    {/* Trending - pode ser implementado depois */}
+                    <Card>
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-sm font-medium flex items-center gap-2">
+                                <TrendingUp className="h-4 w-4" />
+                                Em Alta
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            <p className="text-sm text-muted-foreground text-center py-4">
+                                Tendências em breve...
+                            </p>
+                        </CardContent>
+                    </Card>
+                </div>
+            </div>
+
+            {/* Share Dialog */}
+            <Dialog open={!!shareDialogPost} onOpenChange={() => setShareDialogPost(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Compartilhar Post</DialogTitle>
+                        <DialogDescription>
+                            Adicione um comentário ao compartilhar
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <Textarea
+                            placeholder="O que você quer dizer sobre isso? (opcional)"
+                            value={shareComment}
+                            onChange={(e) => setShareComment(e.target.value)}
+                            className="min-h-[100px]"
+                        />
+                        <Select
+                            value={shareVisibility}
+                            onValueChange={(v) => setShareVisibility(v as typeof shareVisibility)}
+                        >
+                            <SelectTrigger>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="public">
+                                    <div className="flex items-center gap-2">
+                                        <Globe className="h-4 w-4" />
+                                        Público
+                                    </div>
+                                </SelectItem>
+                                <SelectItem value="followers">
+                                    <div className="flex items-center gap-2">
+                                        <Users className="h-4 w-4" />
+                                        Apenas Seguidores
+                                    </div>
+                                </SelectItem>
+                                <SelectItem value="private">
+                                    <div className="flex items-center gap-2">
+                                        <Lock className="h-4 w-4" />
+                                        Privado
+                                    </div>
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShareDialogPost(null)}>
+                            Cancelar
+                        </Button>
+                        <Button onClick={handleShare} disabled={isSharing}>
+                            {isSharing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                            Compartilhar
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

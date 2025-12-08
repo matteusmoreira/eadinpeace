@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { api } from "@convex/_generated/api";
 import { useParams } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import {
@@ -27,7 +27,7 @@ export default function StudentGradebookPage() {
     const gradebook = useQuery(
         api.courseGrades.getStudentGradebook,
         convexUser?._id && courseId
-            ? { studentId: convexUser._id, courseId: courseId as any }
+            ? { userId: convexUser._id, courseId: courseId as any }
             : "skip"
     );
 
@@ -107,7 +107,7 @@ export default function StudentGradebookPage() {
                                 <p className="text-sm text-gray-600 mb-1">Nota Final</p>
                                 <div className="flex items-center gap-3">
                                     <span className="text-5xl font-bold text-gray-900">
-                                        {gradebook.finalScore?.toFixed(1) || "—"}
+                                        {gradebook.finalGrade != null ? gradebook.finalGrade.toFixed(1) : "—"}
                                     </span>
                                     <span
                                         className={`px-4 py-2 rounded-lg text-2xl font-bold ${getGradeColor(
@@ -129,16 +129,16 @@ export default function StudentGradebookPage() {
                         <div className="flex items-center justify-between mb-2">
                             <BookOpen className="w-6 h-6 text-blue-600" />
                             <span className="text-sm text-gray-500">
-                                {gradebook.quizScores?.length || 0} avaliações
+                                {gradebook.quizzes?.length || 0} avaliações
                             </span>
                         </div>
                         <p className="text-2xl font-bold text-gray-900">
-                            {gradebook.quizScores?.length > 0
+                            {gradebook.quizzes?.length > 0
                                 ? (
-                                    gradebook.quizScores.reduce(
+                                    gradebook.quizzes.reduce(
                                         (acc: number, q: any) => acc + (q.score || 0),
                                         0
-                                    ) / gradebook.quizScores.length
+                                    ) / gradebook.quizzes.length
                                 ).toFixed(1)
                                 : "—"}
                         </p>
@@ -152,8 +152,8 @@ export default function StudentGradebookPage() {
                             <TrendingUp className="w-5 h-5 text-green-500" />
                         </div>
                         <p className="text-2xl font-bold text-gray-900">
-                            {gradebook.quizScores?.filter((q: any) => q.passed).length || 0}/
-                            {gradebook.quizScores?.length || 0}
+                            {gradebook.quizzes?.filter((q: any) => q.status === "passed").length || 0}/
+                            {gradebook.quizzes?.length || 0}
                         </p>
                         <p className="text-sm text-gray-600">Aprovações</p>
                     </div>
@@ -165,7 +165,7 @@ export default function StudentGradebookPage() {
                         <h2 className="text-xl font-bold text-gray-900">Avaliações</h2>
                     </div>
 
-                    {gradebook.quizScores?.length === 0 ? (
+                    {gradebook.quizzes?.length === 0 ? (
                         <div className="p-12 text-center">
                             <BookOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                             <h3 className="text-lg font-medium text-gray-900 mb-2">
@@ -177,28 +177,23 @@ export default function StudentGradebookPage() {
                         </div>
                     ) : (
                         <div className="divide-y">
-                            {gradebook.quizScores?.map((quiz: any, index: number) => (
+                            {gradebook.quizzes?.map((quiz: any, index: number) => (
                                 <div
-                                    key={quiz.quizId || index}
+                                    key={quiz.id || index}
                                     className="p-6 hover:bg-gray-50 transition-colors"
                                 >
                                     <div className="flex items-center justify-between">
                                         <div className="flex-1">
                                             <div className="flex items-center gap-3 mb-1">
                                                 <h3 className="font-medium text-gray-900">
-                                                    {quiz.quizTitle || `Avaliação ${index + 1}`}
+                                                    {quiz.title || `Avaliação ${index + 1}`}
                                                 </h3>
-                                                {getStatusBadge(quiz.gradingStatus)}
+                                                {getStatusBadge(quiz.status)}
                                             </div>
                                             <div className="flex items-center gap-4 text-sm text-gray-600">
-                                                {quiz.completedAt && (
+                                                {quiz.lastAttemptDate && (
                                                     <span>
-                                                        {new Date(quiz.completedAt).toLocaleDateString("pt-BR")}
-                                                    </span>
-                                                )}
-                                                {quiz.timeSpent && (
-                                                    <span>
-                                                        {Math.round(quiz.timeSpent / 60)} min
+                                                        {new Date(quiz.lastAttemptDate).toLocaleDateString("pt-BR")}
                                                     </span>
                                                 )}
                                                 {quiz.weight && (
@@ -211,29 +206,19 @@ export default function StudentGradebookPage() {
                                             {/* Nota */}
                                             <div className="text-right">
                                                 <span
-                                                    className={`text-2xl font-bold ${quiz.passed ? "text-green-600" : "text-red-600"
+                                                    className={`text-2xl font-bold ${quiz.status === "passed" ? "text-green-600" : "text-red-600"
                                                         }`}
                                                 >
                                                     {quiz.score?.toFixed(0) || "?"}%
                                                 </span>
                                                 <p className="text-xs text-gray-500">
-                                                    {quiz.passed ? "Aprovado" : "Reprovado"}
+                                                    {quiz.status === "passed" ? "Aprovado" : "Reprovado"}
                                                 </p>
                                             </div>
 
-                                            {/* Feedback */}
-                                            {quiz.instructorComments && (
-                                                <div className="max-w-xs">
-                                                    <p className="text-xs text-gray-500 mb-1">Feedback:</p>
-                                                    <p className="text-sm text-gray-700 truncate">
-                                                        {quiz.instructorComments}
-                                                    </p>
-                                                </div>
-                                            )}
-
                                             {/* Link para detalhes */}
                                             <Link
-                                                href={`/student/quiz/${quiz.quizId}/results`}
+                                                href={`/student/quiz/${quiz.id}`}
                                                 className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 text-sm font-medium"
                                             >
                                                 Ver Detalhes

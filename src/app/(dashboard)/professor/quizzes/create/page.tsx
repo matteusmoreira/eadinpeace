@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { api } from "@convex/_generated/api";
 import { useRouter } from "next/navigation";
+import { useUser } from "@clerk/nextjs";
 import {
     ArrowLeft,
     Save,
@@ -42,12 +43,14 @@ interface LocalQuestion {
 
 export default function CreateQuizPage() {
     const router = useRouter();
-    const currentUser = useQuery(api.users.getCurrentUser);
+    const { user } = useUser();
+    const currentUser = useQuery(api.users.getByClerkId, user?.id ? { clerkId: user.id } : "skip");
     const courses = useQuery(
-        api.courses.getByProfessor,
-        currentUser?._id ? { professorId: currentUser._id } : "skip"
+        api.courses.getByInstructor,
+        currentUser?._id ? { instructorId: currentUser._id } : "skip"
     );
     const createQuiz = useMutation(api.quizzes.create);
+    const publishQuiz = useMutation(api.quizzes.publish);
     const createQuestion = useMutation(api.quizzes.addQuestion);
 
     // Estado do Quiz
@@ -159,11 +162,14 @@ export default function CreateQuizPage() {
                 description: quizData.description,
                 courseId: quizData.courseId as any,
                 lessonId: quizData.lessonId ? (quizData.lessonId as any) : undefined,
-                duration: quizData.duration,
+                timeLimit: quizData.duration,
                 passingScore: quizData.passingScore,
                 maxAttempts: quizData.maxAttempts,
-                isPublished: quizData.isPublished,
             });
+
+            if (quizData.isPublished) {
+                await publishQuiz({ quizId });
+            }
 
             // Criar as questões
             for (let i = 0; i < questions.length; i++) {
@@ -175,7 +181,6 @@ export default function CreateQuizPage() {
                     options: q.options.length > 0 ? q.options.filter((o) => o.trim()) : undefined,
                     correctAnswer: q.correctAnswer || undefined,
                     points: q.points,
-                    order: i,
                 });
             }
 
@@ -714,8 +719,8 @@ function TrueFalseEditor({
                 <button
                     onClick={() => onUpdate({ correctAnswer: "true" })}
                     className={`p-4 rounded-lg border-2 transition-all ${question.correctAnswer === "true"
-                            ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                            : "border-gray-300 hover:border-indigo-300"
+                        ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                        : "border-gray-300 hover:border-indigo-300"
                         }`}
                 >
                     Verdadeiro
@@ -723,8 +728,8 @@ function TrueFalseEditor({
                 <button
                     onClick={() => onUpdate({ correctAnswer: "false" })}
                     className={`p-4 rounded-lg border-2 transition-all ${question.correctAnswer === "false"
-                            ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                            : "border-gray-300 hover:border-indigo-300"
+                        ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                        : "border-gray-300 hover:border-indigo-300"
                         }`}
                 >
                     Falso

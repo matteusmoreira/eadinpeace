@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { api } from "@convex/_generated/api";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import {
@@ -15,7 +15,7 @@ import {
     MessageSquare,
 } from "lucide-react";
 import Link from "next/link";
-import { Id } from "@/convex/_generated/dataModel";
+import { Id } from "@convex/_generated/dataModel";
 import { toast } from "sonner";
 
 export default function GradeAttemptPage() {
@@ -206,10 +206,10 @@ export default function GradeAttemptPage() {
                             <div
                                 key={question.questionId}
                                 className={`bg-white rounded-xl shadow-sm p-6 ${isAutoGraded
-                                        ? question.isCorrect
-                                            ? "border-l-4 border-green-500"
-                                            : "border-l-4 border-red-500"
-                                        : "border-l-4 border-orange-500"
+                                    ? question.isCorrect
+                                        ? "border-l-4 border-green-500"
+                                        : "border-l-4 border-red-500"
+                                    : "border-l-4 border-orange-500"
                                     }`}
                             >
                                 {/* Question Header */}
@@ -225,8 +225,8 @@ export default function GradeAttemptPage() {
                                             {isAutoGraded && (
                                                 <span
                                                     className={`px-2 py-1 rounded-full text-xs font-medium ${question.isCorrect
-                                                            ? "bg-green-100 text-green-700"
-                                                            : "bg-red-100 text-red-700"
+                                                        ? "bg-green-100 text-green-700"
+                                                        : "bg-red-100 text-red-700"
                                                         }`}
                                                 >
                                                     {question.isCorrect ? "✓ Correta" : "✗ Incorreta"}

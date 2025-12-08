@@ -559,7 +559,7 @@ export default function QuizPage() {
                                         mediaType: currentQuestion.mediaType,
                                         userAnswer: typeof getCurrentAnswer() === 'string' ? getCurrentAnswer() as string : undefined,
                                         userAnswers: Array.isArray(getCurrentAnswer()) && typeof getCurrentAnswer()?.[0] === 'string' ? getCurrentAnswer() as string[] : undefined,
-                                        userMatches: Array.isArray(getCurrentAnswer()) && getCurrentAnswer()?.[0]?.prompt ? getCurrentAnswer() as any : undefined,
+                                        userMatches: Array.isArray(getCurrentAnswer()) && (getCurrentAnswer()?.[0] as any)?.prompt ? getCurrentAnswer() as any : undefined,
                                         userOrder: currentQuestion.type === 'sortable' ? getCurrentAnswer() as string[] : undefined,
                                         userBlanks: currentQuestion.type === 'fill_blanks' ? getCurrentAnswer() as string[] : undefined,
                                     }}

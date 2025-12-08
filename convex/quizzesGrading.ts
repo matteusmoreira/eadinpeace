@@ -230,13 +230,13 @@ export const getGradingStats = query({
         if (args.courseId) {
             quizzes = await ctx.db
                 .query("quizzes")
-                .withIndex("by_course", (q) => q.eq("courseId", args.courseId))
+                .withIndex("by_course", (q) => q.eq("courseId", args.courseId!))
                 .collect();
         } else if (args.organizationId) {
             // Buscar todos os cursos da organização
             const courses = await ctx.db
                 .query("courses")
-                .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+                .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId!))
                 .collect();
 
             for (const course of courses) {
@@ -295,13 +295,13 @@ export const getPendingGrading = query({
         if (args.courseId) {
             quizzes = await ctx.db
                 .query("quizzes")
-                .withIndex("by_course", (q) => q.eq("courseId", args.courseId))
+                .withIndex("by_course", (q) => q.eq("courseId", args.courseId!))
                 .collect();
         } else if (args.instructorId) {
             // Buscar cursos do instrutor
             const courses = await ctx.db
                 .query("courses")
-                .withIndex("by_instructor", (q) => q.eq("instructorId", args.instructorId))
+                .withIndex("by_instructor", (q) => q.eq("instructorId", args.instructorId!))
                 .collect();
 
             for (const course of courses) {

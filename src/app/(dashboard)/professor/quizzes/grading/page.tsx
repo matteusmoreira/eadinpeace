@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { api } from "@convex/_generated/api";
 import { useUser } from "@clerk/nextjs";
 import { useState } from "react";
 import {
@@ -21,7 +21,7 @@ export default function GradingPage() {
     const [statusFilter, setStatusFilter] = useState<string>("all");
 
     // Buscar dados do usuário no Convex
-    const currentUser = useQuery(api.users.getCurrentUser);
+    const currentUser = useQuery(api.users.getByClerkId, user?.id ? { clerkId: user.id } : "skip");
 
     // Buscar tentativas pendentes de correção
     const pendingAttempts = useQuery(
@@ -270,7 +270,7 @@ function StatCard({
 }
 
 // Status Badge Component
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status }: { status: string | undefined }) {
     const statusConfig = {
         pending: {
             label: "Pendente",

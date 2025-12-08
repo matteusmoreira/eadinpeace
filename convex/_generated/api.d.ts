@@ -30,6 +30,7 @@ import type * as quizzes from "../quizzes.js";
 import type * as quizzesGrading from "../quizzesGrading.js";
 import type * as reports from "../reports.js";
 import type * as search from "../search.js";
+import type * as social from "../social.js";
 import type * as users from "../users.js";
 
 import type {
@@ -61,6 +62,7 @@ declare const fullApi: ApiFromModules<{
   quizzesGrading: typeof quizzesGrading;
   reports: typeof reports;
   search: typeof search;
+  social: typeof social;
   users: typeof users;
 }>;
 

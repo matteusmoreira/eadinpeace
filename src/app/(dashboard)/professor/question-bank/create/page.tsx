@@ -2,16 +2,18 @@
 
 import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { api } from "@convex/_generated/api";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Save, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { QuestionType, getQuestionTypeLabel } from "@/components/quiz/QuestionRenderer";
+import { useUser } from "@clerk/nextjs";
 
 export default function CreateQuestionPage() {
     const router = useRouter();
-    const currentUser = useQuery(api.users.getCurrentUser);
+    const { user } = useUser();
+    const currentUser = useQuery(api.users.getByClerkId, user?.id ? { clerkId: user.id } : "skip");
     const createQuestion = useMutation(api.questionBank.create);
 
     const [formData, setFormData] = useState({
@@ -277,8 +279,8 @@ export default function CreateQuestionPage() {
                                 <button
                                     onClick={() => setFormData({ ...formData, correctAnswer: "true" })}
                                     className={`p-4 rounded-lg border-2 transition-all ${formData.correctAnswer === "true"
-                                            ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                                            : "border-gray-300 text-gray-700 hover:border-indigo-300"
+                                        ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                                        : "border-gray-300 text-gray-700 hover:border-indigo-300"
                                         }`}
                                 >
                                     Verdadeiro
@@ -286,8 +288,8 @@ export default function CreateQuestionPage() {
                                 <button
                                     onClick={() => setFormData({ ...formData, correctAnswer: "false" })}
                                     className={`p-4 rounded-lg border-2 transition-all ${formData.correctAnswer === "false"
-                                            ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                                            : "border-gray-300 text-gray-700 hover:border-indigo-300"
+                                        ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                                        : "border-gray-300 text-gray-700 hover:border-indigo-300"
                                         }`}
                                 >
                                     Falso
