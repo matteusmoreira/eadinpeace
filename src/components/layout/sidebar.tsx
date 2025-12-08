@@ -91,6 +91,7 @@ const menuSections: MenuSection[] = [
         title: "Sistema",
         roles: ["superadmin"],
         items: [
+            { title: "Conquistas", href: "/admin/achievements", icon: Award },
             { title: "Configurações", href: "/superadmin/settings", icon: Settings },
             { title: "Aparência", href: "/superadmin/appearance", icon: Palette },
         ],
@@ -112,6 +113,7 @@ const menuSections: MenuSection[] = [
         items: [
             { title: "Cursos", href: "/admin/courses", icon: BookOpen },
             { title: "Categorias", href: "/admin/categories", icon: FileText },
+            { title: "Conquistas", href: "/admin/achievements", icon: Trophy },
         ],
     },
     {

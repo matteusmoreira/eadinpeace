@@ -9,6 +9,118 @@ export const getAll = query({
     },
 });
 
+// Create achievement
+export const create = mutation({
+    args: {
+        name: v.string(),
+        description: v.string(),
+        icon: v.string(),
+        type: v.union(
+            v.literal("course_complete"),
+            v.literal("streak"),
+            v.literal("time_spent"),
+            v.literal("first_lesson"),
+            v.literal("top_student")
+        ),
+        requirement: v.number(),
+        points: v.number(),
+    },
+    handler: async (ctx, args) => {
+        const now = Date.now();
+        const id = await ctx.db.insert("achievements", {
+            ...args,
+            createdAt: now,
+        });
+        return id;
+    },
+});
+
+// Update achievement
+export const update = mutation({
+    args: {
+        id: v.id("achievements"),
+        name: v.optional(v.string()),
+        description: v.optional(v.string()),
+        icon: v.optional(v.string()),
+        type: v.optional(v.union(
+            v.literal("course_complete"),
+            v.literal("streak"),
+            v.literal("time_spent"),
+            v.literal("first_lesson"),
+            v.literal("top_student")
+        )),
+        requirement: v.optional(v.number()),
+        points: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        const { id, ...updates } = args;
+        const existing = await ctx.db.get(id);
+        if (!existing) throw new Error("Conquista não encontrada");
+
+        const cleanUpdates: Record<string, unknown> = {};
+        for (const [key, value] of Object.entries(updates)) {
+            if (value !== undefined) {
+                cleanUpdates[key] = value;
+            }
+        }
+
+        await ctx.db.patch(id, cleanUpdates);
+        return id;
+    },
+});
+
+// Delete achievement
+export const remove = mutation({
+    args: { id: v.id("achievements") },
+    handler: async (ctx, args) => {
+        // Remove all user achievements related to this achievement
+        const userAchievements = await ctx.db
+            .query("userAchievements")
+            .withIndex("by_achievement", (q) => q.eq("achievementId", args.id))
+            .collect();
+
+        for (const ua of userAchievements) {
+            await ctx.db.delete(ua._id);
+        }
+
+        // Delete the achievement
+        await ctx.db.delete(args.id);
+        return true;
+    },
+});
+
+// Get achievement by ID
+export const getById = query({
+    args: { id: v.id("achievements") },
+    handler: async (ctx, args) => {
+        return await ctx.db.get(args.id);
+    },
+});
+
+// Get achievement stats (how many users have each achievement)
+export const getStats = query({
+    args: {},
+    handler: async (ctx) => {
+        const achievements = await ctx.db.query("achievements").collect();
+
+        const stats = await Promise.all(
+            achievements.map(async (achievement) => {
+                const userAchievements = await ctx.db
+                    .query("userAchievements")
+                    .withIndex("by_achievement", (q) => q.eq("achievementId", achievement._id))
+                    .collect();
+
+                return {
+                    ...achievement,
+                    unlockedCount: userAchievements.length,
+                };
+            })
+        );
+
+        return stats;
+    },
+});
+
 // Get user achievements
 export const getUserAchievements = query({
     args: { userId: v.id("users") },

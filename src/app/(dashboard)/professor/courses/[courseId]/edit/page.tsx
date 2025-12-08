@@ -52,9 +52,13 @@ import {
     Loader2,
     Check,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@convex/_generated/api";
+import { Id } from "@convex/_generated/dataModel";
+import { useRouter } from "next/navigation";
 
 const container = {
     hidden: { opacity: 0 },
@@ -69,66 +73,30 @@ const item = {
     show: { opacity: 1, y: 0 },
 };
 
-// Mock course data
-const initialCourse = {
-    id: "1",
-    title: "Fundamentos de JavaScript",
-    description: "Aprenda os fundamentos da linguagem JavaScript do zero",
-    category: "Programação",
-    level: "beginner",
-    thumbnail: "https://images.unsplash.com/photo-1627398242454-45a1465c2479?w=400&h=225&fit=crop",
-    isPublished: false,
-    modules: [
-        {
-            id: "m1",
-            title: "Introdução ao JavaScript",
-            description: "Primeiros passos com a linguagem",
-            isExpanded: true,
-            lessons: [
-                {
-                    id: "l1",
-                    title: "Bem-vindo ao curso",
-                    type: "video",
-                    videoUrl: "https://www.youtube.com/watch?v=example1",
-                    duration: 180,
-                    isPublished: true,
-                    isFree: true,
-                },
-                {
-                    id: "l2",
-                    title: "O que é JavaScript?",
-                    type: "video",
-                    videoUrl: "https://www.youtube.com/watch?v=example2",
-                    duration: 420,
-                    isPublished: true,
-                    isFree: false,
-                },
-            ],
-        },
-        {
-            id: "m2",
-            title: "Variáveis e Tipos de Dados",
-            description: "Entendendo como armazenar dados",
-            isExpanded: false,
-            lessons: [
-                {
-                    id: "l3",
-                    title: "Declarando variáveis",
-                    type: "video",
-                    videoUrl: "https://www.youtube.com/watch?v=example3",
-                    duration: 600,
-                    isPublished: false,
-                    isFree: false,
-                },
-            ],
-        },
-    ],
-};
-
 function formatDuration(seconds: number): string {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, "0")}`;
+}
+
+interface LocalModule {
+    id: string;
+    _id?: Id<"modules">;
+    title: string;
+    description?: string;
+    isExpanded: boolean;
+    lessons: LocalLesson[];
+}
+
+interface LocalLesson {
+    id: string;
+    _id?: Id<"lessons">;
+    title: string;
+    type: string;
+    videoUrl?: string;
+    duration: number;
+    isPublished: boolean;
+    isFree: boolean;
 }
 
 export default function EditCoursePage({
@@ -136,10 +104,33 @@ export default function EditCoursePage({
 }: {
     params: { courseId: string };
 }) {
-    const [course, setCourse] = useState(initialCourse);
+    const router = useRouter();
+
+    // Fetch course data from Convex
+    const courseData = useQuery(api.courses.getWithContent, {
+        courseId: params.courseId as Id<"courses">
+    });
+
+    // Mutations
+    const updateCourse = useMutation(api.courses.update);
+    const createModule = useMutation(api.courses.createModule);
+    const createLesson = useMutation(api.courses.createLesson);
+
+    // Local state for UI
+    const [course, setCourse] = useState<{
+        id: string;
+        title: string;
+        description: string;
+        category: string;
+        level: string;
+        thumbnail: string;
+        isPublished: boolean;
+        modules: LocalModule[];
+    } | null>(null);
     const [activeTab, setActiveTab] = useState("content");
     const [isSaving, setIsSaving] = useState(false);
     const [hasChanges, setHasChanges] = useState(false);
+    const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
 
     // Dialog states
     const [moduleDialogOpen, setModuleDialogOpen] = useState(false);
@@ -157,13 +148,50 @@ export default function EditCoursePage({
         isFree: false,
     });
 
+    // Sync course data from Convex to local state
+    useEffect(() => {
+        if (courseData) {
+            const modules: LocalModule[] = (courseData.modules || []).map((m: any) => ({
+                id: m._id,
+                _id: m._id,
+                title: m.title,
+                description: m.description,
+                isExpanded: expandedModules.has(m._id),
+                lessons: (m.lessons || []).map((l: any) => ({
+                    id: l._id,
+                    _id: l._id,
+                    title: l.title,
+                    type: l.type || "video",
+                    videoUrl: l.videoUrl,
+                    duration: l.duration || 0,
+                    isPublished: l.isPublished || false,
+                    isFree: l.isFree || false,
+                })),
+            }));
+
+            setCourse({
+                id: courseData._id,
+                title: courseData.title,
+                description: courseData.description || "",
+                category: courseData.category || "",
+                level: courseData.level || "beginner",
+                thumbnail: courseData.thumbnail || "",
+                isPublished: courseData.isPublished || false,
+                modules,
+            });
+        }
+    }, [courseData, expandedModules]);
+
     const toggleModule = (moduleId: string) => {
-        setCourse((prev) => ({
-            ...prev,
-            modules: prev.modules.map((m) =>
-                m.id === moduleId ? { ...m, isExpanded: !m.isExpanded } : m
-            ),
-        }));
+        setExpandedModules(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(moduleId)) {
+                newSet.delete(moduleId);
+            } else {
+                newSet.add(moduleId);
+            }
+            return newSet;
+        });
     };
 
     const openAddModule = () => {
@@ -178,40 +206,46 @@ export default function EditCoursePage({
         setModuleDialogOpen(true);
     };
 
-    const saveModule = () => {
+    const saveModule = async () => {
+        if (!course) return;
+
         if (editingModule) {
-            // Edit existing module
-            setCourse((prev) => ({
-                ...prev,
-                modules: prev.modules.map((m) =>
-                    m.id === editingModule.id
-                        ? { ...m, title: moduleForm.title, description: moduleForm.description }
-                        : m
-                ),
-            }));
+            // Edit existing module - for now just update local state
+            setCourse(prev => {
+                if (!prev) return prev;
+                return {
+                    ...prev,
+                    modules: prev.modules.map((m) =>
+                        m.id === editingModule.id
+                            ? { ...m, title: moduleForm.title, description: moduleForm.description }
+                            : m
+                    ),
+                };
+            });
         } else {
-            // Add new module
-            const newModule = {
-                id: `m${Date.now()}`,
-                title: moduleForm.title,
-                description: moduleForm.description,
-                isExpanded: true,
-                lessons: [],
-            };
-            setCourse((prev) => ({
-                ...prev,
-                modules: [...prev.modules, newModule],
-            }));
+            // Add new module via API
+            try {
+                await createModule({
+                    courseId: params.courseId as Id<"courses">,
+                    title: moduleForm.title,
+                    description: moduleForm.description,
+                });
+            } catch (error) {
+                console.error("Error creating module:", error);
+            }
         }
         setModuleDialogOpen(false);
         setHasChanges(true);
     };
 
     const deleteModule = (moduleId: string) => {
-        setCourse((prev) => ({
-            ...prev,
-            modules: prev.modules.filter((m) => m.id !== moduleId),
-        }));
+        setCourse(prev => {
+            if (!prev) return prev;
+            return {
+                ...prev,
+                modules: prev.modules.filter((m) => m.id !== moduleId),
+            };
+        });
         setHasChanges(true);
     };
 
@@ -234,92 +268,137 @@ export default function EditCoursePage({
         setLessonDialogOpen(true);
     };
 
-    const saveLesson = () => {
+    const saveLesson = async () => {
+        if (!course || !selectedModuleId) return;
+
         const durationInSeconds = parseInt(lessonForm.duration) * 60 || 0;
+        const moduleData = course.modules.find(m => m.id === selectedModuleId);
 
         if (editingLesson) {
-            // Edit existing lesson
-            setCourse((prev) => ({
-                ...prev,
-                modules: prev.modules.map((m) =>
-                    m.id === selectedModuleId
-                        ? {
-                            ...m,
-                            lessons: m.lessons.map((l: any) =>
-                                l.id === editingLesson.id
-                                    ? {
-                                        ...l,
-                                        title: lessonForm.title,
-                                        videoUrl: lessonForm.videoUrl,
-                                        duration: durationInSeconds,
-                                        isFree: lessonForm.isFree,
-                                    }
-                                    : l
-                            ),
-                        }
-                        : m
-                ),
-            }));
+            // Edit existing lesson - update local state
+            setCourse(prev => {
+                if (!prev) return prev;
+                return {
+                    ...prev,
+                    modules: prev.modules.map((m) =>
+                        m.id === selectedModuleId
+                            ? {
+                                ...m,
+                                lessons: m.lessons.map((l: any) =>
+                                    l.id === editingLesson.id
+                                        ? {
+                                            ...l,
+                                            title: lessonForm.title,
+                                            videoUrl: lessonForm.videoUrl,
+                                            duration: durationInSeconds,
+                                            isFree: lessonForm.isFree,
+                                        }
+                                        : l
+                                ),
+                            }
+                            : m
+                    ),
+                };
+            });
         } else {
-            // Add new lesson
-            const newLesson = {
-                id: `l${Date.now()}`,
-                title: lessonForm.title,
-                type: "video",
-                videoUrl: lessonForm.videoUrl,
-                duration: durationInSeconds,
-                isPublished: false,
-                isFree: lessonForm.isFree,
-            };
-            setCourse((prev) => ({
-                ...prev,
-                modules: prev.modules.map((m) =>
-                    m.id === selectedModuleId
-                        ? { ...m, lessons: [...m.lessons, newLesson] }
-                        : m
-                ),
-            }));
+            // Add new lesson via API
+            try {
+                await createLesson({
+                    courseId: params.courseId as Id<"courses">,
+                    moduleId: selectedModuleId as Id<"modules">,
+                    title: lessonForm.title,
+                    type: "video",
+                    videoUrl: lessonForm.videoUrl,
+                    duration: durationInSeconds,
+                    isFree: lessonForm.isFree,
+                });
+            } catch (error) {
+                console.error("Error creating lesson:", error);
+            }
         }
         setLessonDialogOpen(false);
         setHasChanges(true);
     };
 
     const deleteLesson = (moduleId: string, lessonId: string) => {
-        setCourse((prev) => ({
-            ...prev,
-            modules: prev.modules.map((m) =>
-                m.id === moduleId
-                    ? { ...m, lessons: m.lessons.filter((l: any) => l.id !== lessonId) }
-                    : m
-            ),
-        }));
+        setCourse(prev => {
+            if (!prev) return prev;
+            return {
+                ...prev,
+                modules: prev.modules.map((m) =>
+                    m.id === moduleId
+                        ? { ...m, lessons: m.lessons.filter((l: any) => l.id !== lessonId) }
+                        : m
+                ),
+            };
+        });
         setHasChanges(true);
     };
 
     const toggleLessonPublish = (moduleId: string, lessonId: string) => {
-        setCourse((prev) => ({
-            ...prev,
-            modules: prev.modules.map((m) =>
-                m.id === moduleId
-                    ? {
-                        ...m,
-                        lessons: m.lessons.map((l: any) =>
-                            l.id === lessonId ? { ...l, isPublished: !l.isPublished } : l
-                        ),
-                    }
-                    : m
-            ),
-        }));
+        setCourse(prev => {
+            if (!prev) return prev;
+            return {
+                ...prev,
+                modules: prev.modules.map((m) =>
+                    m.id === moduleId
+                        ? {
+                            ...m,
+                            lessons: m.lessons.map((l: any) =>
+                                l.id === lessonId ? { ...l, isPublished: !l.isPublished } : l
+                            ),
+                        }
+                        : m
+                ),
+            };
+        });
         setHasChanges(true);
     };
 
     const handleSave = async () => {
+        if (!course) return;
+
         setIsSaving(true);
-        // TODO: Call Convex mutation to save course
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        try {
+            await updateCourse({
+                courseId: params.courseId as Id<"courses">,
+                title: course.title,
+                description: course.description,
+                category: course.category,
+                level: course.level as "beginner" | "intermediate" | "advanced",
+                thumbnail: course.thumbnail,
+                isPublished: course.isPublished,
+            });
+        } catch (error) {
+            console.error("Error saving course:", error);
+        }
         setIsSaving(false);
         setHasChanges(false);
     };
+
+    // Loading state
+    if (courseData === undefined) {
+        return (
+            <div className="flex items-center justify-center min-h-[400px]">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    // Course not found
+    if (courseData === null || !course) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+                <p className="text-muted-foreground">Curso não encontrado</p>
+                <Link href="/professor/courses">
+                    <Button variant="outline" className="gap-2">
+                        <ArrowLeft className="h-4 w-4" />
+                        Voltar aos Cursos
+                    </Button>
+                </Link>
+            </div>
+        );
+    }
 
     const totalLessons = course.modules.reduce(
         (acc, m) => acc + m.lessons.length,

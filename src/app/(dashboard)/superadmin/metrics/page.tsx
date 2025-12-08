@@ -38,12 +38,12 @@ const item = {
 };
 
 export default function SuperadminMetricsPage() {
-    const [period, setPeriod] = useState("30d");
+    const [period, setPeriod] = useState<"7d" | "30d" | "90d" | "1y">("30d");
 
     // Queries
     const users = useQuery(api.users.getAll);
     const organizations = useQuery(api.organizations.getAll);
-    const userStats = useQuery(api.users.getGlobalStats);
+    const userStats = useQuery(api.users.getGlobalStats, { period });
 
     const isLoading = users === undefined || organizations === undefined || userStats === undefined;
 
@@ -81,7 +81,7 @@ export default function SuperadminMetricsPage() {
                     <h1 className="text-2xl md:text-3xl font-bold">Métricas</h1>
                     <p className="text-muted-foreground">Visão geral do desempenho da plataforma</p>
                 </div>
-                <Select value={period} onValueChange={setPeriod}>
+                <Select value={period} onValueChange={(value) => setPeriod(value as "7d" | "30d" | "90d" | "1y")}>
                     <SelectTrigger className="w-[180px]">
                         <SelectValue placeholder="Período" />
                     </SelectTrigger>

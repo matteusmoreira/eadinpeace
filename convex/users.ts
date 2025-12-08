@@ -339,33 +339,57 @@ export const getStats = query({
 
 // Get global user stats (superadmin)
 export const getGlobalStats = query({
-    args: {},
-    handler: async (ctx) => {
+    args: {
+        period: v.optional(v.union(
+            v.literal("7d"),
+            v.literal("30d"),
+            v.literal("90d"),
+            v.literal("1y")
+        ))
+    },
+    handler: async (ctx, args) => {
         const users = await ctx.db.query("users").collect();
         const organizations = await ctx.db.query("organizations").collect();
         const enrollments = await ctx.db.query("enrollments").collect();
         const certificates = await ctx.db.query("certificates").collect();
         const courses = await ctx.db.query("courses").collect();
 
-        // Calculate growth based on createdAt timestamps
+        // Calculate period in milliseconds based on selected period
         const now = Date.now();
-        const thirtyDaysAgo = now - (30 * 24 * 60 * 60 * 1000);
-        const sixtyDaysAgo = now - (60 * 24 * 60 * 60 * 1000);
+        let periodMs: number;
+        switch (args.period || "30d") {
+            case "7d":
+                periodMs = 7 * 24 * 60 * 60 * 1000;
+                break;
+            case "90d":
+                periodMs = 90 * 24 * 60 * 60 * 1000;
+                break;
+            case "1y":
+                periodMs = 365 * 24 * 60 * 60 * 1000;
+                break;
+            case "30d":
+            default:
+                periodMs = 30 * 24 * 60 * 60 * 1000;
+                break;
+        }
 
-        // Users created in last 30 days vs previous 30 days
-        const usersLast30 = users.filter(u => u.createdAt && u.createdAt >= thirtyDaysAgo).length;
-        const usersPrevious30 = users.filter(u => u.createdAt && u.createdAt >= sixtyDaysAgo && u.createdAt < thirtyDaysAgo).length;
-        const userGrowth = usersPrevious30 > 0 ? ((usersLast30 - usersPrevious30) / usersPrevious30 * 100) : usersLast30 > 0 ? 100 : 0;
+        const periodStart = now - periodMs;
+        const previousPeriodStart = periodStart - periodMs;
 
-        // Organizations created in last 30 days vs previous 30 days
-        const orgsLast30 = organizations.filter(o => o.createdAt && o.createdAt >= thirtyDaysAgo).length;
-        const orgsPrevious30 = organizations.filter(o => o.createdAt && o.createdAt >= sixtyDaysAgo && o.createdAt < thirtyDaysAgo).length;
-        const orgGrowth = orgsPrevious30 > 0 ? ((orgsLast30 - orgsPrevious30) / orgsPrevious30 * 100) : orgsLast30 > 0 ? 100 : 0;
+        // Users created in this period vs previous period
+        const usersThisPeriod = users.filter(u => u.createdAt && u.createdAt >= periodStart).length;
+        const usersPreviousPeriod = users.filter(u => u.createdAt && u.createdAt >= previousPeriodStart && u.createdAt < periodStart).length;
+        const userGrowth = usersPreviousPeriod > 0 ? ((usersThisPeriod - usersPreviousPeriod) / usersPreviousPeriod * 100) : usersThisPeriod > 0 ? 100 : 0;
+
+        // Organizations created in this period vs previous period
+        const orgsThisPeriod = organizations.filter(o => o.createdAt && o.createdAt >= periodStart).length;
+        const orgsPreviousPeriod = organizations.filter(o => o.createdAt && o.createdAt >= previousPeriodStart && o.createdAt < periodStart).length;
+        const orgGrowth = orgsPreviousPeriod > 0 ? ((orgsThisPeriod - orgsPreviousPeriod) / orgsPreviousPeriod * 100) : orgsThisPeriod > 0 ? 100 : 0;
 
         // Active users growth (based on lastLoginAt)
-        const activeUsersLast30 = users.filter(u => u.isActive && u.lastLoginAt && u.lastLoginAt >= thirtyDaysAgo).length;
-        const activeUsersPrevious30 = users.filter(u => u.isActive && u.lastLoginAt && u.lastLoginAt >= sixtyDaysAgo && u.lastLoginAt < thirtyDaysAgo).length;
-        const activeGrowth = activeUsersPrevious30 > 0 ? ((activeUsersLast30 - activeUsersPrevious30) / activeUsersPrevious30 * 100) : activeUsersLast30 > 0 ? 100 : 0;
+        const activeUsersThisPeriod = users.filter(u => u.isActive && u.lastLoginAt && u.lastLoginAt >= periodStart).length;
+        const activeUsersPreviousPeriod = users.filter(u => u.isActive && u.lastLoginAt && u.lastLoginAt >= previousPeriodStart && u.lastLoginAt < periodStart).length;
+        const activeGrowth = activeUsersPreviousPeriod > 0 ? ((activeUsersThisPeriod - activeUsersPreviousPeriod) / activeUsersPreviousPeriod * 100) : activeUsersThisPeriod > 0 ? 100 : 0;
 
         return {
             total: users.length,
