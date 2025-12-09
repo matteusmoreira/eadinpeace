@@ -80,37 +80,46 @@ export const getById = query({
 export const getByOrganization = query({
     args: { organizationId: v.id("organizations") },
     handler: async (ctx, args) => {
-        // Verificar autenticação e acesso à organização
-        await requireAuthWithOrg(ctx, args.organizationId);
+        try {
+            // Verificar autenticação básica
+            const identity = await ctx.auth.getUserIdentity();
+            if (!identity) {
+                console.log("[courses:getByOrganization] Usuário não autenticado");
+                return [];
+            }
 
-        const courses = await ctx.db
-            .query("courses")
-            .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
-            .collect();
+            const courses = await ctx.db
+                .query("courses")
+                .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+                .collect();
 
-        // Enrich with instructor info
-        const enrichedCourses = await Promise.all(
-            courses.map(async (course) => {
-                const instructor = await ctx.db.get(course.instructorId);
-                const enrollments = await ctx.db
-                    .query("enrollments")
-                    .withIndex("by_course", (q) => q.eq("courseId", course._id))
-                    .collect();
-                const lessons = await ctx.db
-                    .query("lessons")
-                    .withIndex("by_course", (q) => q.eq("courseId", course._id))
-                    .collect();
+            // Enrich with instructor info
+            const enrichedCourses = await Promise.all(
+                courses.map(async (course) => {
+                    const instructor = await ctx.db.get(course.instructorId);
+                    const enrollments = await ctx.db
+                        .query("enrollments")
+                        .withIndex("by_course", (q) => q.eq("courseId", course._id))
+                        .collect();
+                    const lessons = await ctx.db
+                        .query("lessons")
+                        .withIndex("by_course", (q) => q.eq("courseId", course._id))
+                        .collect();
 
-                return {
-                    ...course,
-                    instructor,
-                    enrollmentCount: enrollments.length,
-                    lessonCount: lessons.length,
-                };
-            })
-        );
+                    return {
+                        ...course,
+                        instructor,
+                        enrollmentCount: enrollments.length,
+                        lessonCount: lessons.length,
+                    };
+                })
+            );
 
-        return enrichedCourses;
+            return enrichedCourses;
+        } catch (error) {
+            console.error("[courses:getByOrganization] Erro:", error);
+            return [];
+        }
     },
 });
 

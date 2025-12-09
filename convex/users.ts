@@ -67,16 +67,22 @@ export const getById = query({
 export const getByOrganization = query({
     args: { organizationId: v.id("organizations") },
     handler: async (ctx, args) => {
-        // Verificar autenticação
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            throw new Error("Não autenticado");
-        }
+        try {
+            // Verificar autenticação
+            const identity = await ctx.auth.getUserIdentity();
+            if (!identity) {
+                console.log("[getByOrganization] Usuário não autenticado");
+                return [];
+            }
 
-        return await ctx.db
-            .query("users")
-            .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
-            .collect();
+            return await ctx.db
+                .query("users")
+                .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+                .collect();
+        } catch (error) {
+            console.error("[getByOrganization] Erro:", error);
+            return [];
+        }
     },
 });
 
@@ -84,29 +90,35 @@ export const getByOrganization = query({
 export const getAll = query({
     args: {},
     handler: async (ctx) => {
-        // Verificar autenticação
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            throw new Error("Não autenticado");
+        try {
+            // Verificar autenticação
+            const identity = await ctx.auth.getUserIdentity();
+            if (!identity) {
+                console.log("[getAll] Usuário não autenticado");
+                return [];
+            }
+
+            const users = await ctx.db.query("users").collect();
+
+            // Enrich with organization data
+            const enrichedUsers = await Promise.all(
+                users.map(async (user) => {
+                    let organization = null;
+                    if (user.organizationId) {
+                        organization = await ctx.db.get(user.organizationId);
+                    }
+                    return {
+                        ...user,
+                        organization: organization ? { name: organization.name, slug: organization.slug } : null,
+                    };
+                })
+            );
+
+            return enrichedUsers;
+        } catch (error) {
+            console.error("[getAll] Erro:", error);
+            return [];
         }
-
-        const users = await ctx.db.query("users").collect();
-
-        // Enrich with organization data
-        const enrichedUsers = await Promise.all(
-            users.map(async (user) => {
-                let organization = null;
-                if (user.organizationId) {
-                    organization = await ctx.db.get(user.organizationId);
-                }
-                return {
-                    ...user,
-                    organization: organization ? { name: organization.name, slug: organization.slug } : null,
-                };
-            })
-        );
-
-        return enrichedUsers;
     },
 });
 

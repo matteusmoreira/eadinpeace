@@ -182,7 +182,8 @@ export const getByOrganization = query({
         // Verificar autenticação
         const identity = await ctx.auth.getUserIdentity();
         if (!identity) {
-            throw new Error("Não autenticado");
+            console.log("[certificates:getByOrganization] Usuário não autenticado");
+            return [];
         }
 
         try {
