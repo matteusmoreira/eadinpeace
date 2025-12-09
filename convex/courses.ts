@@ -422,6 +422,120 @@ export const createLesson = mutation({
     },
 });
 
+// Update lesson
+export const updateLesson = mutation({
+    args: {
+        lessonId: v.id("lessons"),
+        title: v.optional(v.string()),
+        description: v.optional(v.string()),
+        // Tipo de aula
+        type: v.optional(v.union(
+            v.literal("video"),
+            v.literal("text"),
+            v.literal("pdf"),
+            v.literal("assignment"),
+            v.literal("exam")
+        )),
+        // Para vídeo
+        videoUrl: v.optional(v.string()),
+        videoProvider: v.optional(v.union(v.literal("youtube"), v.literal("bunny"), v.literal("upload"))),
+        // Para texto
+        textContent: v.optional(v.string()),
+        // Para PDF/arquivo
+        fileUrl: v.optional(v.string()),
+        fileStorageId: v.optional(v.id("_storage")),
+        fileName: v.optional(v.string()),
+        // Para trabalhos e provas
+        dueDate: v.optional(v.number()),
+        maxScore: v.optional(v.number()),
+        instructions: v.optional(v.string()),
+        // Comum
+        duration: v.optional(v.number()),
+        isFree: v.optional(v.boolean()),
+        isPublished: v.optional(v.boolean()),
+    },
+    handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
+        const lesson = await ctx.db.get(args.lessonId);
+        if (!lesson) {
+            throw new Error("Aula não encontrada");
+        }
+
+        const { lessonId, ...updates } = args;
+        const oldDuration = lesson.duration;
+        const newDuration = updates.duration ?? oldDuration;
+
+        // Update lesson
+        await ctx.db.patch(lessonId, {
+            ...updates,
+            updatedAt: Date.now(),
+        });
+
+        // Update course duration if duration changed
+        if (updates.duration !== undefined && updates.duration !== oldDuration) {
+            const course = await ctx.db.get(lesson.courseId);
+            if (course) {
+                await ctx.db.patch(lesson.courseId, {
+                    duration: course.duration - oldDuration + newDuration,
+                    updatedAt: Date.now(),
+                });
+            }
+        }
+
+        return lessonId;
+    },
+});
+
+// Delete lesson
+export const deleteLesson = mutation({
+    args: {
+        lessonId: v.id("lessons"),
+    },
+    handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
+        const lesson = await ctx.db.get(args.lessonId);
+        if (!lesson) {
+            throw new Error("Aula não encontrada");
+        }
+
+        // Update course duration
+        const course = await ctx.db.get(lesson.courseId);
+        if (course) {
+            await ctx.db.patch(lesson.courseId, {
+                duration: Math.max(0, course.duration - lesson.duration),
+                updatedAt: Date.now(),
+            });
+        }
+
+        // Reorder remaining lessons
+        const remainingLessons = await ctx.db
+            .query("lessons")
+            .withIndex("by_module", (q) => q.eq("moduleId", lesson.moduleId))
+            .collect();
+
+        const lessonsToReorder = remainingLessons
+            .filter(l => l._id !== lesson._id && l.order > lesson.order)
+            .sort((a, b) => a.order - b.order);
+
+        for (const l of lessonsToReorder) {
+            await ctx.db.patch(l._id, { order: l.order - 1 });
+        }
+
+        // Delete lesson
+        await ctx.db.delete(args.lessonId);
+    },
+});
+
 // Get course stats
 export const getStats = query({
     args: { courseId: v.id("courses") },
