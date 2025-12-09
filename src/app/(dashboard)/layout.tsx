@@ -8,9 +8,8 @@ import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
-import { useQuery } from "convex/react";
-import { api } from "@convex/_generated/api";
-import { Loader2 } from "lucide-react";
+import { StaticDataProvider } from "@/components/providers/static-data-provider";
+import { useCurrentUser } from "@/hooks/use-current-user";
 
 export default function DashboardLayout({
     children,
@@ -18,16 +17,13 @@ export default function DashboardLayout({
     children: React.ReactNode;
 }) {
     const { isSignedIn, isLoaded } = useAuth();
-    const { user } = useUser();
+    const { user: clerkUser } = useUser();
     const pathname = usePathname();
     const [mobileOpen, setMobileOpen] = useState(false);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-    // Get user role from Convex (use skip when no user)
-    const convexUser = useQuery(
-        api.users.getByClerkId,
-        user?.id ? { clerkId: user.id } : "skip"
-    );
+    // Usa hook otimizado com cache
+    const { user: convexUser, isLoading: userLoading } = useCurrentUser();
 
     // Default to student if not loaded yet
     const userRole: UserRole = (convexUser?.role as UserRole) || "student";
@@ -41,14 +37,14 @@ export default function DashboardLayout({
     // Redirect to setup if user doesn't exist in Convex
     useEffect(() => {
         // Wait for queries to load
-        if (!isLoaded || !user) return;
-        if (convexUser === undefined) return; // Still loading
+        if (!isLoaded || !clerkUser) return;
+        if (userLoading) return; // Still loading
 
         // If user exists in Clerk but not in Convex, redirect to setup
         if (convexUser === null && pathname !== "/setup") {
             redirect("/setup");
         }
-    }, [isLoaded, user, convexUser, pathname]);
+    }, [isLoaded, clerkUser, convexUser, userLoading, pathname]);
 
     if (!isLoaded) {
         return (
@@ -80,39 +76,41 @@ export default function DashboardLayout({
     }
 
     return (
-        <div className="min-h-screen bg-background">
-            {/* Desktop Sidebar */}
-            <div className="hidden lg:block">
-                <Sidebar role={userRole} />
+        <StaticDataProvider>
+            <div className="min-h-screen bg-background">
+                {/* Desktop Sidebar */}
+                <div className="hidden lg:block">
+                    <Sidebar role={userRole} />
+                </div>
+
+                {/* Mobile Sidebar */}
+                <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+                    <SheetContent side="left" className="p-0 w-[280px]">
+                        <Sidebar role={userRole} isMobile={true} />
+                    </SheetContent>
+                </Sheet>
+
+                {/* Main Content */}
+                <div className={cn(
+                    "transition-all duration-300",
+                    "lg:ml-[280px]",
+                    sidebarCollapsed && "lg:ml-[80px]"
+                )}>
+                    <Header
+                        showMenuButton
+                        onMenuClick={() => setMobileOpen(true)}
+                    />
+
+                    <motion.main
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="p-4 md:p-6 lg:p-8"
+                    >
+                        {children}
+                    </motion.main>
+                </div>
             </div>
-
-            {/* Mobile Sidebar */}
-            <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-                <SheetContent side="left" className="p-0 w-[280px]">
-                    <Sidebar role={userRole} isMobile={true} />
-                </SheetContent>
-            </Sheet>
-
-            {/* Main Content */}
-            <div className={cn(
-                "transition-all duration-300",
-                "lg:ml-[280px]",
-                sidebarCollapsed && "lg:ml-[80px]"
-            )}>
-                <Header
-                    showMenuButton
-                    onMenuClick={() => setMobileOpen(true)}
-                />
-
-                <motion.main
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="p-4 md:p-6 lg:p-8"
-                >
-                    {children}
-                </motion.main>
-            </div>
-        </div>
+        </StaticDataProvider>
     );
 }

@@ -53,6 +53,7 @@ import { api } from "@convex/_generated/api";
 import { useUser } from "@clerk/nextjs";
 import { toast } from "sonner";
 import { Id } from "@convex/_generated/dataModel";
+import { useInvalidateStaticData } from "@/components/providers/static-data-provider";
 
 const container = {
     hidden: { opacity: 0 },
@@ -149,6 +150,9 @@ export default function AdminCategoriesPage() {
     const deleteCategory = useMutation(api.categories.remove);
     const seedCategories = useMutation(api.categories.seedDefaults);
 
+    // Hook para invalidar cache após mutations
+    const invalidateStatic = useInvalidateStaticData();
+
     const categoriesLoading = categories === undefined;
 
     // Filter categories
@@ -212,6 +216,7 @@ export default function AdminCategoriesPage() {
                 });
                 toast.success("Categoria criada com sucesso!");
             }
+            invalidateStatic.categories(); // Invalida cache
             handleCloseDialog();
         } catch (error: any) {
             console.error("Erro ao salvar categoria:", error);
@@ -228,6 +233,7 @@ export default function AdminCategoriesPage() {
                 isActive: !isActive,
             });
             toast.success(isActive ? "Categoria desativada" : "Categoria ativada");
+            invalidateStatic.categories(); // Invalida cache
         } catch (error: any) {
             toast.error(error.message || "Erro ao atualizar categoria");
         }
@@ -240,6 +246,7 @@ export default function AdminCategoriesPage() {
         try {
             await deleteCategory({ categoryId: deleteId });
             toast.success("Categoria excluída com sucesso!");
+            invalidateStatic.categories(); // Invalida cache
             setDeleteId(null);
         } catch (error: any) {
             toast.error(error.message || "Erro ao excluir categoria");
@@ -259,6 +266,7 @@ export default function AdminCategoriesPage() {
             const result = await seedCategories({ organizationId: effectiveOrgId });
             if (result.created > 0) {
                 toast.success(`${result.created} categorias padrão criadas!`);
+                invalidateStatic.categories(); // Invalida cache
             } else {
                 toast.info(result.message);
             }
