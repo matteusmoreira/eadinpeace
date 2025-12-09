@@ -467,12 +467,20 @@ export const updateLesson = mutation({
         }
 
         const { lessonId, ...updates } = args;
-        const oldDuration = lesson.duration;
+        const oldDuration = lesson.duration ?? 0;
         const newDuration = updates.duration ?? oldDuration;
+
+        // Filtrar campos undefined para evitar erros no Convex
+        const filteredUpdates: Record<string, any> = {};
+        for (const [key, value] of Object.entries(updates)) {
+            if (value !== undefined) {
+                filteredUpdates[key] = value;
+            }
+        }
 
         // Update lesson
         await ctx.db.patch(lessonId, {
-            ...updates,
+            ...filteredUpdates,
             updatedAt: Date.now(),
         });
 
@@ -480,8 +488,9 @@ export const updateLesson = mutation({
         if (updates.duration !== undefined && updates.duration !== oldDuration) {
             const course = await ctx.db.get(lesson.courseId);
             if (course) {
+                const courseDuration = course.duration ?? 0;
                 await ctx.db.patch(lesson.courseId, {
-                    duration: course.duration - oldDuration + newDuration,
+                    duration: Math.max(0, courseDuration - oldDuration + newDuration),
                     updatedAt: Date.now(),
                 });
             }
@@ -511,8 +520,10 @@ export const deleteLesson = mutation({
         // Update course duration
         const course = await ctx.db.get(lesson.courseId);
         if (course) {
+            const lessonDuration = lesson.duration ?? 0;
+            const courseDuration = course.duration ?? 0;
             await ctx.db.patch(lesson.courseId, {
-                duration: Math.max(0, course.duration - lesson.duration),
+                duration: Math.max(0, courseDuration - lessonDuration),
                 updatedAt: Date.now(),
             });
         }
