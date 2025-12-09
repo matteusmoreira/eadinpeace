@@ -58,14 +58,13 @@ export const getAll = query({
 export const getByUser = query({
     args: { userId: v.id("users") },
     handler: async (ctx, args) => {
-        try {
-            // Verificar autenticação básica
-            const identity = await ctx.auth.getUserIdentity();
-            if (!identity) {
-                console.log("[getByUser] Usuário não autenticado");
-                return [];
-            }
+        // Verificar autenticação básica
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
 
+        try {
             // Verificar se o userId é válido
             const targetUser = await ctx.db.get(args.userId);
             if (!targetUser) {

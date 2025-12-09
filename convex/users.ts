@@ -67,14 +67,13 @@ export const getById = query({
 export const getByOrganization = query({
     args: { organizationId: v.id("organizations") },
     handler: async (ctx, args) => {
-        try {
-            // Verificar autenticação
-            const identity = await ctx.auth.getUserIdentity();
-            if (!identity) {
-                console.log("[getByOrganization] Usuário não autenticado");
-                return [];
-            }
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
 
+        try {
             return await ctx.db
                 .query("users")
                 .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
@@ -90,14 +89,13 @@ export const getByOrganization = query({
 export const getAll = query({
     args: {},
     handler: async (ctx) => {
-        try {
-            // Verificar autenticação
-            const identity = await ctx.auth.getUserIdentity();
-            if (!identity) {
-                console.log("[getAll] Usuário não autenticado");
-                return [];
-            }
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
 
+        try {
             const users = await ctx.db.query("users").collect();
 
             // Enrich with organization data

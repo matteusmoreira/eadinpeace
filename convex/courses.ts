@@ -80,14 +80,13 @@ export const getById = query({
 export const getByOrganization = query({
     args: { organizationId: v.id("organizations") },
     handler: async (ctx, args) => {
-        try {
-            // Verificar autenticação básica
-            const identity = await ctx.auth.getUserIdentity();
-            if (!identity) {
-                console.log("[courses:getByOrganization] Usuário não autenticado");
-                return [];
-            }
+        // Verificar autenticação básica
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
 
+        try {
             const courses = await ctx.db
                 .query("courses")
                 .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
