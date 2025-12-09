@@ -56,25 +56,33 @@ export const getAll = query({
 
 // Get user enrollments
 export const getByUser = query({
-    args: { userId: v.id("users") },
+    args: { userId: v.optional(v.id("users")) },
     handler: async (ctx, args) => {
         // Verificar autenticação básica
         const identity = await ctx.auth.getUserIdentity();
         if (!identity) {
-            throw new Error("Não autenticado");
+            console.log("[getByUser] Não autenticado");
+            return [];
         }
 
         try {
+            // Verificar se userId foi fornecido
+            if (!args.userId) {
+                console.log("[getByUser] userId não fornecido");
+                return [];
+            }
+
             // Verificar se o userId é válido
-            const targetUser = await ctx.db.get(args.userId);
+            const userId = args.userId;
+            const targetUser = await ctx.db.get(userId);
             if (!targetUser) {
-                console.log("[getByUser] Usuário alvo não encontrado:", args.userId);
+                console.log("[getByUser] Usuário alvo não encontrado:", userId);
                 return [];
             }
 
             const enrollments = await ctx.db
                 .query("enrollments")
-                .withIndex("by_user", (q) => q.eq("userId", args.userId))
+                .withIndex("by_user", (q) => q.eq("userId", userId))
                 .collect();
 
             // Get course details for each enrollment (with instructor and lesson count)
