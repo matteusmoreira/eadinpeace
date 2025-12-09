@@ -35,6 +35,8 @@ import { Id } from "@convex/_generated/dataModel";
 import { useUser } from "@clerk/nextjs";
 import { toast } from "sonner";
 import { BunnyPlayer } from "@/components/bunny-player";
+import { useContentProtection } from "@/hooks/useContentProtection";
+
 
 // Cast ReactPlayer to any to avoid type errors
 const ReactPlayerAny = ReactPlayer as any;
@@ -205,6 +207,15 @@ export default function CoursePlayerPage() {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isMarkingComplete, setIsMarkingComplete] = useState(false);
     const playerRef = useRef<any>(null);
+
+    // Aplicar proteção de conteúdo na página
+    useContentProtection({
+        disableRightClick: true,
+        disableKeyboardShortcuts: true,
+        disableTextSelection: true,
+        disableDrag: true,
+    }, true);
+
 
     // Get Convex user
     const convexUser = useQuery(

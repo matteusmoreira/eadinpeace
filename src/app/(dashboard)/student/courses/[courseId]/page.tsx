@@ -39,6 +39,9 @@ import { Id } from "@convex/_generated/dataModel";
 import { useUser } from "@clerk/nextjs";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { ProtectedYouTubePlayer } from "@/components/ProtectedYouTubePlayer";
+import { useContentProtection } from "@/hooks/useContentProtection";
+
 
 export default function CoursePlayerPage() {
     const params = useParams();
@@ -173,13 +176,16 @@ export default function CoursePlayerPage() {
                     {/* Video */}
                     <div className="flex-1 bg-black flex items-center justify-center relative">
                         {currentLesson?.videoUrl ? (
-                            <iframe
-                                className="absolute inset-0 w-full h-full"
-                                src={`https://www.youtube.com/embed/${getYouTubeId(currentLesson.videoUrl)}?rel=0&modestbranding=1`}
+                            <ProtectedYouTubePlayer
+                                videoUrl={currentLesson.videoUrl}
                                 title={currentLesson.title}
-                                frameBorder="0"
-                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                allowFullScreen
+                                className="absolute inset-0 w-full h-full"
+                                protectionEnabled={true}
+                                youtubeParams={{
+                                    modestbranding: true,
+                                    rel: false,
+                                    controls: true,
+                                }}
                             />
                         ) : (
                             <div className="text-center text-white">
