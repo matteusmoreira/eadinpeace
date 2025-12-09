@@ -367,39 +367,61 @@ export const getSuperadmins = query({
 export const getStats = query({
     args: { userId: v.id("users") },
     handler: async (ctx, args) => {
-        // Verificar autenticação
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            throw new Error("Não autenticado");
-        }
-
-        const enrollments = await ctx.db
-            .query("enrollments")
-            .withIndex("by_user", (q) => q.eq("userId", args.userId))
-            .collect();
-
-        const certificates = await ctx.db
-            .query("certificates")
-            .withIndex("by_user", (q) => q.eq("userId", args.userId))
-            .collect();
-
-        const streak = await ctx.db
-            .query("studyStreaks")
-            .withIndex("by_user", (q) => q.eq("userId", args.userId))
-            .first();
-
-        const achievements = await ctx.db
-            .query("userAchievements")
-            .withIndex("by_user", (q) => q.eq("userId", args.userId))
-            .collect();
-
-        return {
-            coursesInProgress: enrollments.filter((e) => !e.completedAt).length,
-            coursesCompleted: enrollments.filter((e) => e.completedAt).length,
-            certificates: certificates.length,
-            currentStreak: streak?.currentStreak || 0,
-            achievements: achievements.length,
+        // Valores padrão para retornar em caso de erro
+        const defaultStats = {
+            coursesInProgress: 0,
+            coursesCompleted: 0,
+            certificates: 0,
+            currentStreak: 0,
+            achievements: 0,
         };
+
+        try {
+            // Verificar autenticação
+            const identity = await ctx.auth.getUserIdentity();
+            if (!identity) {
+                console.log("[getStats] Usuário não autenticado");
+                return defaultStats;
+            }
+
+            // Verificar se o userId é válido
+            const user = await ctx.db.get(args.userId);
+            if (!user) {
+                console.log("[getStats] Usuário não encontrado:", args.userId);
+                return defaultStats;
+            }
+
+            const enrollments = await ctx.db
+                .query("enrollments")
+                .withIndex("by_user", (q) => q.eq("userId", args.userId))
+                .collect();
+
+            const certificates = await ctx.db
+                .query("certificates")
+                .withIndex("by_user", (q) => q.eq("userId", args.userId))
+                .collect();
+
+            const streak = await ctx.db
+                .query("studyStreaks")
+                .withIndex("by_user", (q) => q.eq("userId", args.userId))
+                .first();
+
+            const achievements = await ctx.db
+                .query("userAchievements")
+                .withIndex("by_user", (q) => q.eq("userId", args.userId))
+                .collect();
+
+            return {
+                coursesInProgress: enrollments.filter((e) => !e.completedAt).length,
+                coursesCompleted: enrollments.filter((e) => e.completedAt).length,
+                certificates: certificates.length,
+                currentStreak: streak?.currentStreak || 0,
+                achievements: achievements.length,
+            };
+        } catch (error) {
+            console.error("[getStats] Erro:", error);
+            return defaultStats;
+        }
     },
 });
 
