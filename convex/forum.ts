@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { requireAuth, requireAuthWithOrg, requireRole } from "./authHelpers";
 
 // ================================
 // CATEGORIES
@@ -9,6 +10,9 @@ import { mutation, query } from "./_generated/server";
 export const getCategories = query({
     args: { organizationId: v.id("organizations") },
     handler: async (ctx, args) => {
+        // Verificar autenticação e acesso à organização
+        await requireAuthWithOrg(ctx, args.organizationId);
+
         const categories = await ctx.db
             .query("forumCategories")
             .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
@@ -43,6 +47,12 @@ export const createCategory = mutation({
         icon: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         const existing = await ctx.db
             .query("forumCategories")
             .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
@@ -68,6 +78,12 @@ export const getTopics = query({
         limit: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         const topics = await ctx.db
             .query("forumTopics")
             .withIndex("by_category", (q) => q.eq("categoryId", args.categoryId))
@@ -119,6 +135,12 @@ export const getRecentTopics = query({
         limit: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         const topics = await ctx.db
             .query("forumTopics")
             .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
@@ -151,6 +173,12 @@ export const getRecentTopics = query({
 export const getTopic = query({
     args: { topicId: v.id("forumTopics") },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         const topic = await ctx.db.get(args.topicId);
         if (!topic) return null;
 
@@ -182,6 +210,12 @@ export const createTopic = mutation({
         tags: v.optional(v.array(v.string())),
     },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         const now = Date.now();
 
         const topicId = await ctx.db.insert("forumTopics", {

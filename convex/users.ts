@@ -53,6 +53,12 @@ export const syncFromClerk = mutation({
 export const getById = query({
     args: { userId: v.id("users") },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         return await ctx.db.get(args.userId);
     },
 });
@@ -61,6 +67,12 @@ export const getById = query({
 export const getByOrganization = query({
     args: { organizationId: v.id("organizations") },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         return await ctx.db
             .query("users")
             .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
@@ -72,6 +84,12 @@ export const getByOrganization = query({
 export const getAll = query({
     args: {},
     handler: async (ctx) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         const users = await ctx.db.query("users").collect();
 
         // Enrich with organization data
@@ -103,6 +121,12 @@ export const getByRole = query({
         )
     },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         return await ctx.db
             .query("users")
             .withIndex("by_role", (q) => q.eq("role", args.role))
@@ -190,6 +214,12 @@ export const create = mutation({
         clerkId: v.optional(v.string()), // Clerk ID se usuário já foi criado no Clerk
     },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         const now = Date.now();
 
         // Check if email already exists
@@ -237,6 +267,12 @@ export const update = mutation({
         isActive: v.optional(v.boolean()),
     },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         const { userId, ...updates } = args;
 
         // Remove undefined values
@@ -263,6 +299,12 @@ export const updateRole = mutation({
         ),
     },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         await ctx.db.patch(args.userId, {
             role: args.role,
             updatedAt: Date.now(),
@@ -277,6 +319,12 @@ export const assignToOrganization = mutation({
         organizationId: v.optional(v.id("organizations")),
     },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         await ctx.db.patch(args.userId, {
             organizationId: args.organizationId,
             updatedAt: Date.now(),
@@ -288,6 +336,12 @@ export const assignToOrganization = mutation({
 export const remove = mutation({
     args: { userId: v.id("users") },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         await ctx.db.delete(args.userId);
     },
 });
@@ -296,6 +350,12 @@ export const remove = mutation({
 export const getSuperadmins = query({
     args: {},
     handler: async (ctx) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         return await ctx.db
             .query("users")
             .withIndex("by_role", (q) => q.eq("role", "superadmin"))
@@ -307,6 +367,12 @@ export const getSuperadmins = query({
 export const getStats = query({
     args: { userId: v.id("users") },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         const enrollments = await ctx.db
             .query("enrollments")
             .withIndex("by_user", (q) => q.eq("userId", args.userId))
@@ -348,6 +414,12 @@ export const getGlobalStats = query({
         ))
     },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         try {
             const users = await ctx.db.query("users").collect();
             const organizations = await ctx.db.query("organizations").collect();

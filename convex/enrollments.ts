@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query, internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { requireAuth, requireOwnerOrAdmin } from "./authHelpers";
 
 // Point values for different actions
 const POINT_VALUES = {
@@ -13,7 +14,25 @@ const POINT_VALUES = {
 export const getAll = query({
     args: {},
     handler: async (ctx) => {
-        const enrollments = await ctx.db.query("enrollments").collect();
+        // Verificar autenticação e obter usuário
+        const auth = await requireAuth(ctx);
+
+        // Se não for superadmin, filtrar por organização
+        let enrollments;
+        if (auth.user.role === "superadmin") {
+            enrollments = await ctx.db.query("enrollments").collect();
+        } else {
+            // Buscar cursos da organização do usuário
+            const courses = await ctx.db
+                .query("courses")
+                .withIndex("by_organization", (q) => q.eq("organizationId", auth.user.organizationId!))
+                .collect();
+            const courseIds = new Set(courses.map(c => c._id));
+
+            // Filtrar matrículas por cursos da organização
+            const allEnrollments = await ctx.db.query("enrollments").collect();
+            enrollments = allEnrollments.filter(e => courseIds.has(e.courseId));
+        }
 
         // Enrich with user and course data
         const enriched = await Promise.all(
@@ -39,6 +58,9 @@ export const getAll = query({
 export const getByUser = query({
     args: { userId: v.id("users") },
     handler: async (ctx, args) => {
+        // Verificar se pode acessar as matrículas deste usuário
+        const auth = await requireOwnerOrAdmin(ctx, args.userId);
+
         const enrollments = await ctx.db
             .query("enrollments")
             .withIndex("by_user", (q) => q.eq("userId", args.userId))
@@ -92,6 +114,9 @@ export const getByUserAndCourse = query({
         courseId: v.id("courses"),
     },
     handler: async (ctx, args) => {
+        // Verificar se pode acessar as matrículas deste usuário
+        await requireOwnerOrAdmin(ctx, args.userId);
+
         return await ctx.db
             .query("enrollments")
             .withIndex("by_user_course", (q) =>
@@ -108,6 +133,20 @@ export const enroll = mutation({
         courseId: v.id("courses"),
     },
     handler: async (ctx, args) => {
+        // Verificar autenticação e permissão para matricular
+        const auth = await requireOwnerOrAdmin(ctx, args.userId);
+
+        // Verificar se o curso existe e pertence à organização do usuário
+        const course = await ctx.db.get(args.courseId);
+        if (!course) {
+            throw new Error("Curso não encontrado");
+        }
+
+        // Verificar se o usuário pertence à mesma organização do curso (exceto superadmin)
+        if (auth.user.role !== "superadmin" && auth.user.organizationId !== course.organizationId) {
+            throw new Error("Você não pode se matricular em cursos de outra organização");
+        }
+
         // Check if already enrolled
         const existing = await ctx.db
             .query("enrollments")
@@ -142,6 +181,12 @@ export const updateLessonProgress = mutation({
         isCompleted: v.boolean(),
     },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         const now = Date.now();
 
         // Get user to find their organization
@@ -333,6 +378,12 @@ export const getCourseProgress = query({
         courseId: v.id("courses"),
     },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         const enrollment = await ctx.db
             .query("enrollments")
             .withIndex("by_user_course", (q) =>
@@ -363,6 +414,12 @@ export const getCourseProgress = query({
 export const updateStreak = mutation({
     args: { userId: v.id("users") },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         const today = new Date().toISOString().split("T")[0];
         const now = Date.now();
 
@@ -412,6 +469,12 @@ export const updateStreak = mutation({
 export const getStreak = query({
     args: { userId: v.id("users") },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         return await ctx.db
             .query("studyStreaks")
             .withIndex("by_user", (q) => q.eq("userId", args.userId))

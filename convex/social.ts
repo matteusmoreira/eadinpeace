@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
+import { requireAuth, requireAuthWithOrg, requireOwnerOrAdmin } from "./authHelpers";
 
 // Social Network Module - Created December 2025
 
@@ -24,6 +25,14 @@ export const createPost = mutation({
         ),
     },
     handler: async (ctx, args) => {
+        // Verificar autenticação e validar organização
+        const auth = await requireAuthWithOrg(ctx, args.organizationId);
+
+        // Verificar que o autor é o próprio usuário autenticado (ou admin)
+        if (auth.user.role !== "superadmin" && auth.user.role !== "admin" && auth.user._id !== args.authorId) {
+            throw new Error("Você só pode criar posts em seu próprio nome");
+        }
+
         const now = Date.now();
         const postId = await ctx.db.insert("socialPosts", {
             authorId: args.authorId,
@@ -58,6 +67,12 @@ export const sharePost = mutation({
         ),
     },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         const originalPost = await ctx.db.get(args.originalPostId);
         if (!originalPost) {
             throw new Error("Post original não encontrado");
@@ -267,6 +282,12 @@ export const deletePost = mutation({
         userId: v.id("users"),
     },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         const post = await ctx.db.get(args.postId);
         if (!post) throw new Error("Post não encontrado");
         if (post.authorId !== args.userId) {
@@ -314,6 +335,12 @@ export const toggleLike = mutation({
         userId: v.id("users"),
     },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         const post = await ctx.db.get(args.postId);
         if (!post) throw new Error("Post não encontrado");
 
@@ -396,6 +423,12 @@ export const addComment = mutation({
         parentId: v.optional(v.id("postComments")),
     },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         const post = await ctx.db.get(args.postId);
         if (!post) throw new Error("Post não encontrado");
 

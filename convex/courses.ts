@@ -1,11 +1,24 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { requireAuth, requireAuthWithOrg, requireRole, requireCourseAccess } from "./authHelpers";
 
-// Get all courses (superadmin)
+// Get all courses (filtrado por organização do usuário, ou todos para superadmin)
 export const getAll = query({
     args: {},
     handler: async (ctx) => {
-        const courses = await ctx.db.query("courses").collect();
+        // Verificar autenticação
+        const auth = await requireAuth(ctx);
+
+        // Filtrar por organização (superadmin vê todos)
+        let courses;
+        if (auth.user.role === "superadmin") {
+            courses = await ctx.db.query("courses").collect();
+        } else {
+            courses = await ctx.db
+                .query("courses")
+                .withIndex("by_organization", (q) => q.eq("organizationId", auth.user.organizationId!))
+                .collect();
+        }
 
         // Enrich with instructor and organization
         const enrichedCourses = await Promise.all(
@@ -48,7 +61,18 @@ export const getAll = query({
 export const getById = query({
     args: { courseId: v.id("courses") },
     handler: async (ctx, args) => {
-        return await ctx.db.get(args.courseId);
+        // Verificar autenticação
+        const auth = await requireAuth(ctx);
+
+        const course = await ctx.db.get(args.courseId);
+        if (!course) return null;
+
+        // Verificar acesso à organização (exceto superadmin)
+        if (auth.user.role !== "superadmin" && auth.user.organizationId !== course.organizationId) {
+            throw new Error("Acesso negado: curso de outra organização");
+        }
+
+        return course;
     },
 });
 
@@ -56,6 +80,9 @@ export const getById = query({
 export const getByOrganization = query({
     args: { organizationId: v.id("organizations") },
     handler: async (ctx, args) => {
+        // Verificar autenticação e acesso à organização
+        await requireAuthWithOrg(ctx, args.organizationId);
+
         const courses = await ctx.db
             .query("courses")
             .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
@@ -91,6 +118,12 @@ export const getByOrganization = query({
 export const getPublishedByOrganization = query({
     args: { organizationId: v.id("organizations") },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         const courses = await ctx.db
             .query("courses")
             .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
@@ -128,6 +161,12 @@ export const getPublishedByOrganization = query({
 export const getWithContent = query({
     args: { courseId: v.id("courses") },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         const course = await ctx.db.get(args.courseId);
         if (!course) return null;
 
@@ -164,6 +203,12 @@ export const getWithContent = query({
 export const getByInstructor = query({
     args: { instructorId: v.id("users") },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         return await ctx.db
             .query("courses")
             .withIndex("by_instructor", (q) => q.eq("instructorId", args.instructorId))
@@ -185,6 +230,12 @@ export const create = mutation({
         price: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         const now = Date.now();
         return await ctx.db.insert("courses", {
             ...args,
@@ -211,6 +262,12 @@ export const update = mutation({
         price: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         const { courseId, ...updates } = args;
         await ctx.db.patch(courseId, {
             ...updates,
@@ -223,6 +280,12 @@ export const update = mutation({
 export const remove = mutation({
     args: { courseId: v.id("courses") },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         // Delete all lessons
         const lessons = await ctx.db
             .query("lessons")
@@ -254,6 +317,12 @@ export const createModule = mutation({
         description: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         const existingModules = await ctx.db
             .query("modules")
             .withIndex("by_course", (q) => q.eq("courseId", args.courseId))
@@ -305,6 +374,12 @@ export const createLesson = mutation({
         isFree: v.optional(v.boolean()),
     },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         const existingLessons = await ctx.db
             .query("lessons")
             .withIndex("by_module", (q) => q.eq("moduleId", args.moduleId))
@@ -351,6 +426,12 @@ export const createLesson = mutation({
 export const getStats = query({
     args: { courseId: v.id("courses") },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         const enrollments = await ctx.db
             .query("enrollments")
             .withIndex("by_course", (q) => q.eq("courseId", args.courseId))

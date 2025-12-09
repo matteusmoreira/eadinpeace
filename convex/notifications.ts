@@ -1,10 +1,14 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { requireAuth, requireOwnerOrAdmin, requireAuthWithOrg, requireRole } from "./authHelpers";
 
 // Get user notifications
 export const getByUser = query({
     args: { userId: v.id("users"), limit: v.optional(v.number()) },
     handler: async (ctx, args) => {
+        // Verificar que o usuário pode acessar notificações deste usuário
+        await requireOwnerOrAdmin(ctx, args.userId);
+
         const notifications = await ctx.db
             .query("notifications")
             .withIndex("by_user", (q) => q.eq("userId", args.userId))
@@ -19,6 +23,9 @@ export const getByUser = query({
 export const getUnreadCount = query({
     args: { userId: v.id("users") },
     handler: async (ctx, args) => {
+        // Verificar que o usuário pode acessar notificações deste usuário
+        await requireOwnerOrAdmin(ctx, args.userId);
+
         const notifications = await ctx.db
             .query("notifications")
             .withIndex("by_user_read", (q) => q.eq("userId", args.userId).eq("isRead", false))
@@ -32,6 +39,12 @@ export const getUnreadCount = query({
 export const markAsRead = mutation({
     args: { notificationId: v.id("notifications") },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         await ctx.db.patch(args.notificationId, { isRead: true });
     },
 });
@@ -40,6 +53,12 @@ export const markAsRead = mutation({
 export const markAllAsRead = mutation({
     args: { userId: v.id("users") },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         const notifications = await ctx.db
             .query("notifications")
             .withIndex("by_user_read", (q) => q.eq("userId", args.userId).eq("isRead", false))
@@ -57,6 +76,12 @@ export const markAllAsRead = mutation({
 export const remove = mutation({
     args: { notificationId: v.id("notifications") },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         await ctx.db.delete(args.notificationId);
     },
 });
@@ -65,6 +90,12 @@ export const remove = mutation({
 export const clearAll = mutation({
     args: { userId: v.id("users") },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         const notifications = await ctx.db
             .query("notifications")
             .withIndex("by_user", (q) => q.eq("userId", args.userId))
@@ -98,6 +129,12 @@ export const create = mutation({
         metadata: v.optional(v.any()),
     },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         return await ctx.db.insert("notifications", {
             ...args,
             isRead: false,
@@ -126,6 +163,12 @@ export const sendBulk = mutation({
         metadata: v.optional(v.any()),
     },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         const { userIds, ...notificationData } = args;
         const now = Date.now();
 
@@ -157,6 +200,12 @@ export const sendToCourseStudents = mutation({
         link: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         const { courseId, ...notificationData } = args;
 
         // Get all enrollments for the course

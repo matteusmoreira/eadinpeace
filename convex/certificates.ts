@@ -1,10 +1,14 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { requireAuth, requireOwnerOrAdmin, requireAuthWithOrg, requireRole } from "./authHelpers";
 
 // Get certificates by user
 export const getByUser = query({
     args: { userId: v.id("users") },
     handler: async (ctx, args) => {
+        // Verificar que o usuário pode acessar certificados deste usuário
+        await requireOwnerOrAdmin(ctx, args.userId);
+
         const certificates = await ctx.db
             .query("certificates")
             .withIndex("by_user", (q) => q.eq("userId", args.userId))
@@ -41,6 +45,12 @@ export const getByUser = query({
 export const getByCode = query({
     args: { code: v.string() },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         const certificate = await ctx.db
             .query("certificates")
             .withIndex("by_code", (q) => q.eq("code", args.code))
@@ -83,6 +93,12 @@ export const getByCode = query({
 export const getById = query({
     args: { certificateId: v.id("certificates") },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         const certificate = await ctx.db.get(args.certificateId);
         if (!certificate) return null;
 
@@ -127,6 +143,12 @@ export const issue = mutation({
         courseId: v.id("courses"),
     },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         // Check if already exists
         const existing = await ctx.db
             .query("certificates")
@@ -157,6 +179,12 @@ export const issue = mutation({
 export const getByOrganization = query({
     args: { organizationId: v.id("organizations") },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         try {
             // Get all courses for this organization
             const courses = await ctx.db
@@ -215,6 +243,12 @@ export const getByOrganization = query({
 export const getOrganizationStats = query({
     args: { organizationId: v.id("organizations") },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         try {
             // Get all courses for this organization
             const courses = await ctx.db
@@ -274,6 +308,12 @@ export const getOrganizationStats = query({
 export const getGlobalStats = query({
     args: {},
     handler: async (ctx) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         try {
             const certificates = await ctx.db.query("certificates").collect();
 

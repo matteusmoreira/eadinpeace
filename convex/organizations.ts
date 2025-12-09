@@ -5,6 +5,12 @@ import { mutation, query } from "./_generated/server";
 export const getAll = query({
     args: {},
     handler: async (ctx) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         const orgs = await ctx.db.query("organizations").collect();
 
         // Enrich with user counts
@@ -37,6 +43,12 @@ export const getAll = query({
 export const getById = query({
     args: { organizationId: v.id("organizations") },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         return await ctx.db.get(args.organizationId);
     },
 });
@@ -45,6 +57,12 @@ export const getById = query({
 export const getBySlug = query({
     args: { slug: v.string() },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         return await ctx.db
             .query("organizations")
             .withIndex("by_slug", (q) => q.eq("slug", args.slug))
@@ -56,6 +74,12 @@ export const getBySlug = query({
 export const getByClerkOrgId = query({
     args: { clerkOrgId: v.string() },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         return await ctx.db
             .query("organizations")
             .withIndex("by_clerk_org", (q) => q.eq("clerkOrgId", args.clerkOrgId))
@@ -81,6 +105,12 @@ export const create = mutation({
         adminClerkId: v.optional(v.string()), // Clerk ID do admin (se já criado)
     },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         const now = Date.now();
 
         // Check if slug already exists
@@ -150,6 +180,12 @@ export const update = mutation({
         isActive: v.optional(v.boolean()),
     },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         const { organizationId, ...updates } = args;
 
         const org = await ctx.db.get(organizationId);
@@ -194,6 +230,12 @@ export const update = mutation({
 export const remove = mutation({
     args: { organizationId: v.id("organizations") },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         // Remove all users from this organization
         const users = await ctx.db
             .query("users")
@@ -223,6 +265,12 @@ export const remove = mutation({
 export const getStats = query({
     args: { organizationId: v.id("organizations") },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         const users = await ctx.db
             .query("users")
             .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
@@ -254,6 +302,12 @@ export const getStats = query({
 export const getGlobalStats = query({
     args: {},
     handler: async (ctx) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
         const orgs = await ctx.db.query("organizations").collect();
         const users = await ctx.db.query("users").collect();
         const courses = await ctx.db.query("courses").collect();
