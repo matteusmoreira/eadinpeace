@@ -45,47 +45,52 @@ export const getByUser = query({
 export const getByCode = query({
     args: { code: v.string() },
     handler: async (ctx, args) => {
-        // Verificar autenticação
+        // Verificar autenticação - retorna null se não autenticado
         const identity = await ctx.auth.getUserIdentity();
         if (!identity) {
-            throw new Error("Não autenticado");
+            return null;
         }
 
-        const certificate = await ctx.db
-            .query("certificates")
-            .withIndex("by_code", (q) => q.eq("code", args.code))
-            .first();
+        try {
+            const certificate = await ctx.db
+                .query("certificates")
+                .withIndex("by_code", (q) => q.eq("code", args.code))
+                .first();
 
-        if (!certificate) return null;
+            if (!certificate) return null;
 
-        const user = await ctx.db.get(certificate.userId);
-        const course = await ctx.db.get(certificate.courseId);
-        let instructor = null;
-        let organization = null;
+            const user = await ctx.db.get(certificate.userId);
+            const course = await ctx.db.get(certificate.courseId);
+            let instructor = null;
+            let organization = null;
 
-        if (course) {
-            instructor = await ctx.db.get(course.instructorId);
-            organization = await ctx.db.get(course.organizationId);
+            if (course) {
+                instructor = await ctx.db.get(course.instructorId);
+                organization = await ctx.db.get(course.organizationId);
+            }
+
+            return {
+                ...certificate,
+                user: user ? {
+                    firstName: user.firstName,
+                    lastName: user.lastName,
+                } : null,
+                course: course ? {
+                    title: course.title,
+                    duration: course.duration,
+                } : null,
+                instructor: instructor ? {
+                    firstName: instructor.firstName,
+                    lastName: instructor.lastName,
+                } : null,
+                organization: organization ? {
+                    name: organization.name,
+                } : null,
+            };
+        } catch (error) {
+            console.error("[certificates:getByCode] Erro:", error);
+            return null;
         }
-
-        return {
-            ...certificate,
-            user: user ? {
-                firstName: user.firstName,
-                lastName: user.lastName,
-            } : null,
-            course: course ? {
-                title: course.title,
-                duration: course.duration,
-            } : null,
-            instructor: instructor ? {
-                firstName: instructor.firstName,
-                lastName: instructor.lastName,
-            } : null,
-            organization: organization ? {
-                name: organization.name,
-            } : null,
-        };
     },
 });
 
@@ -93,46 +98,51 @@ export const getByCode = query({
 export const getById = query({
     args: { certificateId: v.id("certificates") },
     handler: async (ctx, args) => {
-        // Verificar autenticação
+        // Verificar autenticação - retorna null se não autenticado
         const identity = await ctx.auth.getUserIdentity();
         if (!identity) {
-            throw new Error("Não autenticado");
+            return null;
         }
 
-        const certificate = await ctx.db.get(args.certificateId);
-        if (!certificate) return null;
+        try {
+            const certificate = await ctx.db.get(args.certificateId);
+            if (!certificate) return null;
 
-        const user = await ctx.db.get(certificate.userId);
-        const course = await ctx.db.get(certificate.courseId);
-        let instructor = null;
-        let organization = null;
+            const user = await ctx.db.get(certificate.userId);
+            const course = await ctx.db.get(certificate.courseId);
+            let instructor = null;
+            let organization = null;
 
-        if (course) {
-            instructor = await ctx.db.get(course.instructorId);
-            organization = await ctx.db.get(course.organizationId);
+            if (course) {
+                instructor = await ctx.db.get(course.instructorId);
+                organization = await ctx.db.get(course.organizationId);
+            }
+
+            return {
+                ...certificate,
+                user: user ? {
+                    firstName: user.firstName,
+                    lastName: user.lastName,
+                    email: user.email,
+                } : null,
+                course: course ? {
+                    title: course.title,
+                    duration: course.duration,
+                    level: course.level,
+                } : null,
+                instructor: instructor ? {
+                    firstName: instructor.firstName,
+                    lastName: instructor.lastName,
+                } : null,
+                organization: organization ? {
+                    name: organization.name,
+                    logo: organization.logo,
+                } : null,
+            };
+        } catch (error) {
+            console.error("[certificates:getById] Erro:", error);
+            return null;
         }
-
-        return {
-            ...certificate,
-            user: user ? {
-                firstName: user.firstName,
-                lastName: user.lastName,
-                email: user.email,
-            } : null,
-            course: course ? {
-                title: course.title,
-                duration: course.duration,
-                level: course.level,
-            } : null,
-            instructor: instructor ? {
-                firstName: instructor.firstName,
-                lastName: instructor.lastName,
-            } : null,
-            organization: organization ? {
-                name: organization.name,
-                logo: organization.logo,
-            } : null,
-        };
     },
 });
 
@@ -179,10 +189,10 @@ export const issue = mutation({
 export const getByOrganization = query({
     args: { organizationId: v.id("organizations") },
     handler: async (ctx, args) => {
-        // Verificar autenticação
+        // Verificar autenticação - retorna array vazio se não autenticado
         const identity = await ctx.auth.getUserIdentity();
         if (!identity) {
-            throw new Error("Não autenticado");
+            return [];
         }
 
         try {
@@ -233,7 +243,7 @@ export const getByOrganization = query({
 
             return enrichedCertificates.sort((a, b) => (b.issuedAt || 0) - (a.issuedAt || 0));
         } catch (error) {
-            console.error("[getByOrganization] Error:", error);
+            console.error("[certificates:getByOrganization] Error:", error);
             return [];
         }
     },
@@ -243,10 +253,18 @@ export const getByOrganization = query({
 export const getOrganizationStats = query({
     args: { organizationId: v.id("organizations") },
     handler: async (ctx, args) => {
-        // Verificar autenticação
+        // Valores padrão
+        const defaultStats = {
+            total: 0,
+            thisMonth: 0,
+            coursesWithCertificates: 0,
+            downloads: 0,
+        };
+
+        // Verificar autenticação - retorna valores padrão se não autenticado
         const identity = await ctx.auth.getUserIdentity();
         if (!identity) {
-            throw new Error("Não autenticado");
+            return defaultStats;
         }
 
         try {
@@ -257,12 +275,7 @@ export const getOrganizationStats = query({
                 .collect();
 
             if (!courses || courses.length === 0) {
-                return {
-                    total: 0,
-                    thisMonth: 0,
-                    coursesWithCertificates: 0,
-                    downloads: 0,
-                };
+                return defaultStats;
             }
 
             const courseIds = courses.map(c => c._id);
@@ -293,13 +306,8 @@ export const getOrganizationStats = query({
                 downloads,
             };
         } catch (error) {
-            console.error("[getOrganizationStats] Error:", error);
-            return {
-                total: 0,
-                thisMonth: 0,
-                coursesWithCertificates: 0,
-                downloads: 0,
-            };
+            console.error("[certificates:getOrganizationStats] Error:", error);
+            return defaultStats;
         }
     },
 });
@@ -308,10 +316,17 @@ export const getOrganizationStats = query({
 export const getGlobalStats = query({
     args: {},
     handler: async (ctx) => {
-        // Verificar autenticação
+        // Valores padrão
+        const defaultStats = {
+            total: 0,
+            thisMonth: 0,
+            uniqueCourses: 0,
+        };
+
+        // Verificar autenticação - retorna valores padrão se não autenticado
         const identity = await ctx.auth.getUserIdentity();
         if (!identity) {
-            throw new Error("Não autenticado");
+            return defaultStats;
         }
 
         try {
@@ -333,12 +348,8 @@ export const getGlobalStats = query({
                 uniqueCourses: courseIds.length,
             };
         } catch (error) {
-            console.error("[getGlobalStats] Error:", error);
-            return {
-                total: 0,
-                thisMonth: 0,
-                uniqueCourses: 0,
-            };
+            console.error("[certificates:getGlobalStats] Error:", error);
+            return defaultStats;
         }
     },
 });

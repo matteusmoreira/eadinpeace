@@ -53,13 +53,18 @@ export const syncFromClerk = mutation({
 export const getById = query({
     args: { userId: v.id("users") },
     handler: async (ctx, args) => {
-        // Verificar autenticação
+        // Verificar autenticação - retorna null se não autenticado
         const identity = await ctx.auth.getUserIdentity();
         if (!identity) {
-            throw new Error("Não autenticado");
+            return null;
         }
 
-        return await ctx.db.get(args.userId);
+        try {
+            return await ctx.db.get(args.userId);
+        } catch (error) {
+            console.error("[users:getById] Erro:", error);
+            return null;
+        }
     },
 });
 
@@ -67,10 +72,10 @@ export const getById = query({
 export const getByOrganization = query({
     args: { organizationId: v.id("organizations") },
     handler: async (ctx, args) => {
-        // Verificar autenticação
+        // Verificar autenticação - retorna array vazio se não autenticado
         const identity = await ctx.auth.getUserIdentity();
         if (!identity) {
-            throw new Error("Não autenticado");
+            return [];
         }
 
         try {
@@ -79,7 +84,7 @@ export const getByOrganization = query({
                 .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
                 .collect();
         } catch (error) {
-            console.error("[getByOrganization] Erro:", error);
+            console.error("[users:getByOrganization] Erro:", error);
             return [];
         }
     },
@@ -89,10 +94,10 @@ export const getByOrganization = query({
 export const getAll = query({
     args: {},
     handler: async (ctx) => {
-        // Verificar autenticação
+        // Verificar autenticação - retorna array vazio se não autenticado
         const identity = await ctx.auth.getUserIdentity();
         if (!identity) {
-            throw new Error("Não autenticado");
+            return [];
         }
 
         try {
@@ -114,7 +119,7 @@ export const getAll = query({
 
             return enrichedUsers;
         } catch (error) {
-            console.error("[getAll] Erro:", error);
+            console.error("[users:getAll] Erro:", error);
             return [];
         }
     },
@@ -131,16 +136,21 @@ export const getByRole = query({
         )
     },
     handler: async (ctx, args) => {
-        // Verificar autenticação
+        // Verificar autenticação - retorna array vazio se não autenticado
         const identity = await ctx.auth.getUserIdentity();
         if (!identity) {
-            throw new Error("Não autenticado");
+            return [];
         }
 
-        return await ctx.db
-            .query("users")
-            .withIndex("by_role", (q) => q.eq("role", args.role))
-            .collect();
+        try {
+            return await ctx.db
+                .query("users")
+                .withIndex("by_role", (q) => q.eq("role", args.role))
+                .collect();
+        } catch (error) {
+            console.error("[users:getByRole] Erro:", error);
+            return [];
+        }
     },
 });
 
@@ -360,16 +370,21 @@ export const remove = mutation({
 export const getSuperadmins = query({
     args: {},
     handler: async (ctx) => {
-        // Verificar autenticação
+        // Verificar autenticação - retorna array vazio se não autenticado
         const identity = await ctx.auth.getUserIdentity();
         if (!identity) {
-            throw new Error("Não autenticado");
+            return [];
         }
 
-        return await ctx.db
-            .query("users")
-            .withIndex("by_role", (q) => q.eq("role", "superadmin"))
-            .collect();
+        try {
+            return await ctx.db
+                .query("users")
+                .withIndex("by_role", (q) => q.eq("role", "superadmin"))
+                .collect();
+        } catch (error) {
+            console.error("[users:getSuperadmins] Erro:", error);
+            return [];
+        }
     },
 });
 

@@ -5,37 +5,42 @@ import { mutation, query } from "./_generated/server";
 export const getAll = query({
     args: {},
     handler: async (ctx) => {
-        // Verificar autenticação
+        // Verificar autenticação - retorna array vazio se não autenticado
         const identity = await ctx.auth.getUserIdentity();
         if (!identity) {
-            throw new Error("Não autenticado");
+            return [];
         }
 
-        const orgs = await ctx.db.query("organizations").collect();
+        try {
+            const orgs = await ctx.db.query("organizations").collect();
 
-        // Enrich with user counts
-        const enrichedOrgs = await Promise.all(
-            orgs.map(async (org) => {
-                const users = await ctx.db
-                    .query("users")
-                    .withIndex("by_organization", (q) => q.eq("organizationId", org._id))
-                    .collect();
+            // Enrich with user counts
+            const enrichedOrgs = await Promise.all(
+                orgs.map(async (org) => {
+                    const users = await ctx.db
+                        .query("users")
+                        .withIndex("by_organization", (q) => q.eq("organizationId", org._id))
+                        .collect();
 
-                const courses = await ctx.db
-                    .query("courses")
-                    .withIndex("by_organization", (q) => q.eq("organizationId", org._id))
-                    .collect();
+                    const courses = await ctx.db
+                        .query("courses")
+                        .withIndex("by_organization", (q) => q.eq("organizationId", org._id))
+                        .collect();
 
-                return {
-                    ...org,
-                    userCount: users.length,
-                    courseCount: courses.length,
-                    adminCount: users.filter((u) => u.role === "admin").length,
-                };
-            })
-        );
+                    return {
+                        ...org,
+                        userCount: users.length,
+                        courseCount: courses.length,
+                        adminCount: users.filter((u) => u.role === "admin").length,
+                    };
+                })
+            );
 
-        return enrichedOrgs;
+            return enrichedOrgs;
+        } catch (error) {
+            console.error("[organizations:getAll] Erro:", error);
+            return [];
+        }
     },
 });
 
@@ -43,13 +48,18 @@ export const getAll = query({
 export const getById = query({
     args: { organizationId: v.id("organizations") },
     handler: async (ctx, args) => {
-        // Verificar autenticação
+        // Verificar autenticação - retorna null se não autenticado
         const identity = await ctx.auth.getUserIdentity();
         if (!identity) {
-            throw new Error("Não autenticado");
+            return null;
         }
 
-        return await ctx.db.get(args.organizationId);
+        try {
+            return await ctx.db.get(args.organizationId);
+        } catch (error) {
+            console.error("[organizations:getById] Erro:", error);
+            return null;
+        }
     },
 });
 
@@ -57,16 +67,21 @@ export const getById = query({
 export const getBySlug = query({
     args: { slug: v.string() },
     handler: async (ctx, args) => {
-        // Verificar autenticação
+        // Verificar autenticação - retorna null se não autenticado
         const identity = await ctx.auth.getUserIdentity();
         if (!identity) {
-            throw new Error("Não autenticado");
+            return null;
         }
 
-        return await ctx.db
-            .query("organizations")
-            .withIndex("by_slug", (q) => q.eq("slug", args.slug))
-            .first();
+        try {
+            return await ctx.db
+                .query("organizations")
+                .withIndex("by_slug", (q) => q.eq("slug", args.slug))
+                .first();
+        } catch (error) {
+            console.error("[organizations:getBySlug] Erro:", error);
+            return null;
+        }
     },
 });
 
@@ -74,16 +89,21 @@ export const getBySlug = query({
 export const getByClerkOrgId = query({
     args: { clerkOrgId: v.string() },
     handler: async (ctx, args) => {
-        // Verificar autenticação
+        // Verificar autenticação - retorna null se não autenticado
         const identity = await ctx.auth.getUserIdentity();
         if (!identity) {
-            throw new Error("Não autenticado");
+            return null;
         }
 
-        return await ctx.db
-            .query("organizations")
-            .withIndex("by_clerk_org", (q) => q.eq("clerkOrgId", args.clerkOrgId))
-            .first();
+        try {
+            return await ctx.db
+                .query("organizations")
+                .withIndex("by_clerk_org", (q) => q.eq("clerkOrgId", args.clerkOrgId))
+                .first();
+        } catch (error) {
+            console.error("[organizations:getByClerkOrgId] Erro:", error);
+            return null;
+        }
     },
 });
 
@@ -265,36 +285,54 @@ export const remove = mutation({
 export const getStats = query({
     args: { organizationId: v.id("organizations") },
     handler: async (ctx, args) => {
-        // Verificar autenticação
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            throw new Error("Não autenticado");
-        }
-
-        const users = await ctx.db
-            .query("users")
-            .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
-            .collect();
-
-        const courses = await ctx.db
-            .query("courses")
-            .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
-            .collect();
-
-        const activeUsers = users.filter((u) => u.isActive);
-        const publishedCourses = courses.filter((c) => c.isPublished);
-
-        return {
-            totalUsers: users.length,
-            activeUsers: activeUsers.length,
-            totalCourses: courses.length,
-            publishedCourses: publishedCourses.length,
+        // Valores padrão
+        const defaultStats = {
+            totalUsers: 0,
+            activeUsers: 0,
+            totalCourses: 0,
+            publishedCourses: 0,
             usersByRole: {
-                admin: users.filter((u) => u.role === "admin").length,
-                professor: users.filter((u) => u.role === "professor").length,
-                student: users.filter((u) => u.role === "student").length,
+                admin: 0,
+                professor: 0,
+                student: 0,
             },
         };
+
+        // Verificar autenticação - retorna valores padrão se não autenticado
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            return defaultStats;
+        }
+
+        try {
+            const users = await ctx.db
+                .query("users")
+                .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+                .collect();
+
+            const courses = await ctx.db
+                .query("courses")
+                .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+                .collect();
+
+            const activeUsers = users.filter((u) => u.isActive);
+            const publishedCourses = courses.filter((c) => c.isPublished);
+
+            return {
+                totalUsers: users.length,
+                activeUsers: activeUsers.length,
+                totalCourses: courses.length,
+                publishedCourses: publishedCourses.length,
+                usersByRole: {
+                    admin: users.filter((u) => u.role === "admin").length,
+                    professor: users.filter((u) => u.role === "professor").length,
+                    student: users.filter((u) => u.role === "student").length,
+                },
+            };
+        } catch (error) {
+            console.error("[organizations:getStats] Erro:", error);
+            return defaultStats;
+        }
     },
 });
 
@@ -302,26 +340,44 @@ export const getStats = query({
 export const getGlobalStats = query({
     args: {},
     handler: async (ctx) => {
-        // Verificar autenticação
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            throw new Error("Não autenticado");
-        }
-
-        const orgs = await ctx.db.query("organizations").collect();
-        const users = await ctx.db.query("users").collect();
-        const courses = await ctx.db.query("courses").collect();
-
-        return {
-            totalOrganizations: orgs.length,
-            activeOrganizations: orgs.filter((o) => o.isActive).length,
-            totalUsers: users.length,
-            totalCourses: courses.length,
+        // Valores padrão
+        const defaultStats = {
+            totalOrganizations: 0,
+            activeOrganizations: 0,
+            totalUsers: 0,
+            totalCourses: 0,
             byPlan: {
-                starter: orgs.filter((o) => o.plan === "starter").length,
-                professional: orgs.filter((o) => o.plan === "professional").length,
-                enterprise: orgs.filter((o) => o.plan === "enterprise").length,
+                starter: 0,
+                professional: 0,
+                enterprise: 0,
             },
         };
+
+        // Verificar autenticação - retorna valores padrão se não autenticado
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            return defaultStats;
+        }
+
+        try {
+            const orgs = await ctx.db.query("organizations").collect();
+            const users = await ctx.db.query("users").collect();
+            const courses = await ctx.db.query("courses").collect();
+
+            return {
+                totalOrganizations: orgs.length,
+                activeOrganizations: orgs.filter((o) => o.isActive).length,
+                totalUsers: users.length,
+                totalCourses: courses.length,
+                byPlan: {
+                    starter: orgs.filter((o) => o.plan === "starter").length,
+                    professional: orgs.filter((o) => o.plan === "professional").length,
+                    enterprise: orgs.filter((o) => o.plan === "enterprise").length,
+                },
+            };
+        } catch (error) {
+            console.error("[organizations:getGlobalStats] Erro:", error);
+            return defaultStats;
+        }
     },
 });

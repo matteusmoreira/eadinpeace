@@ -80,10 +80,10 @@ export const getById = query({
 export const getByOrganization = query({
     args: { organizationId: v.id("organizations") },
     handler: async (ctx, args) => {
-        // Verificar autenticação básica
+        // Verificar autenticação - retorna array vazio se não autenticado
         const identity = await ctx.auth.getUserIdentity();
         if (!identity) {
-            throw new Error("Não autenticado");
+            return [];
         }
 
         try {
@@ -126,42 +126,47 @@ export const getByOrganization = query({
 export const getPublishedByOrganization = query({
     args: { organizationId: v.id("organizations") },
     handler: async (ctx, args) => {
-        // Verificar autenticação
+        // Verificar autenticação - retorna array vazio se não autenticado
         const identity = await ctx.auth.getUserIdentity();
         if (!identity) {
-            throw new Error("Não autenticado");
+            return [];
         }
 
-        const courses = await ctx.db
-            .query("courses")
-            .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
-            .collect();
+        try {
+            const courses = await ctx.db
+                .query("courses")
+                .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+                .collect();
 
-        const publishedCourses = courses.filter((c) => c.isPublished);
+            const publishedCourses = courses.filter((c) => c.isPublished);
 
-        // Enrich with instructor and enrollment count
-        const enrichedCourses = await Promise.all(
-            publishedCourses.map(async (course) => {
-                const instructor = await ctx.db.get(course.instructorId);
-                const enrollments = await ctx.db
-                    .query("enrollments")
-                    .withIndex("by_course", (q) => q.eq("courseId", course._id))
-                    .collect();
-                const lessons = await ctx.db
-                    .query("lessons")
-                    .withIndex("by_course", (q) => q.eq("courseId", course._id))
-                    .collect();
+            // Enrich with instructor and enrollment count
+            const enrichedCourses = await Promise.all(
+                publishedCourses.map(async (course) => {
+                    const instructor = await ctx.db.get(course.instructorId);
+                    const enrollments = await ctx.db
+                        .query("enrollments")
+                        .withIndex("by_course", (q) => q.eq("courseId", course._id))
+                        .collect();
+                    const lessons = await ctx.db
+                        .query("lessons")
+                        .withIndex("by_course", (q) => q.eq("courseId", course._id))
+                        .collect();
 
-                return {
-                    ...course,
-                    instructor,
-                    enrollmentCount: enrollments.length,
-                    lessonCount: lessons.length,
-                };
-            })
-        );
+                    return {
+                        ...course,
+                        instructor,
+                        enrollmentCount: enrollments.length,
+                        lessonCount: lessons.length,
+                    };
+                })
+            );
 
-        return enrichedCourses;
+            return enrichedCourses;
+        } catch (error) {
+            console.error("[courses:getPublishedByOrganization] Erro:", error);
+            return [];
+        }
     },
 });
 
@@ -169,41 +174,46 @@ export const getPublishedByOrganization = query({
 export const getWithContent = query({
     args: { courseId: v.id("courses") },
     handler: async (ctx, args) => {
-        // Verificar autenticação
+        // Verificar autenticação - retorna null se não autenticado
         const identity = await ctx.auth.getUserIdentity();
         if (!identity) {
-            throw new Error("Não autenticado");
+            return null;
         }
 
-        const course = await ctx.db.get(args.courseId);
-        if (!course) return null;
+        try {
+            const course = await ctx.db.get(args.courseId);
+            if (!course) return null;
 
-        const modules = await ctx.db
-            .query("modules")
-            .withIndex("by_course", (q) => q.eq("courseId", args.courseId))
-            .collect();
+            const modules = await ctx.db
+                .query("modules")
+                .withIndex("by_course", (q) => q.eq("courseId", args.courseId))
+                .collect();
 
-        const modulesWithLessons = await Promise.all(
-            modules.map(async (module) => {
-                const lessons = await ctx.db
-                    .query("lessons")
-                    .withIndex("by_module", (q) => q.eq("moduleId", module._id))
-                    .collect();
-                return {
-                    ...module,
-                    lessons: lessons.sort((a, b) => a.order - b.order),
-                };
-            })
-        );
+            const modulesWithLessons = await Promise.all(
+                modules.map(async (module) => {
+                    const lessons = await ctx.db
+                        .query("lessons")
+                        .withIndex("by_module", (q) => q.eq("moduleId", module._id))
+                        .collect();
+                    return {
+                        ...module,
+                        lessons: lessons.sort((a, b) => a.order - b.order),
+                    };
+                })
+            );
 
-        // Get instructor info
-        const instructor = await ctx.db.get(course.instructorId);
+            // Get instructor info
+            const instructor = await ctx.db.get(course.instructorId);
 
-        return {
-            ...course,
-            instructor,
-            modules: modulesWithLessons.sort((a, b) => a.order - b.order),
-        };
+            return {
+                ...course,
+                instructor,
+                modules: modulesWithLessons.sort((a, b) => a.order - b.order),
+            };
+        } catch (error) {
+            console.error("[courses:getWithContent] Erro:", error);
+            return null;
+        }
     },
 });
 
@@ -211,16 +221,21 @@ export const getWithContent = query({
 export const getByInstructor = query({
     args: { instructorId: v.id("users") },
     handler: async (ctx, args) => {
-        // Verificar autenticação
+        // Verificar autenticação - retorna array vazio se não autenticado
         const identity = await ctx.auth.getUserIdentity();
         if (!identity) {
-            throw new Error("Não autenticado");
+            return [];
         }
 
-        return await ctx.db
-            .query("courses")
-            .withIndex("by_instructor", (q) => q.eq("instructorId", args.instructorId))
-            .collect();
+        try {
+            return await ctx.db
+                .query("courses")
+                .withIndex("by_instructor", (q) => q.eq("instructorId", args.instructorId))
+                .collect();
+        } catch (error) {
+            console.error("[courses:getByInstructor] Erro:", error);
+            return [];
+        }
     },
 });
 
@@ -559,25 +574,38 @@ export const deleteLesson = mutation({
 export const getStats = query({
     args: { courseId: v.id("courses") },
     handler: async (ctx, args) => {
-        // Verificar autenticação
+        // Valores padrão
+        const defaultStats = {
+            totalEnrollments: 0,
+            completedCount: 0,
+            averageProgress: 0,
+            completionRate: 0,
+        };
+
+        // Verificar autenticação - retorna valores padrão se não autenticado
         const identity = await ctx.auth.getUserIdentity();
         if (!identity) {
-            throw new Error("Não autenticado");
+            return defaultStats;
         }
 
-        const enrollments = await ctx.db
-            .query("enrollments")
-            .withIndex("by_course", (q) => q.eq("courseId", args.courseId))
-            .collect();
+        try {
+            const enrollments = await ctx.db
+                .query("enrollments")
+                .withIndex("by_course", (q) => q.eq("courseId", args.courseId))
+                .collect();
 
-        const completed = enrollments.filter((e) => e.completedAt);
-        const totalProgress = enrollments.reduce((acc, e) => acc + e.progress, 0);
+            const completed = enrollments.filter((e) => e.completedAt);
+            const totalProgress = enrollments.reduce((acc, e) => acc + e.progress, 0);
 
-        return {
-            totalEnrollments: enrollments.length,
-            completedCount: completed.length,
-            averageProgress: enrollments.length > 0 ? Math.round(totalProgress / enrollments.length) : 0,
-            completionRate: enrollments.length > 0 ? Math.round((completed.length / enrollments.length) * 100) : 0,
-        };
+            return {
+                totalEnrollments: enrollments.length,
+                completedCount: completed.length,
+                averageProgress: enrollments.length > 0 ? Math.round(totalProgress / enrollments.length) : 0,
+                completionRate: enrollments.length > 0 ? Math.round((completed.length / enrollments.length) * 100) : 0,
+            };
+        } catch (error) {
+            console.error("[courses:getStats] Erro:", error);
+            return defaultStats;
+        }
     },
 });

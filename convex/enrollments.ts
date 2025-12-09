@@ -401,35 +401,40 @@ export const getCourseProgress = query({
         courseId: v.id("courses"),
     },
     handler: async (ctx, args) => {
-        // Verificar autenticação
+        // Verificar autenticação - retorna null se não autenticado
         const identity = await ctx.auth.getUserIdentity();
         if (!identity) {
-            throw new Error("Não autenticado");
+            return null;
         }
 
-        const enrollment = await ctx.db
-            .query("enrollments")
-            .withIndex("by_user_course", (q) =>
-                q.eq("userId", args.userId).eq("courseId", args.courseId)
-            )
-            .first();
-
-        if (!enrollment) return null;
-
-        const lessonsProgress = await ctx.db
-            .query("lessonProgress")
-            .filter((q) =>
-                q.and(
-                    q.eq(q.field("userId"), args.userId),
-                    q.eq(q.field("courseId"), args.courseId)
+        try {
+            const enrollment = await ctx.db
+                .query("enrollments")
+                .withIndex("by_user_course", (q) =>
+                    q.eq("userId", args.userId).eq("courseId", args.courseId)
                 )
-            )
-            .collect();
+                .first();
 
-        return {
-            ...enrollment,
-            lessonsProgress,
-        };
+            if (!enrollment) return null;
+
+            const lessonsProgress = await ctx.db
+                .query("lessonProgress")
+                .filter((q) =>
+                    q.and(
+                        q.eq(q.field("userId"), args.userId),
+                        q.eq(q.field("courseId"), args.courseId)
+                    )
+                )
+                .collect();
+
+            return {
+                ...enrollment,
+                lessonsProgress,
+            };
+        } catch (error) {
+            console.error("[enrollments:getCourseProgress] Erro:", error);
+            return null;
+        }
     },
 });
 
@@ -492,15 +497,20 @@ export const updateStreak = mutation({
 export const getStreak = query({
     args: { userId: v.id("users") },
     handler: async (ctx, args) => {
-        // Verificar autenticação
+        // Verificar autenticação - retorna null se não autenticado
         const identity = await ctx.auth.getUserIdentity();
         if (!identity) {
-            throw new Error("Não autenticado");
+            return null;
         }
 
-        return await ctx.db
-            .query("studyStreaks")
-            .withIndex("by_user", (q) => q.eq("userId", args.userId))
-            .first();
+        try {
+            return await ctx.db
+                .query("studyStreaks")
+                .withIndex("by_user", (q) => q.eq("userId", args.userId))
+                .first();
+        } catch (error) {
+            console.error("[enrollments:getStreak] Erro:", error);
+            return null;
+        }
     },
 });
