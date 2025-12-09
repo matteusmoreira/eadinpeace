@@ -127,6 +127,7 @@ export default function AdminCourseEditPage() {
     const updateLessonMutation = useMutation(api.courses.updateLesson);
     const deleteLessonMutation = useMutation(api.courses.deleteLesson);
     const generateUploadUrl = useMutation(api.files.generateUploadUrl);
+    const createQuiz = useMutation(api.quizzes.create);
 
     const handlePublishToggle = async () => {
         if (!course) return;
@@ -231,7 +232,7 @@ export default function AdminCourseEditPage() {
 
         setIsLoading(true);
         try {
-            await createLesson({
+            const lessonId = await createLesson({
                 moduleId: selectedModuleId,
                 courseId,
                 title: newLesson.title,
@@ -255,6 +256,32 @@ export default function AdminCourseEditPage() {
                 duration: newLesson.duration * 60, // Convert minutes to seconds
                 isFree: newLesson.isFree,
             });
+
+            // Se for prova ou trabalho, criar quiz automaticamente
+            if (["assignment", "exam"].includes(newLesson.type)) {
+                try {
+                    const quizId = await createQuiz({
+                        courseId,
+                        lessonId,
+                        title: newLesson.title,
+                        description: newLesson.instructions || `Questões para: ${newLesson.title}`,
+                        passingScore: 60, // Nota mínima padrão
+                        timeLimit: newLesson.duration * 60 || undefined, // Tempo em segundos
+                        maxAttempts: newLesson.type === "exam" ? 1 : 3, // Provas: 1 tentativa, Trabalhos: 3
+                    });
+                    toast.success("Aula e quiz criados! Redirecionando para adicionar questões...");
+                    resetLessonForm();
+                    setLessonDialogOpen(false);
+                    setSelectedModuleId(null);
+                    // Redirecionar para a página de edição do quiz
+                    router.push(`/professor/quizzes/${quizId}/edit`);
+                    return;
+                } catch (quizError: any) {
+                    console.error("Erro ao criar quiz:", quizError);
+                    toast.warning(`Aula criada, mas houve um erro ao criar o quiz: ${quizError.message}`);
+                }
+            }
+
             toast.success("Aula criada com sucesso!");
             resetLessonForm();
             setLessonDialogOpen(false);
@@ -947,6 +974,35 @@ export default function AdminCourseEditPage() {
                                         }
                                     />
                                 </div>
+
+                                {/* Info sobre questões */}
+                                <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4 space-y-3">
+                                    <div className="flex items-start gap-3">
+                                        <BookOpen className="h-5 w-5 text-blue-600 mt-0.5" />
+                                        <div>
+                                            <h5 className="font-medium text-blue-900 dark:text-blue-100">
+                                                Como adicionar questões
+                                            </h5>
+                                            <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                                                Após criar esta aula, você poderá adicionar questões através do menu
+                                                <strong> Quizzes</strong> no painel do professor. As questões serão
+                                                automaticamente vinculadas a esta aula.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 pl-8">
+                                        <Link
+                                            href="/professor/quizzes"
+                                            target="_blank"
+                                            className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200 underline flex items-center gap-1"
+                                        >
+                                            Acessar Gerenciador de Quizzes
+                                            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                            </svg>
+                                        </Link>
+                                    </div>
+                                </div>
                             </div>
                         )}
 
@@ -1177,6 +1233,101 @@ export default function AdminCourseEditPage() {
                                         }
                                     />
                                 </div>
+                            </div>
+                        )}
+
+                        {/* Assignment/Exam Fields */}
+                        {(newLesson.type === "assignment" || newLesson.type === "exam") && (
+                            <div className="space-y-4 border-t pt-4">
+                                <h4 className="font-medium flex items-center gap-2">
+                                    {newLesson.type === "assignment" ? (
+                                        <ClipboardList className="h-4 w-4 text-amber-500" />
+                                    ) : (
+                                        <GraduationCap className="h-4 w-4 text-purple-500" />
+                                    )}
+                                    Configurações do {newLesson.type === "assignment" ? "Trabalho" : "Exame"}
+                                </h4>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="editInstructions">Instruções</Label>
+                                    <Textarea
+                                        id="editInstructions"
+                                        placeholder="Descreva as instruções e requisitos..."
+                                        value={newLesson.instructions}
+                                        onChange={(e) => setNewLesson((prev) => ({ ...prev, instructions: e.target.value }))}
+                                        rows={4}
+                                    />
+                                </div>
+
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="editDueDate">Data de Entrega</Label>
+                                        <Input
+                                            id="editDueDate"
+                                            type="datetime-local"
+                                            value={newLesson.dueDate}
+                                            onChange={(e) =>
+                                                setNewLesson((prev) => ({ ...prev, dueDate: e.target.value }))
+                                            }
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="editMaxScore">Pontuação Máxima</Label>
+                                        <Input
+                                            id="editMaxScore"
+                                            type="number"
+                                            min="0"
+                                            placeholder="100"
+                                            value={newLesson.maxScore}
+                                            onChange={(e) =>
+                                                setNewLesson((prev) => ({ ...prev, maxScore: parseInt(e.target.value) || 100 }))
+                                            }
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="editExamDuration">Tempo estimado (minutos)</Label>
+                                    <Input
+                                        id="editExamDuration"
+                                        type="number"
+                                        min="1"
+                                        placeholder="60"
+                                        value={newLesson.duration || ""}
+                                        onChange={(e) =>
+                                            setNewLesson((prev) => ({ ...prev, duration: parseInt(e.target.value) || 0 }))
+                                        }
+                                    />
+                                </div>
+
+                                {/* Gerenciar Questões */}
+                                {selectedLessonId && (
+                                    <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <BookOpen className="h-5 w-5 text-green-600" />
+                                                <div>
+                                                    <h5 className="font-medium text-green-900 dark:text-green-100">
+                                                        Gerenciar Questões
+                                                    </h5>
+                                                    <p className="text-sm text-green-700 dark:text-green-300">
+                                                        Acesse o gerenciador de quizzes para adicionar ou editar as questões
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <Link
+                                                href="/professor/quizzes"
+                                                target="_blank"
+                                                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm flex items-center gap-2"
+                                            >
+                                                Ir para Quizzes
+                                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                                </svg>
+                                            </Link>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
 
