@@ -6,8 +6,13 @@ import { requireAuth, requireOwnerOrAdmin, requireAuthWithOrg, requireRole } fro
 export const getByUser = query({
     args: { userId: v.id("users"), limit: v.optional(v.number()) },
     handler: async (ctx, args) => {
-        // Verificar que o usuário pode acessar notificações deste usuário
-        await requireOwnerOrAdmin(ctx, args.userId);
+        // Verificar autenticação - retornar vazio se falhar
+        try {
+            await requireOwnerOrAdmin(ctx, args.userId);
+        } catch (error) {
+            // Se não autenticado ou sem permissão, retornar array vazio
+            return [];
+        }
 
         const notifications = await ctx.db
             .query("notifications")
@@ -23,8 +28,12 @@ export const getByUser = query({
 export const getUnreadCount = query({
     args: { userId: v.id("users") },
     handler: async (ctx, args) => {
-        // Verificar que o usuário pode acessar notificações deste usuário
-        await requireOwnerOrAdmin(ctx, args.userId);
+        // Verificar autenticação - retornar 0 se falhar
+        try {
+            await requireOwnerOrAdmin(ctx, args.userId);
+        } catch (error) {
+            return 0;
+        }
 
         const notifications = await ctx.db
             .query("notifications")
