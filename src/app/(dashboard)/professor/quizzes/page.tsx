@@ -54,6 +54,10 @@ import { cn } from "@/lib/utils";
 import { useUser } from "@clerk/nextjs";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
+import {
+    QuestionType,
+    getQuestionTypeLabel,
+} from "@/components/quiz/QuestionRenderer";
 
 const container = {
     hidden: { opacity: 0 },
@@ -68,11 +72,33 @@ const item = {
     show: { opacity: 1, y: 0 },
 };
 
+// Tipos de questão disponíveis
+const questionTypes: { type: QuestionType; icon: string; label: string }[] = [
+    { type: "true_false", icon: "✓✗", label: "Verdadeiro/Falso" },
+    { type: "single_choice", icon: "○", label: "Múltipla Escolha" },
+    { type: "multiple_choice", icon: "☑", label: "Múltiplas Respostas" },
+    { type: "short_answer", icon: "Aa", label: "Resposta Curta" },
+    { type: "text_answer", icon: "📝", label: "Dissertativa" },
+    { type: "match_following", icon: "↔", label: "Associar" },
+    { type: "sortable", icon: "⇅", label: "Ordenar" },
+    { type: "fill_blanks", icon: "___", label: "Preencher Lacunas" },
+    { type: "audio_video", icon: "▶", label: "Áudio/Vídeo" },
+];
+
 interface Question {
     id: string;
+    type: QuestionType;
     text: string;
     options: { id: string; text: string; isCorrect: boolean }[];
+    correctAnswer?: string;
+    correctAnswers?: string[];
+    matchPairs?: { prompt: string; answer: string }[];
+    correctOrder?: string[];
+    blankAnswers?: string[];
+    mediaUrl?: string;
+    mediaType?: "audio" | "video";
     explanation: string;
+    points: number;
 }
 
 export default function ProfessorQuizzesPage() {
@@ -117,15 +143,25 @@ export default function ProfessorQuizzesPage() {
     // Question form
     const [questionDialogOpen, setQuestionDialogOpen] = useState(false);
     const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
+    const [selectedQuestionType, setSelectedQuestionType] = useState<QuestionType>("single_choice");
     const [questionForm, setQuestionForm] = useState({
         text: "",
+        type: "single_choice" as QuestionType,
         options: [
             { id: "a", text: "", isCorrect: true },
             { id: "b", text: "", isCorrect: false },
             { id: "c", text: "", isCorrect: false },
             { id: "d", text: "", isCorrect: false },
         ],
+        correctAnswer: "true",
+        correctAnswers: [] as string[],
+        matchPairs: [{ prompt: "", answer: "" }],
+        correctOrder: [""],
+        blankAnswers: [""],
+        mediaUrl: "",
+        mediaType: "video" as "audio" | "video",
         explanation: "",
+        points: 10,
     });
 
     const filteredQuizzes = (quizzes || []).filter((quiz) =>
@@ -175,25 +211,45 @@ export default function ProfessorQuizzesPage() {
 
     const openAddQuestion = () => {
         setEditingQuestion(null);
+        setSelectedQuestionType("single_choice");
         setQuestionForm({
             text: "",
+            type: "single_choice",
             options: [
                 { id: "a", text: "", isCorrect: true },
                 { id: "b", text: "", isCorrect: false },
                 { id: "c", text: "", isCorrect: false },
                 { id: "d", text: "", isCorrect: false },
             ],
+            correctAnswer: "true",
+            correctAnswers: [],
+            matchPairs: [{ prompt: "", answer: "" }],
+            correctOrder: [""],
+            blankAnswers: [""],
+            mediaUrl: "",
+            mediaType: "video",
             explanation: "",
+            points: 10,
         });
         setQuestionDialogOpen(true);
     };
 
     const openEditQuestion = (question: Question) => {
         setEditingQuestion(question);
+        setSelectedQuestionType(question.type);
         setQuestionForm({
             text: question.text,
-            options: question.options,
+            type: question.type,
+            options: question.options || [],
+            correctAnswer: question.correctAnswer || "true",
+            correctAnswers: question.correctAnswers || [],
+            matchPairs: question.matchPairs || [{ prompt: "", answer: "" }],
+            correctOrder: question.correctOrder || [""],
+            blankAnswers: question.blankAnswers || [""],
+            mediaUrl: question.mediaUrl || "",
+            mediaType: question.mediaType || "video",
             explanation: question.explanation,
+            points: question.points || 10,
         });
         setQuestionDialogOpen(true);
     };
@@ -205,9 +261,18 @@ export default function ProfessorQuizzesPage() {
                     q.id === editingQuestion.id
                         ? {
                             ...q,
+                            type: selectedQuestionType,
                             text: questionForm.text,
                             options: questionForm.options,
+                            correctAnswer: questionForm.correctAnswer,
+                            correctAnswers: questionForm.correctAnswers,
+                            matchPairs: questionForm.matchPairs,
+                            correctOrder: questionForm.correctOrder,
+                            blankAnswers: questionForm.blankAnswers,
+                            mediaUrl: questionForm.mediaUrl,
+                            mediaType: questionForm.mediaType,
                             explanation: questionForm.explanation,
+                            points: questionForm.points,
                         }
                         : q
                 )
@@ -215,9 +280,18 @@ export default function ProfessorQuizzesPage() {
         } else {
             const newQuestion: Question = {
                 id: `q${Date.now()}`,
+                type: selectedQuestionType,
                 text: questionForm.text,
                 options: questionForm.options,
+                correctAnswer: questionForm.correctAnswer,
+                correctAnswers: questionForm.correctAnswers,
+                matchPairs: questionForm.matchPairs,
+                correctOrder: questionForm.correctOrder,
+                blankAnswers: questionForm.blankAnswers,
+                mediaUrl: questionForm.mediaUrl,
+                mediaType: questionForm.mediaType,
                 explanation: questionForm.explanation,
+                points: questionForm.points,
             };
             setQuestions((prev) => [...prev, newQuestion]);
         }
@@ -386,13 +460,24 @@ export default function ProfessorQuizzesPage() {
                                                         <Badge variant="outline" className="shrink-0">
                                                             Q{index + 1}
                                                         </Badge>
+                                                        <Badge variant="secondary" className="shrink-0 text-xs">
+                                                            {questionTypes.find(qt => qt.type === question.type)?.icon || "○"} {getQuestionTypeLabel(question.type)}
+                                                        </Badge>
                                                         <span className="font-medium line-clamp-1">
                                                             {question.text}
                                                         </span>
                                                     </div>
                                                     <p className="text-sm text-muted-foreground">
-                                                        {question.options.length} opções •{" "}
-                                                        Correta: {question.options.find((o) => o.isCorrect)?.text?.substring(0, 20)}...
+                                                        {question.points} pts
+                                                        {question.type === "single_choice" || question.type === "multiple_choice"
+                                                            ? ` • ${question.options?.length || 0} opções`
+                                                            : question.type === "match_following"
+                                                                ? ` • ${question.matchPairs?.length || 0} pares`
+                                                                : question.type === "sortable"
+                                                                    ? ` • ${question.correctOrder?.length || 0} itens`
+                                                                    : question.type === "fill_blanks"
+                                                                        ? ` • ${question.blankAnswers?.length || 0} lacunas`
+                                                                        : ""}
                                                     </p>
                                                 </div>
                                                 <DropdownMenu>
@@ -426,75 +511,452 @@ export default function ProfessorQuizzesPage() {
 
                 {/* Question Dialog */}
                 <Dialog open={questionDialogOpen} onOpenChange={setQuestionDialogOpen}>
-                    <DialogContent className="max-w-2xl">
+                    <DialogContent className="max-w-3xl max-h-[90vh]">
                         <DialogHeader>
                             <DialogTitle>
                                 {editingQuestion ? "Editar Questão" : "Nova Questão"}
                             </DialogTitle>
                             <DialogDescription>
-                                Preencha a pergunta e as opções de resposta
+                                Escolha o tipo de questão e preencha os campos
                             </DialogDescription>
                         </DialogHeader>
-                        <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
+                        <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto pr-2">
+                            {/* Seletor de Tipo de Questão */}
                             <div className="space-y-2">
-                                <Label>Pergunta</Label>
+                                <Label>Tipo de Questão</Label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {questionTypes.map(({ type, icon, label }) => (
+                                        <button
+                                            key={type}
+                                            type="button"
+                                            onClick={() => {
+                                                setSelectedQuestionType(type);
+                                                // Reset options based on type
+                                                if (type === "single_choice" || type === "multiple_choice") {
+                                                    setQuestionForm(prev => ({
+                                                        ...prev,
+                                                        type,
+                                                        options: prev.options.length < 2
+                                                            ? [
+                                                                { id: "a", text: "", isCorrect: true },
+                                                                { id: "b", text: "", isCorrect: false },
+                                                                { id: "c", text: "", isCorrect: false },
+                                                                { id: "d", text: "", isCorrect: false },
+                                                            ]
+                                                            : prev.options
+                                                    }));
+                                                } else {
+                                                    setQuestionForm(prev => ({ ...prev, type }));
+                                                }
+                                            }}
+                                            className={cn(
+                                                "flex flex-col items-center gap-1 p-3 rounded-lg border-2 transition-all text-sm",
+                                                selectedQuestionType === type
+                                                    ? "border-primary bg-primary/10 text-primary"
+                                                    : "border-border hover:border-primary/50"
+                                            )}
+                                        >
+                                            <span className="text-lg">{icon}</span>
+                                            <span className="text-xs font-medium text-center">{label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Campo de Pergunta */}
+                            <div className="space-y-2">
+                                <Label>Pergunta *</Label>
                                 <Textarea
                                     placeholder="Digite a pergunta..."
                                     value={questionForm.text}
                                     onChange={(e) =>
                                         setQuestionForm((prev) => ({ ...prev, text: e.target.value }))
                                     }
+                                    rows={2}
                                 />
                             </div>
 
-                            <div className="space-y-3">
-                                <Label>Opções de Resposta</Label>
-                                {questionForm.options.map((option, index) => (
-                                    <div key={option.id} className="flex items-center gap-2">
+                            {/* Editor específico por tipo */}
+                            {/* Verdadeiro/Falso */}
+                            {selectedQuestionType === "true_false" && (
+                                <div className="space-y-2">
+                                    <Label>Resposta Correta</Label>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => setQuestionForm(prev => ({ ...prev, correctAnswer: "true" }))}
+                                            className={cn(
+                                                "p-4 rounded-lg border-2 transition-all font-medium",
+                                                questionForm.correctAnswer === "true"
+                                                    ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                                                    : "border-border hover:border-emerald-300"
+                                            )}
+                                        >
+                                            ✓ Verdadeiro
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setQuestionForm(prev => ({ ...prev, correctAnswer: "false" }))}
+                                            className={cn(
+                                                "p-4 rounded-lg border-2 transition-all font-medium",
+                                                questionForm.correctAnswer === "false"
+                                                    ? "border-red-500 bg-red-50 text-red-700"
+                                                    : "border-border hover:border-red-300"
+                                            )}
+                                        >
+                                            ✗ Falso
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Múltipla Escolha / Múltiplas Respostas */}
+                            {(selectedQuestionType === "single_choice" || selectedQuestionType === "multiple_choice") && (
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <Label>Opções de Resposta</Label>
                                         <Button
                                             type="button"
-                                            variant={option.isCorrect ? "default" : "outline"}
-                                            size="icon"
-                                            className={cn(
-                                                "shrink-0",
-                                                option.isCorrect && "bg-emerald-500 hover:bg-emerald-600"
-                                            )}
-                                            onClick={() => setCorrectOption(option.id)}
-                                        >
-                                            {option.isCorrect ? (
-                                                <CheckCircle2 className="h-4 w-4" />
-                                            ) : (
-                                                <span className="font-medium">{option.id.toUpperCase()}</span>
-                                            )}
-                                        </Button>
-                                        <Input
-                                            placeholder={`Opção ${option.id.toUpperCase()}`}
-                                            value={option.text}
-                                            onChange={(e) =>
-                                                setQuestionForm((prev) => ({
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => {
+                                                const newId = String.fromCharCode(97 + questionForm.options.length);
+                                                setQuestionForm(prev => ({
                                                     ...prev,
-                                                    options: prev.options.map((o) =>
-                                                        o.id === option.id ? { ...o, text: e.target.value } : o
-                                                    ),
-                                                }))
-                                            }
-                                        />
+                                                    options: [...prev.options, { id: newId, text: "", isCorrect: false }]
+                                                }));
+                                            }}
+                                        >
+                                            <Plus className="h-4 w-4 mr-1" />
+                                            Adicionar
+                                        </Button>
                                     </div>
-                                ))}
-                                <p className="text-xs text-muted-foreground">
-                                    Clique no botão para marcar a resposta correta
-                                </p>
-                            </div>
+                                    {questionForm.options.map((option, index) => (
+                                        <div key={option.id} className="flex items-center gap-2">
+                                            <Button
+                                                type="button"
+                                                variant={option.isCorrect ? "default" : "outline"}
+                                                size="icon"
+                                                className={cn(
+                                                    "shrink-0",
+                                                    option.isCorrect && "bg-emerald-500 hover:bg-emerald-600"
+                                                )}
+                                                onClick={() => {
+                                                    if (selectedQuestionType === "multiple_choice") {
+                                                        // Toggle para múltiplas respostas
+                                                        setQuestionForm(prev => ({
+                                                            ...prev,
+                                                            options: prev.options.map(o =>
+                                                                o.id === option.id ? { ...o, isCorrect: !o.isCorrect } : o
+                                                            )
+                                                        }));
+                                                    } else {
+                                                        // Single choice
+                                                        setCorrectOption(option.id);
+                                                    }
+                                                }}
+                                            >
+                                                {option.isCorrect ? (
+                                                    <CheckCircle2 className="h-4 w-4" />
+                                                ) : (
+                                                    <span className="font-medium">{option.id.toUpperCase()}</span>
+                                                )}
+                                            </Button>
+                                            <Input
+                                                placeholder={`Opção ${option.id.toUpperCase()}`}
+                                                value={option.text}
+                                                onChange={(e) =>
+                                                    setQuestionForm((prev) => ({
+                                                        ...prev,
+                                                        options: prev.options.map((o) =>
+                                                            o.id === option.id ? { ...o, text: e.target.value } : o
+                                                        ),
+                                                    }))
+                                                }
+                                            />
+                                            {questionForm.options.length > 2 && (
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="text-destructive hover:text-destructive"
+                                                    onClick={() => {
+                                                        setQuestionForm(prev => ({
+                                                            ...prev,
+                                                            options: prev.options.filter(o => o.id !== option.id)
+                                                        }));
+                                                    }}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            )}
+                                        </div>
+                                    ))}
+                                    <p className="text-xs text-muted-foreground">
+                                        {selectedQuestionType === "multiple_choice"
+                                            ? "Clique para marcar/desmarcar as respostas corretas (múltiplas permitidas)"
+                                            : "Clique no botão para marcar a resposta correta (apenas uma)"}
+                                    </p>
+                                </div>
+                            )}
 
-                            <div className="space-y-2">
-                                <Label>Explicação (opcional)</Label>
-                                <Textarea
-                                    placeholder="Explique por que essa é a resposta correta..."
-                                    value={questionForm.explanation}
-                                    onChange={(e) =>
-                                        setQuestionForm((prev) => ({ ...prev, explanation: e.target.value }))
-                                    }
-                                />
+                            {/* Resposta Curta ou Dissertativa */}
+                            {(selectedQuestionType === "short_answer" || selectedQuestionType === "text_answer") && (
+                                <div className="space-y-2">
+                                    <Label>
+                                        {selectedQuestionType === "short_answer" ? "Resposta Esperada (opcional)" : "Orientações para Correção (opcional)"}
+                                    </Label>
+                                    <Input
+                                        placeholder={selectedQuestionType === "short_answer" ? "Ex: 42" : "Critérios de avaliação..."}
+                                        value={questionForm.correctAnswer || ""}
+                                        onChange={(e) =>
+                                            setQuestionForm(prev => ({ ...prev, correctAnswer: e.target.value }))
+                                        }
+                                    />
+                                    <p className="text-xs text-muted-foreground">
+                                        {selectedQuestionType === "text_answer"
+                                            ? "Questões dissertativas requerem correção manual pelo professor"
+                                            : "Deixe em branco para aceitar qualquer resposta"}
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Associar */}
+                            {selectedQuestionType === "match_following" && (
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <Label>Pares de Correspondência</Label>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => {
+                                                setQuestionForm(prev => ({
+                                                    ...prev,
+                                                    matchPairs: [...prev.matchPairs, { prompt: "", answer: "" }]
+                                                }));
+                                            }}
+                                        >
+                                            <Plus className="h-4 w-4 mr-1" />
+                                            Adicionar Par
+                                        </Button>
+                                    </div>
+                                    {questionForm.matchPairs.map((pair, index) => (
+                                        <div key={index} className="flex items-center gap-2">
+                                            <Input
+                                                placeholder="Item"
+                                                value={pair.prompt}
+                                                onChange={(e) => {
+                                                    const newPairs = [...questionForm.matchPairs];
+                                                    newPairs[index] = { ...newPairs[index], prompt: e.target.value };
+                                                    setQuestionForm(prev => ({ ...prev, matchPairs: newPairs }));
+                                                }}
+                                            />
+                                            <span className="text-muted-foreground">→</span>
+                                            <Input
+                                                placeholder="Correspondência"
+                                                value={pair.answer}
+                                                onChange={(e) => {
+                                                    const newPairs = [...questionForm.matchPairs];
+                                                    newPairs[index] = { ...newPairs[index], answer: e.target.value };
+                                                    setQuestionForm(prev => ({ ...prev, matchPairs: newPairs }));
+                                                }}
+                                            />
+                                            {questionForm.matchPairs.length > 1 && (
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="text-destructive"
+                                                    onClick={() => {
+                                                        setQuestionForm(prev => ({
+                                                            ...prev,
+                                                            matchPairs: prev.matchPairs.filter((_, i) => i !== index)
+                                                        }));
+                                                    }}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Ordenar */}
+                            {selectedQuestionType === "sortable" && (
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <Label>Itens para Ordenar (na ordem correta)</Label>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => {
+                                                setQuestionForm(prev => ({
+                                                    ...prev,
+                                                    correctOrder: [...prev.correctOrder, ""]
+                                                }));
+                                            }}
+                                        >
+                                            <Plus className="h-4 w-4 mr-1" />
+                                            Adicionar Item
+                                        </Button>
+                                    </div>
+                                    {questionForm.correctOrder.map((item, index) => (
+                                        <div key={index} className="flex items-center gap-2">
+                                            <span className="text-sm font-medium text-muted-foreground w-6">{index + 1}.</span>
+                                            <Input
+                                                placeholder={`Item ${index + 1}`}
+                                                value={item}
+                                                onChange={(e) => {
+                                                    const newOrder = [...questionForm.correctOrder];
+                                                    newOrder[index] = e.target.value;
+                                                    setQuestionForm(prev => ({ ...prev, correctOrder: newOrder }));
+                                                }}
+                                            />
+                                            {questionForm.correctOrder.length > 1 && (
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="text-destructive"
+                                                    onClick={() => {
+                                                        setQuestionForm(prev => ({
+                                                            ...prev,
+                                                            correctOrder: prev.correctOrder.filter((_, i) => i !== index)
+                                                        }));
+                                                    }}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            )}
+                                        </div>
+                                    ))}
+                                    <p className="text-xs text-muted-foreground">
+                                        Digite os itens na ordem correta. O aluno verá os itens embaralhados.
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Preencher Lacunas */}
+                            {selectedQuestionType === "fill_blanks" && (
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <Label>Respostas das Lacunas</Label>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => {
+                                                setQuestionForm(prev => ({
+                                                    ...prev,
+                                                    blankAnswers: [...prev.blankAnswers, ""]
+                                                }));
+                                            }}
+                                        >
+                                            <Plus className="h-4 w-4 mr-1" />
+                                            Adicionar Lacuna
+                                        </Button>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground mb-2">
+                                        Use [BLANK] na pergunta para marcar onde as lacunas devem aparecer
+                                    </p>
+                                    {questionForm.blankAnswers.map((answer, index) => (
+                                        <div key={index} className="flex items-center gap-2">
+                                            <span className="text-sm font-medium text-muted-foreground">Lacuna {index + 1}:</span>
+                                            <Input
+                                                placeholder="Resposta correta"
+                                                value={answer}
+                                                onChange={(e) => {
+                                                    const newAnswers = [...questionForm.blankAnswers];
+                                                    newAnswers[index] = e.target.value;
+                                                    setQuestionForm(prev => ({ ...prev, blankAnswers: newAnswers }));
+                                                }}
+                                            />
+                                            {questionForm.blankAnswers.length > 1 && (
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="text-destructive"
+                                                    onClick={() => {
+                                                        setQuestionForm(prev => ({
+                                                            ...prev,
+                                                            blankAnswers: prev.blankAnswers.filter((_, i) => i !== index)
+                                                        }));
+                                                    }}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Áudio/Vídeo */}
+                            {selectedQuestionType === "audio_video" && (
+                                <div className="space-y-3">
+                                    <Label>Mídia</Label>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => setQuestionForm(prev => ({ ...prev, mediaType: "video" }))}
+                                            className={cn(
+                                                "p-3 rounded-lg border-2 transition-all text-sm font-medium",
+                                                questionForm.mediaType === "video"
+                                                    ? "border-primary bg-primary/10"
+                                                    : "border-border"
+                                            )}
+                                        >
+                                            🎬 Vídeo
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setQuestionForm(prev => ({ ...prev, mediaType: "audio" }))}
+                                            className={cn(
+                                                "p-3 rounded-lg border-2 transition-all text-sm font-medium",
+                                                questionForm.mediaType === "audio"
+                                                    ? "border-primary bg-primary/10"
+                                                    : "border-border"
+                                            )}
+                                        >
+                                            🎵 Áudio
+                                        </button>
+                                    </div>
+                                    <Input
+                                        placeholder="URL do vídeo ou áudio..."
+                                        value={questionForm.mediaUrl}
+                                        onChange={(e) => setQuestionForm(prev => ({ ...prev, mediaUrl: e.target.value }))}
+                                    />
+                                    <p className="text-xs text-muted-foreground">
+                                        Cole a URL do YouTube, Vimeo ou arquivo de áudio
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Pontuação e Explicação */}
+                            <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                                <div className="space-y-2">
+                                    <Label>Pontos</Label>
+                                    <Input
+                                        type="number"
+                                        min="1"
+                                        value={questionForm.points}
+                                        onChange={(e) => setQuestionForm(prev => ({ ...prev, points: Number(e.target.value) }))}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Explicação (opcional)</Label>
+                                    <Input
+                                        placeholder="Explique a resposta..."
+                                        value={questionForm.explanation}
+                                        onChange={(e) =>
+                                            setQuestionForm((prev) => ({ ...prev, explanation: e.target.value }))
+                                        }
+                                    />
+                                </div>
                             </div>
                         </div>
                         <DialogFooter>

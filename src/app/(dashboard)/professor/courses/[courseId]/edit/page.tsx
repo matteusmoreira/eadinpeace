@@ -115,6 +115,7 @@ export default function EditCoursePage({
     const updateCourse = useMutation(api.courses.update);
     const createModule = useMutation(api.courses.createModule);
     const createLesson = useMutation(api.courses.createLesson);
+    const updateLesson = useMutation(api.courses.updateLesson);
 
     // Local state for UI
     const [course, setCourse] = useState<{
@@ -275,31 +276,18 @@ export default function EditCoursePage({
         const moduleData = course.modules.find(m => m.id === selectedModuleId);
 
         if (editingLesson) {
-            // Edit existing lesson - update local state
-            setCourse(prev => {
-                if (!prev) return prev;
-                return {
-                    ...prev,
-                    modules: prev.modules.map((m) =>
-                        m.id === selectedModuleId
-                            ? {
-                                ...m,
-                                lessons: m.lessons.map((l: any) =>
-                                    l.id === editingLesson.id
-                                        ? {
-                                            ...l,
-                                            title: lessonForm.title,
-                                            videoUrl: lessonForm.videoUrl,
-                                            duration: durationInSeconds,
-                                            isFree: lessonForm.isFree,
-                                        }
-                                        : l
-                                ),
-                            }
-                            : m
-                    ),
-                };
-            });
+            // Edit existing lesson via API
+            try {
+                await updateLesson({
+                    lessonId: editingLesson._id as Id<"lessons">,
+                    title: lessonForm.title,
+                    videoUrl: lessonForm.videoUrl,
+                    duration: durationInSeconds,
+                    isFree: lessonForm.isFree,
+                });
+            } catch (error) {
+                console.error("Error updating lesson:", error);
+            }
         } else {
             // Add new lesson via API
             try {
