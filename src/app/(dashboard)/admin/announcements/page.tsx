@@ -505,23 +505,25 @@ export default function AnnouncementsPage() {
                                 !announcement.isPublished && "opacity-60"
                             )}>
                                 <CardHeader className="pb-3">
-                                    <div className="flex items-start justify-between">
-                                        <div className="flex items-start gap-3">
+                                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                                        <div className="flex items-start gap-3 min-w-0 flex-1">
                                             <div className={cn(
-                                                "h-3 w-3 rounded-full mt-1.5",
+                                                "h-3 w-3 rounded-full mt-1.5 flex-shrink-0",
                                                 priorityColors[announcement.priority]
                                             )} />
-                                            <div>
-                                                <CardTitle className="text-lg flex items-center gap-2">
-                                                    {announcement.title}
+                                            <div className="min-w-0 flex-1">
+                                                <CardTitle className="text-lg">
+                                                    <span className="line-clamp-2">{announcement.title}</span>
+                                                </CardTitle>
+                                                <div className="flex flex-wrap items-center gap-2 mt-2">
                                                     <Badge variant={announcement.isPublished ? "default" : "secondary"}>
                                                         {announcement.isPublished ? "Publicado" : "Rascunho"}
                                                     </Badge>
                                                     <Badge variant="outline">
                                                         {priorityLabels[announcement.priority]}
                                                     </Badge>
-                                                </CardTitle>
-                                                <CardDescription className="flex items-center gap-2 mt-1">
+                                                </div>
+                                                <CardDescription className="flex flex-wrap items-center gap-2 mt-2">
                                                     <Avatar className="h-5 w-5">
                                                         <AvatarImage src={announcement.author?.imageUrl} />
                                                         <AvatarFallback className="text-xs">
@@ -540,10 +542,11 @@ export default function AnnouncementsPage() {
                                                 </CardDescription>
                                             </div>
                                         </div>
-                                        <div className="flex gap-2">
+                                        <div className="flex gap-2 flex-shrink-0">
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
+                                                className="text-xs sm:text-sm"
                                                 onClick={() => handleTogglePublish(announcement._id, announcement.isPublished)}
                                             >
                                                 {announcement.isPublished ? "Despublicar" : "Publicar"}
@@ -551,7 +554,7 @@ export default function AnnouncementsPage() {
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
-                                                className="text-destructive"
+                                                className="text-destructive h-8 w-8 flex-shrink-0"
                                                 onClick={() => handleDelete(announcement._id)}
                                             >
                                                 <Trash2 className="h-4 w-4" />

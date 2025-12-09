@@ -239,80 +239,159 @@ export default function AdminCoursesPage() {
                     )}
                 </motion.div>
             ) : (
-                <div className="grid gap-4">
-                    {filteredCourses.map((course) => (
-                        <Card key={course._id} className="hover:shadow-lg transition-all">
-                            <CardContent className="p-4">
-                                <div className="flex items-center gap-4">
-                                    <div className="h-16 w-24 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                                        {course.thumbnail ? (
-                                            <img src={course.thumbnail} alt="" className="h-full w-full object-cover rounded-lg" />
-                                        ) : (
-                                            <GraduationCap className="h-8 w-8 text-primary" />
-                                        )}
-                                    </div>
-
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <h3 className="font-medium truncate">{course.title}</h3>
-                                            <Badge variant={course.isPublished ? "default" : "secondary"}>
-                                                {course.isPublished ? "Publicado" : "Rascunho"}
-                                            </Badge>
-                                            <Badge variant="outline">{levelLabels[course.level]}</Badge>
+                <>
+                    {/* Mobile Grid View */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:hidden">
+                        {filteredCourses.map((course) => (
+                            <Card key={course._id} className="overflow-hidden hover:shadow-lg transition-all">
+                                {/* Thumbnail */}
+                                <div className="aspect-video bg-gradient-to-br from-primary/20 to-primary/5 relative">
+                                    {course.thumbnail ? (
+                                        <img src={course.thumbnail} alt="" className="h-full w-full object-cover" />
+                                    ) : (
+                                        <div className="absolute inset-0 flex items-center justify-center">
+                                            <GraduationCap className="h-12 w-12 text-primary/40" />
                                         </div>
-                                        <p className="text-sm text-muted-foreground line-clamp-1">
-                                            {course.description}
-                                        </p>
-                                        <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
-                                            <span className="flex items-center gap-1">
-                                                <GraduationCap className="h-3 w-3" />
-                                                {course.instructor?.firstName} {course.instructor?.lastName}
-                                            </span>
-                                            <span className="flex items-center gap-1">
-                                                <Users className="h-3 w-3" />
-                                                {course.enrollmentCount || 0} alunos
-                                            </span>
-                                            <span className="flex items-center gap-1">
-                                                <Play className="h-3 w-3" />
-                                                {course.lessonCount || 0} aulas
-                                            </span>
-                                            <span>{formatDuration(course.duration)}</span>
-                                        </div>
+                                    )}
+                                    <div className="absolute top-2 right-2">
+                                        <Badge variant={course.isPublished ? "default" : "secondary"} className="text-xs">
+                                            {course.isPublished ? "Publicado" : "Rascunho"}
+                                        </Badge>
                                     </div>
-
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size="icon">
-                                                <MoreVertical className="h-4 w-4" />
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                            <Link href={`/admin/courses/${course._id}`}>
-                                                <DropdownMenuItem className="gap-2">
-                                                    <Edit className="h-4 w-4" />
-                                                    Editar
-                                                </DropdownMenuItem>
-                                            </Link>
-                                            <Link href={`/student/courses/${course._id}`} target="_blank">
-                                                <DropdownMenuItem className="gap-2">
-                                                    <Eye className="h-4 w-4" />
-                                                    Visualizar
-                                                </DropdownMenuItem>
-                                            </Link>
-                                            <DropdownMenuItem
-                                                className="gap-2 text-destructive"
-                                                onClick={() => setDeleteId(course._id)}
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                                Excluir
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
                                 </div>
-                            </CardContent>
-                        </Card>
-                    ))}
-                </div>
+
+                                <CardContent className="p-3 space-y-2">
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div className="min-w-0 flex-1">
+                                            <h3 className="font-medium text-sm line-clamp-1">{course.title}</h3>
+                                            <p className="text-xs text-muted-foreground line-clamp-1">{course.description}</p>
+                                        </div>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                                                    <MoreVertical className="h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <Link href={`/admin/courses/${course._id}`}>
+                                                    <DropdownMenuItem className="gap-2">
+                                                        <Edit className="h-4 w-4" />
+                                                        Editar
+                                                    </DropdownMenuItem>
+                                                </Link>
+                                                <Link href={`/student/courses/${course._id}`} target="_blank">
+                                                    <DropdownMenuItem className="gap-2">
+                                                        <Eye className="h-4 w-4" />
+                                                        Visualizar
+                                                    </DropdownMenuItem>
+                                                </Link>
+                                                <DropdownMenuItem
+                                                    className="gap-2 text-destructive"
+                                                    onClick={() => setDeleteId(course._id)}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                    Excluir
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </div>
+
+                                    <div className="flex flex-wrap gap-1">
+                                        <Badge variant="outline" className="text-xs">{levelLabels[course.level]}</Badge>
+                                    </div>
+
+                                    <div className="flex items-center gap-3 text-xs text-muted-foreground pt-1">
+                                        <span className="flex items-center gap-1">
+                                            <Users className="h-3 w-3" />
+                                            {course.enrollmentCount || 0}
+                                        </span>
+                                        <span className="flex items-center gap-1">
+                                            <Play className="h-3 w-3" />
+                                            {course.lessonCount || 0}
+                                        </span>
+                                        <span>{formatDuration(course.duration)}</span>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+
+                    {/* Desktop List View */}
+                    <div className="hidden md:grid gap-4">
+                        {filteredCourses.map((course) => (
+                            <Card key={course._id} className="hover:shadow-lg transition-all">
+                                <CardContent className="p-4">
+                                    <div className="flex items-center gap-4">
+                                        <div className="h-16 w-24 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                                            {course.thumbnail ? (
+                                                <img src={course.thumbnail} alt="" className="h-full w-full object-cover rounded-lg" />
+                                            ) : (
+                                                <GraduationCap className="h-8 w-8 text-primary" />
+                                            )}
+                                        </div>
+
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <h3 className="font-medium truncate">{course.title}</h3>
+                                                <Badge variant={course.isPublished ? "default" : "secondary"}>
+                                                    {course.isPublished ? "Publicado" : "Rascunho"}
+                                                </Badge>
+                                                <Badge variant="outline">{levelLabels[course.level]}</Badge>
+                                            </div>
+                                            <p className="text-sm text-muted-foreground line-clamp-1">
+                                                {course.description}
+                                            </p>
+                                            <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                                                <span className="flex items-center gap-1">
+                                                    <GraduationCap className="h-3 w-3" />
+                                                    {course.instructor?.firstName} {course.instructor?.lastName}
+                                                </span>
+                                                <span className="flex items-center gap-1">
+                                                    <Users className="h-3 w-3" />
+                                                    {course.enrollmentCount || 0} alunos
+                                                </span>
+                                                <span className="flex items-center gap-1">
+                                                    <Play className="h-3 w-3" />
+                                                    {course.lessonCount || 0} aulas
+                                                </span>
+                                                <span>{formatDuration(course.duration)}</span>
+                                            </div>
+                                        </div>
+
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon">
+                                                    <MoreVertical className="h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <Link href={`/admin/courses/${course._id}`}>
+                                                    <DropdownMenuItem className="gap-2">
+                                                        <Edit className="h-4 w-4" />
+                                                        Editar
+                                                    </DropdownMenuItem>
+                                                </Link>
+                                                <Link href={`/student/courses/${course._id}`} target="_blank">
+                                                    <DropdownMenuItem className="gap-2">
+                                                        <Eye className="h-4 w-4" />
+                                                        Visualizar
+                                                    </DropdownMenuItem>
+                                                </Link>
+                                                <DropdownMenuItem
+                                                    className="gap-2 text-destructive"
+                                                    onClick={() => setDeleteId(course._id)}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                    Excluir
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                </>
             )}
 
             {/* Delete Dialog */}

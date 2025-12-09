@@ -73,22 +73,25 @@ export default function SettingsPage() {
             </motion.div>
 
             <Tabs defaultValue="profile" className="w-full">
-                <TabsList className="w-full md:w-auto">
-                    <TabsTrigger value="profile" className="gap-2">
+                <TabsList className="w-full md:w-auto flex overflow-x-auto">
+                    <TabsTrigger value="profile" className="gap-1 sm:gap-2 flex-1 md:flex-initial text-xs sm:text-sm">
                         <User className="h-4 w-4" />
                         Perfil
                     </TabsTrigger>
-                    <TabsTrigger value="notifications" className="gap-2">
+                    <TabsTrigger value="notifications" className="gap-1 sm:gap-2 flex-1 md:flex-initial text-xs sm:text-sm">
                         <Bell className="h-4 w-4" />
-                        Notificações
+                        <span className="hidden sm:inline">Notificações</span>
+                        <span className="sm:hidden">Notif.</span>
                     </TabsTrigger>
-                    <TabsTrigger value="appearance" className="gap-2">
+                    <TabsTrigger value="appearance" className="gap-1 sm:gap-2 flex-1 md:flex-initial text-xs sm:text-sm">
                         <Palette className="h-4 w-4" />
-                        Aparência
+                        <span className="hidden sm:inline">Aparência</span>
+                        <span className="sm:hidden">Tema</span>
                     </TabsTrigger>
-                    <TabsTrigger value="security" className="gap-2">
+                    <TabsTrigger value="security" className="gap-1 sm:gap-2 flex-1 md:flex-initial text-xs sm:text-sm">
                         <Shield className="h-4 w-4" />
-                        Segurança
+                        <span className="hidden sm:inline">Segurança</span>
+                        <span className="sm:hidden">Seg.</span>
                     </TabsTrigger>
                 </TabsList>
 
@@ -101,14 +104,14 @@ export default function SettingsPage() {
                             </CardHeader>
                             <CardContent className="space-y-6">
                                 {/* Avatar */}
-                                <div className="flex items-center gap-6">
-                                    <Avatar className="h-24 w-24">
+                                <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+                                    <Avatar className="h-20 w-20 sm:h-24 sm:w-24">
                                         <AvatarImage src={user?.imageUrl} />
-                                        <AvatarFallback className="text-2xl">
+                                        <AvatarFallback className="text-xl sm:text-2xl">
                                             {user?.firstName?.[0]}{user?.lastName?.[0]}
                                         </AvatarFallback>
                                     </Avatar>
-                                    <div>
+                                    <div className="text-center sm:text-left">
                                         <Button variant="outline" className="gap-2">
                                             <Camera className="h-4 w-4" />
                                             Alterar Foto
@@ -170,8 +173,8 @@ export default function SettingsPage() {
                             </CardHeader>
                             <CardContent className="space-y-6">
                                 <div className="space-y-4">
-                                    <div className="flex items-center justify-between">
-                                        <div>
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
+                                        <div className="min-w-0">
                                             <p className="font-medium">Notificações por email</p>
                                             <p className="text-sm text-muted-foreground">
                                                 Receba atualizações por email
@@ -182,6 +185,7 @@ export default function SettingsPage() {
                                             onCheckedChange={(checked) =>
                                                 setNotifications({ ...notifications, email: checked })
                                             }
+                                            className="flex-shrink-0"
                                         />
                                     </div>
 

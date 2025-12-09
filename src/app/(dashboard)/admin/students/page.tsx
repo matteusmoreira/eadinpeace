@@ -228,15 +228,99 @@ export default function AdminStudentsPage() {
                 </div>
             </motion.div>
 
-            {/* Table */}
-            <motion.div variants={item}>
-                <Card>
-                    <CardContent className="p-0">
-                        {isLoading ? (
-                            <div className="flex items-center justify-center py-12">
-                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                            </div>
-                        ) : (
+            {/* Loading State */}
+            {isLoading && (
+                <motion.div variants={item} className="flex items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </motion.div>
+            )}
+
+            {/* Mobile Grid View */}
+            {!isLoading && (
+                <motion.div variants={item} className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:hidden">
+                    {filteredStudents.map((student) => (
+                        <Card key={student._id} className="overflow-hidden">
+                            <CardContent className="p-4">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                                        <Avatar className="h-12 w-12 flex-shrink-0">
+                                            <AvatarImage src={student.imageUrl || undefined} />
+                                            <AvatarFallback className="text-lg">
+                                                {student.firstName?.[0]}{student.lastName?.[0]}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="font-semibold truncate">
+                                                {student.firstName} {student.lastName}
+                                            </p>
+                                            <p className="text-sm text-muted-foreground truncate">
+                                                {student.email}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="flex-shrink-0">
+                                                <MoreVertical className="h-4 w-4" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                            <DropdownMenuItem asChild>
+                                                <Link href={`/admin/users/${student._id}`}>
+                                                    <Eye className="h-4 w-4 mr-2" />
+                                                    Ver Perfil
+                                                </Link>
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem asChild>
+                                                <Link href={`/admin/users/${student._id}/edit`}>
+                                                    <Edit className="h-4 w-4 mr-2" />
+                                                    Editar
+                                                </Link>
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem>
+                                                <Mail className="h-4 w-4 mr-2" />
+                                                Enviar Email
+                                            </DropdownMenuItem>
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem
+                                                className="text-destructive focus:text-destructive"
+                                                onClick={() => handleDelete(student)}
+                                            >
+                                                <Trash2 className="h-4 w-4 mr-2" />
+                                                Excluir
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </div>
+
+                                <div className="mt-4 pt-3 border-t flex items-center justify-between gap-2">
+                                    <Badge
+                                        variant="outline"
+                                        className={cn(
+                                            "flex-shrink-0",
+                                            student.isActive
+                                                ? "border-emerald-500 text-emerald-500"
+                                                : "border-amber-500 text-amber-500"
+                                        )}
+                                    >
+                                        {student.isActive ? "Ativo" : "Inativo"}
+                                    </Badge>
+                                    <div className="text-xs text-muted-foreground text-right">
+                                        <p>Último login: {getLastLogin(student.lastLoginAt)}</p>
+                                        <p>Desde: {new Date(student.createdAt).toLocaleDateString("pt-BR")}</p>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </motion.div>
+            )}
+
+            {/* Desktop Table View */}
+            {!isLoading && (
+                <motion.div variants={item} className="hidden md:block">
+                    <Card>
+                        <CardContent className="p-0">
                             <Table>
                                 <TableHeader>
                                     <TableRow>
@@ -321,10 +405,10 @@ export default function AdminStudentsPage() {
                                     ))}
                                 </TableBody>
                             </Table>
-                        )}
-                    </CardContent>
-                </Card>
-            </motion.div>
+                        </CardContent>
+                    </Card>
+                </motion.div>
+            )}
 
             {/* Empty State */}
             {!isLoading && filteredStudents.length === 0 && (

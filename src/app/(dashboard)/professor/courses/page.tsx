@@ -172,7 +172,7 @@ export default function ProfessorCoursesPage() {
                     </Link>
                 </motion.div>
             ) : (
-                <motion.div variants={item} className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <motion.div variants={item} className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                     {filteredCourses.map((course) => (
                         <Card key={course._id} className="overflow-hidden hover:shadow-lg transition-all group">
                             {/* Thumbnail */}

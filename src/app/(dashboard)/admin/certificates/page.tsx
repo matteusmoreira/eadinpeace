@@ -190,85 +190,134 @@ export default function AdminCertificatesPage() {
                 </div>
             </motion.div>
 
-            {/* Table */}
+            {/* Certificates List */}
             <motion.div variants={item}>
-                <Card>
-                    <CardContent className="p-0">
-                        {isLoading ? (
-                            <div className="flex items-center justify-center py-12">
-                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                            </div>
-                        ) : filteredCertificates.length === 0 ? (
-                            <div className="text-center py-12">
-                                <Award className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                                <h3 className="text-lg font-medium">Nenhum certificado encontrado</h3>
-                                <p className="text-muted-foreground">
-                                    Os certificados serão exibidos aqui quando alunos completarem cursos
-                                </p>
-                            </div>
-                        ) : (
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Aluno</TableHead>
-                                        <TableHead>Curso</TableHead>
-                                        <TableHead>Código</TableHead>
-                                        <TableHead>Data de Emissão</TableHead>
-                                        <TableHead className="w-[50px]"></TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {filteredCertificates.map((cert) => (
-                                        <TableRow key={cert._id}>
-                                            <TableCell>
-                                                <div className="flex items-center gap-2">
-                                                    <User className="h-4 w-4 text-muted-foreground" />
+                {isLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    </div>
+                ) : filteredCertificates.length === 0 ? (
+                    <div className="text-center py-12">
+                        <Award className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                        <h3 className="text-lg font-medium">Nenhum certificado encontrado</h3>
+                        <p className="text-muted-foreground">
+                            Os certificados serão exibidos aqui quando alunos completarem cursos
+                        </p>
+                    </div>
+                ) : (
+                    <>
+                        {/* Mobile Grid View */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:hidden">
+                            {filteredCertificates.map((cert) => (
+                                <Card key={cert._id} className="overflow-hidden">
+                                    <CardContent className="p-4 space-y-3">
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div className="min-w-0 flex-1">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <Award className="h-4 w-4 text-primary flex-shrink-0" />
+                                                    <Badge variant="secondary" className="font-mono text-xs">
+                                                        {cert.code}
+                                                    </Badge>
+                                                </div>
+                                                <h4 className="font-medium text-sm line-clamp-1">{cert.courseName}</h4>
+                                                <p className="text-xs text-muted-foreground line-clamp-1">
                                                     {cert.userName}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="flex items-center gap-2">
-                                                    <BookOpen className="h-4 w-4 text-muted-foreground" />
-                                                    {cert.courseName}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Badge variant="secondary" className="font-mono">
-                                                    {cert.code}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell className="text-muted-foreground">
-                                                <div className="flex items-center gap-2">
-                                                    <Calendar className="h-4 w-4" />
-                                                    {new Date(cert.issuedAt).toLocaleDateString("pt-BR")}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button variant="ghost" size="icon">
-                                                            <MoreVertical className="h-4 w-4" />
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end">
-                                                        <DropdownMenuItem onClick={() => handlePreview(cert)}>
-                                                            <Eye className="h-4 w-4 mr-2" />
-                                                            Visualizar
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem>
-                                                            <Download className="h-4 w-4 mr-2" />
-                                                            Download PDF
-                                                        </DropdownMenuItem>
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
-                                            </TableCell>
+                                                </p>
+                                            </div>
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                                                        <MoreVertical className="h-4 w-4" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end">
+                                                    <DropdownMenuItem onClick={() => handlePreview(cert)}>
+                                                        <Eye className="h-4 w-4 mr-2" />
+                                                        Visualizar
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem>
+                                                        <Download className="h-4 w-4 mr-2" />
+                                                        Download PDF
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </div>
+
+                                        <div className="flex items-center gap-2 text-xs text-muted-foreground pt-2 border-t">
+                                            <Calendar className="h-3 w-3" />
+                                            {new Date(cert.issuedAt).toLocaleDateString("pt-BR")}
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ))}
+                        </div>
+
+                        {/* Desktop Table View */}
+                        <Card className="hidden md:block">
+                            <CardContent className="p-0">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Aluno</TableHead>
+                                            <TableHead>Curso</TableHead>
+                                            <TableHead>Código</TableHead>
+                                            <TableHead>Data de Emissão</TableHead>
+                                            <TableHead className="w-[50px]"></TableHead>
                                         </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        )}
-                    </CardContent>
-                </Card>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {filteredCertificates.map((cert) => (
+                                            <TableRow key={cert._id}>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-2">
+                                                        <User className="h-4 w-4 text-muted-foreground" />
+                                                        {cert.userName}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-2">
+                                                        <BookOpen className="h-4 w-4 text-muted-foreground" />
+                                                        {cert.courseName}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Badge variant="secondary" className="font-mono">
+                                                        {cert.code}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell className="text-muted-foreground">
+                                                    <div className="flex items-center gap-2">
+                                                        <Calendar className="h-4 w-4" />
+                                                        {new Date(cert.issuedAt).toLocaleDateString("pt-BR")}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button variant="ghost" size="icon">
+                                                                <MoreVertical className="h-4 w-4" />
+                                                            </Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end">
+                                                            <DropdownMenuItem onClick={() => handlePreview(cert)}>
+                                                                <Eye className="h-4 w-4 mr-2" />
+                                                                Visualizar
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem>
+                                                                <Download className="h-4 w-4 mr-2" />
+                                                                Download PDF
+                                                            </DropdownMenuItem>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </CardContent>
+                        </Card>
+                    </>
+                )}
             </motion.div>
 
             {/* Preview Dialog */}

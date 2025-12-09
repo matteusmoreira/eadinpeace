@@ -212,55 +212,37 @@ export default function ProfessorStudentsPage() {
                     </p>
                 </motion.div>
             ) : (
-                <motion.div variants={item}>
-                    <Card>
-                        <CardContent className="p-0">
-                            <div className="divide-y">
-                                {filteredEnrollments.map((enrollment) => (
-                                    <div
-                                        key={enrollment._id}
-                                        className="flex items-center gap-4 p-4 hover:bg-muted/50 transition-colors"
-                                    >
-                                        <Avatar className="h-12 w-12">
-                                            <AvatarImage src={enrollment.user?.imageUrl || undefined} />
-                                            <AvatarFallback>
-                                                {enrollment.user?.firstName?.[0]}{enrollment.user?.lastName?.[0]}
-                                            </AvatarFallback>
-                                        </Avatar>
-
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2">
-                                                <p className="font-medium">
-                                                    {enrollment.user?.firstName} {enrollment.user?.lastName}
+                <>
+                    {/* Mobile Grid View */}
+                    <motion.div variants={item} className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:hidden">
+                        {filteredEnrollments.map((enrollment) => (
+                            <Card key={enrollment._id} className="overflow-hidden">
+                                <CardContent className="p-4">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                                            <Avatar className="h-12 w-12 flex-shrink-0">
+                                                <AvatarImage src={enrollment.user?.imageUrl || undefined} />
+                                                <AvatarFallback className="text-lg">
+                                                    {enrollment.user?.firstName?.[0]}{enrollment.user?.lastName?.[0]}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            <div className="min-w-0 flex-1">
+                                                <div className="flex items-center gap-2">
+                                                    <p className="font-semibold truncate">
+                                                        {enrollment.user?.firstName} {enrollment.user?.lastName}
+                                                    </p>
+                                                    {enrollment.completedAt && (
+                                                        <Badge className="bg-emerald-500 flex-shrink-0 text-xs">✓</Badge>
+                                                    )}
+                                                </div>
+                                                <p className="text-sm text-muted-foreground truncate">
+                                                    {enrollment.user?.email}
                                                 </p>
-                                                {enrollment.completedAt && (
-                                                    <Badge className="bg-emerald-500">Concluído</Badge>
-                                                )}
                                             </div>
-                                            <p className="text-sm text-muted-foreground truncate">
-                                                {enrollment.user?.email}
-                                            </p>
-                                            <p className="text-sm text-muted-foreground">
-                                                {enrollment.course?.title}
-                                            </p>
                                         </div>
-
-                                        <div className="hidden md:block w-32">
-                                            <div className="flex items-center justify-between mb-1">
-                                                <span className="text-sm text-muted-foreground">Progresso</span>
-                                                <span className="text-sm font-medium">{enrollment.progress}%</span>
-                                            </div>
-                                            <Progress value={enrollment.progress} className="h-2" />
-                                        </div>
-
-                                        <div className="hidden md:block text-right">
-                                            <p className="text-sm text-muted-foreground">Iniciado em</p>
-                                            <p className="text-sm">{formatDate(enrollment.startedAt)}</p>
-                                        </div>
-
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon">
+                                                <Button variant="ghost" size="icon" className="flex-shrink-0">
                                                     <MoreVertical className="h-4 w-4" />
                                                 </Button>
                                             </DropdownMenuTrigger>
@@ -276,11 +258,98 @@ export default function ProfessorStudentsPage() {
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     </div>
-                                ))}
-                            </div>
-                        </CardContent>
-                    </Card>
-                </motion.div>
+
+                                    <div className="mt-3 pt-3 border-t space-y-2">
+                                        <p className="text-xs text-muted-foreground truncate">
+                                            📚 {enrollment.course?.title}
+                                        </p>
+                                        <div>
+                                            <div className="flex items-center justify-between mb-1">
+                                                <span className="text-xs text-muted-foreground">Progresso</span>
+                                                <span className="text-xs font-medium">{enrollment.progress}%</span>
+                                            </div>
+                                            <Progress value={enrollment.progress} className="h-1.5" />
+                                        </div>
+                                        <p className="text-xs text-muted-foreground">
+                                            Iniciado em {formatDate(enrollment.startedAt)}
+                                        </p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </motion.div>
+
+                    {/* Desktop List View */}
+                    <motion.div variants={item} className="hidden md:block">
+                        <Card>
+                            <CardContent className="p-0">
+                                <div className="divide-y">
+                                    {filteredEnrollments.map((enrollment) => (
+                                        <div
+                                            key={enrollment._id}
+                                            className="flex items-center gap-4 p-4 hover:bg-muted/50 transition-colors"
+                                        >
+                                            <Avatar className="h-12 w-12">
+                                                <AvatarImage src={enrollment.user?.imageUrl || undefined} />
+                                                <AvatarFallback>
+                                                    {enrollment.user?.firstName?.[0]}{enrollment.user?.lastName?.[0]}
+                                                </AvatarFallback>
+                                            </Avatar>
+
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                    <p className="font-medium">
+                                                        {enrollment.user?.firstName} {enrollment.user?.lastName}
+                                                    </p>
+                                                    {enrollment.completedAt && (
+                                                        <Badge className="bg-emerald-500">Concluído</Badge>
+                                                    )}
+                                                </div>
+                                                <p className="text-sm text-muted-foreground truncate">
+                                                    {enrollment.user?.email}
+                                                </p>
+                                                <p className="text-sm text-muted-foreground">
+                                                    {enrollment.course?.title}
+                                                </p>
+                                            </div>
+
+                                            <div className="w-32">
+                                                <div className="flex items-center justify-between mb-1">
+                                                    <span className="text-sm text-muted-foreground">Progresso</span>
+                                                    <span className="text-sm font-medium">{enrollment.progress}%</span>
+                                                </div>
+                                                <Progress value={enrollment.progress} className="h-2" />
+                                            </div>
+
+                                            <div className="text-right">
+                                                <p className="text-sm text-muted-foreground">Iniciado em</p>
+                                                <p className="text-sm">{formatDate(enrollment.startedAt)}</p>
+                                            </div>
+
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="ghost" size="icon">
+                                                        <MoreVertical className="h-4 w-4" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end">
+                                                    <DropdownMenuItem className="gap-2">
+                                                        <Eye className="h-4 w-4" />
+                                                        Ver progresso
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem className="gap-2">
+                                                        <Mail className="h-4 w-4" />
+                                                        Enviar mensagem
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </div>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </motion.div>
+                </>
             )}
         </motion.div>
     );

@@ -178,21 +178,21 @@ export default function BunnySettingsPage() {
                 className="space-y-8"
             >
                 {/* Header */}
-                <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                        <h1 className="text-3xl font-bold flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="space-y-1 min-w-0">
+                        <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
+                            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center flex-shrink-0">
                                 <Video className="h-5 w-5 text-white" />
                             </div>
-                            Configurações de Vídeo
+                            <span className="truncate">Configurações de Vídeo</span>
                         </h1>
-                        <p className="text-muted-foreground">
+                        <p className="text-muted-foreground text-sm sm:text-base">
                             Configure a integração com o Bunny Stream para streaming de vídeos
                         </p>
                     </div>
                     <Badge
                         variant={isConfigured && enabled ? "default" : "secondary"}
-                        className="gap-1"
+                        className="gap-1 self-start sm:self-auto flex-shrink-0"
                     >
                         {isConfigured && enabled ? (
                             <>
@@ -327,11 +327,12 @@ export default function BunnySettingsPage() {
                         )}
                     </CardContent>
 
-                    <CardFooter className="flex justify-between border-t pt-6">
+                    <CardFooter className="flex flex-col sm:flex-row gap-3 sm:justify-between border-t pt-6">
                         <Button
                             variant="outline"
                             onClick={handleTest}
                             disabled={isTesting || !apiKey || !libraryId}
+                            className="w-full sm:w-auto"
                         >
                             {isTesting ? (
                                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -343,6 +344,7 @@ export default function BunnySettingsPage() {
                         <Button
                             onClick={handleSave}
                             disabled={isSaving || !hasUnsavedChanges}
+                            className="w-full sm:w-auto"
                         >
                             {isSaving ? (
                                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />

@@ -167,7 +167,7 @@ export default function StudentCertificatesPage() {
                     </Link>
                 </motion.div>
             ) : (
-                <motion.div variants={item} className="grid gap-6 md:grid-cols-2">
+                <motion.div variants={item} className="grid gap-4 grid-cols-1 sm:grid-cols-2">
                     {certificates.map((cert) => (
                         <Card key={cert._id} className="overflow-hidden hover:shadow-lg transition-all">
                             {/* Certificate Preview */}
