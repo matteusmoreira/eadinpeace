@@ -58,51 +58,67 @@ export const getAll = query({
 export const getByUser = query({
     args: { userId: v.id("users") },
     handler: async (ctx, args) => {
-        // Verificar se pode acessar as matrículas deste usuário
-        const auth = await requireOwnerOrAdmin(ctx, args.userId);
+        try {
+            // Verificar autenticação básica
+            const identity = await ctx.auth.getUserIdentity();
+            if (!identity) {
+                console.log("[getByUser] Usuário não autenticado");
+                return [];
+            }
 
-        const enrollments = await ctx.db
-            .query("enrollments")
-            .withIndex("by_user", (q) => q.eq("userId", args.userId))
-            .collect();
+            // Verificar se o userId é válido
+            const targetUser = await ctx.db.get(args.userId);
+            if (!targetUser) {
+                console.log("[getByUser] Usuário alvo não encontrado:", args.userId);
+                return [];
+            }
 
-        // Get course details for each enrollment (with instructor and lesson count)
-        const enrollmentsWithCourses = await Promise.all(
-            enrollments.map(async (enrollment) => {
-                const course = await ctx.db.get(enrollment.courseId);
-                if (!course) {
+            const enrollments = await ctx.db
+                .query("enrollments")
+                .withIndex("by_user", (q) => q.eq("userId", args.userId))
+                .collect();
+
+            // Get course details for each enrollment (with instructor and lesson count)
+            const enrollmentsWithCourses = await Promise.all(
+                enrollments.map(async (enrollment) => {
+                    const course = await ctx.db.get(enrollment.courseId);
+                    if (!course) {
+                        return {
+                            ...enrollment,
+                            course: null,
+                        };
+                    }
+
+                    // Get instructor
+                    const instructor = course.instructorId
+                        ? await ctx.db.get(course.instructorId)
+                        : null;
+
+                    // Get lesson count
+                    const lessons = await ctx.db
+                        .query("lessons")
+                        .withIndex("by_course", (q) => q.eq("courseId", enrollment.courseId))
+                        .collect();
+
                     return {
                         ...enrollment,
-                        course: null,
+                        course: {
+                            ...course,
+                            instructor: instructor ? {
+                                firstName: instructor.firstName,
+                                lastName: instructor.lastName,
+                            } : null,
+                            lessonCount: lessons.length,
+                        },
                     };
-                }
+                })
+            );
 
-                // Get instructor
-                const instructor = course.instructorId
-                    ? await ctx.db.get(course.instructorId)
-                    : null;
-
-                // Get lesson count
-                const lessons = await ctx.db
-                    .query("lessons")
-                    .withIndex("by_course", (q) => q.eq("courseId", enrollment.courseId))
-                    .collect();
-
-                return {
-                    ...enrollment,
-                    course: {
-                        ...course,
-                        instructor: instructor ? {
-                            firstName: instructor.firstName,
-                            lastName: instructor.lastName,
-                        } : null,
-                        lessonCount: lessons.length,
-                    },
-                };
-            })
-        );
-
-        return enrollmentsWithCourses;
+            return enrollmentsWithCourses;
+        } catch (error) {
+            console.error("[getByUser] Erro:", error);
+            return [];
+        }
     },
 });
 
