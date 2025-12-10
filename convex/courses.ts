@@ -61,18 +61,33 @@ export const getAll = query({
 export const getById = query({
     args: { courseId: v.id("courses") },
     handler: async (ctx, args) => {
-        // Verificar autenticação
-        const auth = await requireAuth(ctx);
-
-        const course = await ctx.db.get(args.courseId);
-        if (!course) return null;
-
-        // Verificar acesso à organização (exceto superadmin)
-        if (auth.user.role !== "superadmin" && auth.user.organizationId !== course.organizationId) {
-            throw new Error("Acesso negado: curso de outra organização");
+        // Verificar autenticação - retorna null se não autenticado
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            return null;
         }
 
-        return course;
+        try {
+            const course = await ctx.db.get(args.courseId);
+            if (!course) return null;
+
+            // Obter usuário para verificar role
+            const user = await ctx.db
+                .query("users")
+                .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+                .first();
+
+            // Verificar acesso à organização (exceto superadmin)
+            if (user && user.role !== "superadmin" && user.organizationId !== course.organizationId) {
+                console.log("[courses:getById] Acesso negado: curso de outra organização");
+                return null;
+            }
+
+            return course;
+        } catch (error) {
+            console.error("[courses:getById] Erro:", error);
+            return null;
+        }
     },
 });
 
