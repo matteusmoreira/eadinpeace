@@ -461,10 +461,39 @@ export const getGlobalStats = query({
         ))
     },
     handler: async (ctx, args) => {
-        // Verificar autenticação
+        // Valores padrão para retornar se não autenticado ou em caso de erro
+        const defaultStats = {
+            total: 0,
+            byRole: {
+                superadmin: 0,
+                admin: 0,
+                professor: 0,
+                student: 0,
+            },
+            active: 0,
+            pending: 0,
+            growth: {
+                users: 0,
+                organizations: 0,
+                activeUsers: 0,
+            },
+            courses: {
+                total: 0,
+                published: 0,
+            },
+            enrollments: {
+                total: 0,
+                completed: 0,
+            },
+            certificates: {
+                total: 0,
+            },
+        };
+
+        // Verificar autenticação - retorna valores padrão se não autenticado
         const identity = await ctx.auth.getUserIdentity();
         if (!identity) {
-            throw new Error("Não autenticado");
+            return defaultStats;
         }
 
         try {
@@ -574,38 +603,12 @@ export const getGlobalStats = query({
                 },
             };
         } catch (error) {
-            console.error("[getGlobalStats] Error:", error);
-            // Return safe default values
-            return {
-                total: 0,
-                byRole: {
-                    superadmin: 0,
-                    admin: 0,
-                    professor: 0,
-                    student: 0,
-                },
-                active: 0,
-                pending: 0,
-                growth: {
-                    users: 0,
-                    organizations: 0,
-                    activeUsers: 0,
-                },
-                courses: {
-                    total: 0,
-                    published: 0,
-                },
-                enrollments: {
-                    total: 0,
-                    completed: 0,
-                },
-                certificates: {
-                    total: 0,
-                },
-            };
+            console.error("[users:getGlobalStats] Error:", error);
+            return defaultStats;
         }
     },
 });
+
 
 // Promote user to superadmin by email (USE ONLY FOR INITIAL SETUP)
 export const promoteToSuperadmin = mutation({
