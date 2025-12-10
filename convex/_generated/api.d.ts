@@ -32,6 +32,7 @@ import type * as questionBank from "../questionBank.js";
 import type * as quizzes from "../quizzes.js";
 import type * as quizzesGrading from "../quizzesGrading.js";
 import type * as reports from "../reports.js";
+import type * as results from "../results.js";
 import type * as search from "../search.js";
 import type * as social from "../social.js";
 import type * as users from "../users.js";
@@ -67,6 +68,7 @@ declare const fullApi: ApiFromModules<{
   quizzes: typeof quizzes;
   quizzesGrading: typeof quizzesGrading;
   reports: typeof reports;
+  results: typeof results;
   search: typeof search;
   social: typeof social;
   users: typeof users;
