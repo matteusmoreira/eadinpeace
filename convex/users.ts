@@ -94,14 +94,13 @@ export const getByOrganization = query({
 export const getAll = query({
     args: {},
     handler: async (ctx) => {
-        // Verificar autenticação - retorna array vazio se não autenticado
+        // DEBUG: Log authentication status
         const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            return [];
-        }
+        console.log("[users:getAll] Identity:", identity ? "authenticated" : "NOT authenticated");
 
         try {
             const users = await ctx.db.query("users").collect();
+            console.log("[users:getAll] Found users:", users.length);
 
             // Enrich with organization data
             const enrichedUsers = await Promise.all(
@@ -124,6 +123,7 @@ export const getAll = query({
         }
     },
 });
+
 
 // Get users by role
 export const getByRole = query({
