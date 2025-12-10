@@ -24,7 +24,7 @@ export const getAll = query({
 
             if (!user) return [];
 
-            let classes;
+            let classes: any[] = [];
 
             if (user.role === "superadmin") {
                 // Superadmin vê todas ou filtra por organização
@@ -50,8 +50,8 @@ export const getAll = query({
                     .withIndex("by_user", (q) => q.eq("userId", user._id))
                     .collect();
                 const classIds = instructorRecords.map((r) => r.classId);
-                classes = await Promise.all(classIds.map((id) => ctx.db.get(id)));
-                classes = classes.filter(Boolean);
+                const classResults = await Promise.all(classIds.map((id) => ctx.db.get(id)));
+                classes = classResults.filter(Boolean) as any[];
             } else {
                 // Aluno vê turmas onde está inscrito
                 const enrollments = await ctx.db
@@ -59,35 +59,49 @@ export const getAll = query({
                     .withIndex("by_user", (q) => q.eq("userId", user._id))
                     .collect();
                 const classIds = enrollments.filter((e) => e.status === "active").map((e) => e.classId);
-                classes = await Promise.all(classIds.map((id) => ctx.db.get(id)));
-                classes = classes.filter(Boolean);
+                const classResults = await Promise.all(classIds.map((id) => ctx.db.get(id)));
+                classes = classResults.filter(Boolean) as any[];
             }
 
             // Enriquecer com dados do curso e contagens
             const enrichedClasses = await Promise.all(
                 classes.map(async (cls: any) => {
-                    const course = await ctx.db.get(cls.courseId);
-                    const enrollments = await ctx.db
-                        .query("classEnrollments")
-                        .withIndex("by_class", (q) => q.eq("classId", cls._id))
-                        .collect();
-                    const instructors = await ctx.db
-                        .query("classInstructors")
-                        .withIndex("by_class", (q) => q.eq("classId", cls._id))
-                        .collect();
+                    try {
+                        if (!cls || !cls._id) return null;
 
-                    return {
-                        ...cls,
-                        course: course ? { _id: course._id, title: (course as any).title, thumbnail: (course as any).thumbnail } : null,
-                        enrolledCount: enrollments.filter((e) => e.status === "active").length,
-                        pendingCount: enrollments.filter((e) => e.status === "pending").length,
-                        instructorCount: instructors.length,
-                    };
+                        const course = cls.courseId ? await ctx.db.get(cls.courseId) : null;
+                        const enrollments = await ctx.db
+                            .query("classEnrollments")
+                            .withIndex("by_class", (q) => q.eq("classId", cls._id))
+                            .collect();
+                        const instructors = await ctx.db
+                            .query("classInstructors")
+                            .withIndex("by_class", (q) => q.eq("classId", cls._id))
+                            .collect();
+
+                        return {
+                            ...cls,
+                            course: course ? { _id: course._id, title: (course as any).title, thumbnail: (course as any).thumbnail } : null,
+                            enrolledCount: enrollments.filter((e) => e.status === "active").length,
+                            pendingCount: enrollments.filter((e) => e.status === "pending").length,
+                            instructorCount: instructors.length,
+                        };
+                    } catch {
+                        // Se falhar ao enriquecer uma turma, retorna ela básica
+                        return {
+                            ...cls,
+                            course: null,
+                            enrolledCount: 0,
+                            pendingCount: 0,
+                            instructorCount: 0,
+                        };
+                    }
                 })
             );
 
-            return enrichedClasses;
-        } catch {
+            return enrichedClasses.filter(Boolean);
+        } catch (error) {
+            console.error("Error in classes:getAll:", error);
             return [];
         }
     },
