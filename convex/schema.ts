@@ -807,4 +807,132 @@ export default defineSchema({
         .index("by_conversation", ["conversationId"])
         .index("by_sender", ["senderId"])
         .index("by_conversation_created", ["conversationId", "createdAt"]),
+
+    // ================================
+    // MÓDULO DE TURMAS
+    // ================================
+
+    // Turmas
+    classes: defineTable({
+        courseId: v.id("courses"),
+        organizationId: v.id("organizations"),
+        name: v.string(),
+        description: v.optional(v.string()),
+        // Período da turma
+        startDate: v.number(),
+        endDate: v.optional(v.number()),
+        // Capacidade e status
+        capacity: v.optional(v.number()), // null = ilimitado
+        isActive: v.boolean(),
+        // Configurações de inscrição
+        enrollmentType: v.union(
+            v.literal("manual"),      // Apenas admin/professor adiciona
+            v.literal("open"),        // Qualquer aluno pode se inscrever
+            v.literal("token"),       // Via link com token
+            v.literal("approval")     // Requer aprovação
+        ),
+        requiresApproval: v.boolean(),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_course", ["courseId"])
+        .index("by_organization", ["organizationId"])
+        .index("by_active", ["organizationId", "isActive"]),
+
+    // Professores da Turma
+    classInstructors: defineTable({
+        classId: v.id("classes"),
+        userId: v.id("users"),
+        role: v.union(
+            v.literal("main"),       // Professor principal
+            v.literal("assistant")   // Professor auxiliar
+        ),
+        permissions: v.object({
+            canManageStudents: v.boolean(),
+            canEditContent: v.boolean(),
+            canGrade: v.boolean(),
+            canViewReports: v.boolean(),
+        }),
+        assignedAt: v.number(),
+    })
+        .index("by_class", ["classId"])
+        .index("by_user", ["userId"])
+        .index("by_class_user", ["classId", "userId"]),
+
+    // Inscrições na Turma
+    classEnrollments: defineTable({
+        classId: v.id("classes"),
+        userId: v.id("users"),
+        status: v.union(
+            v.literal("pending"),    // Aguardando aprovação
+            v.literal("active"),     // Inscrito
+            v.literal("completed"),  // Concluiu a turma
+            v.literal("dropped")     // Desistiu/Removido
+        ),
+        enrolledBy: v.optional(v.id("users")), // Quem inscreveu (manual)
+        enrolledVia: v.union(
+            v.literal("manual"),     // Inscrito por admin/professor
+            v.literal("self"),       // Auto-inscrição
+            v.literal("token")       // Via link de matrícula
+        ),
+        enrolledAt: v.number(),
+        completedAt: v.optional(v.number()),
+    })
+        .index("by_class", ["classId"])
+        .index("by_user", ["userId"])
+        .index("by_class_user", ["classId", "userId"])
+        .index("by_status", ["classId", "status"]),
+
+    // Tokens de Matrícula
+    enrollmentTokens: defineTable({
+        classId: v.id("classes"),
+        token: v.string(),
+        name: v.optional(v.string()), // Nome descritivo do token
+        usageLimit: v.optional(v.number()), // null = ilimitado
+        usageCount: v.number(),
+        // Validade: 7 dias, 30 dias, ou sem expiração (null)
+        validityDays: v.optional(v.union(
+            v.literal(7),
+            v.literal(30),
+            v.null()
+        )),
+        expiresAt: v.optional(v.number()),
+        isActive: v.boolean(),
+        createdBy: v.id("users"),
+        createdAt: v.number(),
+    })
+        .index("by_class", ["classId"])
+        .index("by_token", ["token"]),
+
+    // Configurações de Módulo por Turma
+    classModuleSettings: defineTable({
+        classId: v.id("classes"),
+        moduleId: v.id("modules"),
+        isVisible: v.boolean(),
+        unlockDate: v.optional(v.number()),
+        lockDate: v.optional(v.number()),
+        customOrder: v.optional(v.number()),
+        updatedAt: v.number(),
+    })
+        .index("by_class", ["classId"])
+        .index("by_class_module", ["classId", "moduleId"]),
+
+    // Progresso Individual por Turma (mantido separado por turma)
+    classProgress: defineTable({
+        classId: v.id("classes"),
+        userId: v.id("users"),
+        lessonId: v.id("lessons"),
+        watchedSeconds: v.number(),
+        isCompleted: v.boolean(),
+        completedAt: v.optional(v.number()),
+        // Para quizzes/assignments
+        score: v.optional(v.number()),
+        gradedBy: v.optional(v.id("users")),
+        gradedAt: v.optional(v.number()),
+        feedback: v.optional(v.string()),
+        lastAccessedAt: v.number(),
+    })
+        .index("by_class_user", ["classId", "userId"])
+        .index("by_class_lesson", ["classId", "lessonId"])
+        .index("by_class_user_lesson", ["classId", "userId", "lessonId"]),
 });

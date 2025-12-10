@@ -112,6 +112,7 @@ const menuSections: MenuSection[] = [
         roles: ["admin"],
         items: [
             { title: "Cursos", href: "/admin/courses", icon: BookOpen },
+            { title: "Turmas", href: "/admin/classes", icon: Users },
             { title: "Categorias", href: "/admin/categories", icon: FileText },
             { title: "Conquistas", href: "/admin/achievements", icon: Trophy },
         ],
@@ -139,6 +140,7 @@ const menuSections: MenuSection[] = [
         roles: ["professor"],
         items: [
             { title: "Meus Cursos", href: "/professor/courses", icon: BookOpen },
+            { title: "Minhas Turmas", href: "/professor/classes", icon: Users },
             { title: "Criar Curso", href: "/professor/courses/new", icon: Play, badge: "Novo" },
         ],
     },
@@ -169,6 +171,7 @@ const menuSections: MenuSection[] = [
         roles: ["student"],
         items: [
             { title: "Meus Cursos", href: "/student/courses", icon: GraduationCap },
+            { title: "Minhas Turmas", href: "/student/classes", icon: Users },
             { title: "Continuar", href: "/student/continue", icon: Play },
             { title: "Buscar", href: "/student/search", icon: Search },
         ],

@@ -12,6 +12,7 @@ import type * as attachments from "../attachments.js";
 import type * as authHelpers from "../authHelpers.js";
 import type * as categories from "../categories.js";
 import type * as certificates from "../certificates.js";
+import type * as classes from "../classes.js";
 import type * as comments from "../comments.js";
 import type * as courseGrades from "../courseGrades.js";
 import type * as courses from "../courses.js";
@@ -45,6 +46,7 @@ declare const fullApi: ApiFromModules<{
   authHelpers: typeof authHelpers;
   categories: typeof categories;
   certificates: typeof certificates;
+  classes: typeof classes;
   comments: typeof comments;
   courseGrades: typeof courseGrades;
   courses: typeof courses;
