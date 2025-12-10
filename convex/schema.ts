@@ -935,4 +935,39 @@ export default defineSchema({
         .index("by_class_user", ["classId", "userId"])
         .index("by_class_lesson", ["classId", "lessonId"])
         .index("by_class_user_lesson", ["classId", "userId", "lessonId"]),
+
+    // ================================
+    // SISTEMA DE PRESENÇA
+    // ================================
+
+    // Sessões de Presença (representa uma aula/encontro)
+    attendanceSessions: defineTable({
+        classId: v.id("classes"),
+        title: v.optional(v.string()), // Ex: "Aula 1 - Introdução"
+        date: v.number(), // Timestamp da data da aula
+        notes: v.optional(v.string()), // Observações gerais
+        createdBy: v.id("users"),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_class", ["classId"])
+        .index("by_class_date", ["classId", "date"]),
+
+    // Registros de Presença
+    attendance: defineTable({
+        sessionId: v.id("attendanceSessions"),
+        userId: v.id("users"), // Aluno
+        status: v.union(
+            v.literal("present"),  // Presente
+            v.literal("absent"),   // Ausente
+            v.literal("late"),     // Atrasado
+            v.literal("excused")   // Justificado
+        ),
+        notes: v.optional(v.string()), // Observação individual
+        markedBy: v.id("users"), // Professor que marcou
+        markedAt: v.number(),
+    })
+        .index("by_session", ["sessionId"])
+        .index("by_user", ["userId"])
+        .index("by_session_user", ["sessionId", "userId"]),
 });

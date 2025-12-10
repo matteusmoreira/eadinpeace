@@ -230,6 +230,12 @@ export default function ProfessorClassDetailPage() {
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
+                    <Link href={`/professor/classes/${classId}/attendance`}>
+                        <Button variant="outline" className="gap-2">
+                            <Users className="h-4 w-4" />
+                            Presença
+                        </Button>
+                    </Link>
                     <Link href={`/professor/classes/${classId}/reports`}>
                         <Button variant="outline" className="gap-2">
                             <BarChart3 className="h-4 w-4" />
