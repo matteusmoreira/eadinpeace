@@ -253,21 +253,26 @@ export const create = mutation({
         price: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
-        // Verificar autenticação
+        // DEBUG: Verificar autenticação
         const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            throw new Error("Não autenticado");
-        }
+        console.log("[courses:create] Identity:", identity ? "authenticated" : "NOT authenticated");
 
-        const now = Date.now();
-        return await ctx.db.insert("courses", {
-            ...args,
-            duration: 0,
-            isPublished: false,
-            isFeatured: false,
-            createdAt: now,
-            updatedAt: now,
-        });
+        try {
+            const now = Date.now();
+            const courseId = await ctx.db.insert("courses", {
+                ...args,
+                duration: 0,
+                isPublished: false,
+                isFeatured: false,
+                createdAt: now,
+                updatedAt: now,
+            });
+            console.log("[courses:create] Created course:", courseId);
+            return courseId;
+        } catch (error) {
+            console.error("[courses:create] Error:", error);
+            throw error;
+        }
     },
 });
 
@@ -285,17 +290,21 @@ export const update = mutation({
         price: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
-        // Verificar autenticação
+        // DEBUG: Verificar autenticação
         const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            throw new Error("Não autenticado");
-        }
+        console.log("[courses:update] Identity:", identity ? "authenticated" : "NOT authenticated");
 
-        const { courseId, ...updates } = args;
-        await ctx.db.patch(courseId, {
-            ...updates,
-            updatedAt: Date.now(),
-        });
+        try {
+            const { courseId, ...updates } = args;
+            await ctx.db.patch(courseId, {
+                ...updates,
+                updatedAt: Date.now(),
+            });
+            console.log("[courses:update] Updated course:", courseId);
+        } catch (error) {
+            console.error("[courses:update] Error:", error);
+            throw error;
+        }
     },
 });
 
@@ -303,32 +312,36 @@ export const update = mutation({
 export const remove = mutation({
     args: { courseId: v.id("courses") },
     handler: async (ctx, args) => {
-        // Verificar autenticação
+        // DEBUG: Verificar autenticação
         const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            throw new Error("Não autenticado");
-        }
+        console.log("[courses:remove] Identity:", identity ? "authenticated" : "NOT authenticated");
 
-        // Delete all lessons
-        const lessons = await ctx.db
-            .query("lessons")
-            .withIndex("by_course", (q) => q.eq("courseId", args.courseId))
-            .collect();
-        for (const lesson of lessons) {
-            await ctx.db.delete(lesson._id);
-        }
+        try {
+            // Delete all lessons
+            const lessons = await ctx.db
+                .query("lessons")
+                .withIndex("by_course", (q) => q.eq("courseId", args.courseId))
+                .collect();
+            for (const lesson of lessons) {
+                await ctx.db.delete(lesson._id);
+            }
 
-        // Delete all modules
-        const modules = await ctx.db
-            .query("modules")
-            .withIndex("by_course", (q) => q.eq("courseId", args.courseId))
-            .collect();
-        for (const module of modules) {
-            await ctx.db.delete(module._id);
-        }
+            // Delete all modules
+            const modules = await ctx.db
+                .query("modules")
+                .withIndex("by_course", (q) => q.eq("courseId", args.courseId))
+                .collect();
+            for (const module of modules) {
+                await ctx.db.delete(module._id);
+            }
 
-        // Delete course
-        await ctx.db.delete(args.courseId);
+            // Delete course
+            await ctx.db.delete(args.courseId);
+            console.log("[courses:remove] Deleted course:", args.courseId);
+        } catch (error) {
+            console.error("[courses:remove] Error:", error);
+            throw error;
+        }
     },
 });
 
@@ -340,11 +353,9 @@ export const createModule = mutation({
         description: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
-        // Verificar autenticação
+        // DEBUG: Verificar autenticação
         const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            throw new Error("Não autenticado");
-        }
+        console.log("[courses:createModule] Identity:", identity ? "authenticated" : "NOT authenticated");
 
         const existingModules = await ctx.db
             .query("modules")
@@ -397,11 +408,9 @@ export const createLesson = mutation({
         isFree: v.optional(v.boolean()),
     },
     handler: async (ctx, args) => {
-        // Verificar autenticação
+        // DEBUG: Verificar autenticação
         const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            throw new Error("Não autenticado");
-        }
+        console.log("[courses:createLesson] Identity:", identity ? "authenticated" : "NOT authenticated");
 
         const existingLessons = await ctx.db
             .query("lessons")
@@ -478,11 +487,9 @@ export const updateLesson = mutation({
         isPublished: v.optional(v.boolean()),
     },
     handler: async (ctx, args) => {
-        // Verificar autenticação
+        // DEBUG: Verificar autenticação
         const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            throw new Error("Não autenticado");
-        }
+        console.log("[courses:updateLesson] Identity:", identity ? "authenticated" : "NOT authenticated");
 
         const lesson = await ctx.db.get(args.lessonId);
         if (!lesson) {
@@ -529,11 +536,9 @@ export const deleteLesson = mutation({
         lessonId: v.id("lessons"),
     },
     handler: async (ctx, args) => {
-        // Verificar autenticação
+        // DEBUG: Verificar autenticação
         const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            throw new Error("Não autenticado");
-        }
+        console.log("[courses:deleteLesson] Identity:", identity ? "authenticated" : "NOT authenticated");
 
         const lesson = await ctx.db.get(args.lessonId);
         if (!lesson) {
