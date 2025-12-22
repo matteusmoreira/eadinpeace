@@ -28,6 +28,7 @@ import type * as organizationSettings from "../organizationSettings.js";
 import type * as organizations from "../organizations.js";
 import type * as payments from "../payments.js";
 import type * as plans from "../plans.js";
+import type * as platformSettings from "../platformSettings.js";
 import type * as questionBank from "../questionBank.js";
 import type * as quizzes from "../quizzes.js";
 import type * as quizzesGrading from "../quizzesGrading.js";
@@ -64,6 +65,7 @@ declare const fullApi: ApiFromModules<{
   organizations: typeof organizations;
   payments: typeof payments;
   plans: typeof plans;
+  platformSettings: typeof platformSettings;
   questionBank: typeof questionBank;
   quizzes: typeof quizzes;
   quizzesGrading: typeof quizzesGrading;
