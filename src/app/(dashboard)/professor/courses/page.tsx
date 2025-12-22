@@ -58,7 +58,7 @@ const levelColors = {
 
 export default function ProfessorCoursesPage() {
     const [searchQuery, setSearchQuery] = useState("");
-    const { user } = useUser();
+    const { user, isLoaded: isUserLoaded } = useUser();
 
     // Get instructor ID from Convex user
     const convexUser = useQuery(
@@ -72,7 +72,21 @@ export default function ProfessorCoursesPage() {
         convexUser?._id ? { instructorId: convexUser._id } : "skip"
     );
 
-    const isLoading = courses === undefined;
+    // Debug: Log para verificar estados
+    console.log("[ProfessorCoursesPage] Debug:", {
+        isUserLoaded,
+        clerkUserId: user?.id,
+        convexUser: convexUser ? { id: convexUser._id, email: convexUser.email, role: convexUser.role } : null,
+        coursesCount: courses?.length,
+    });
+
+    // Melhor tratamento de estado de loading
+    const isLoadingUser = !isUserLoaded || (user?.id && convexUser === undefined);
+    const isLoadingCourses = convexUser?._id && courses === undefined;
+    const isLoading = isLoadingUser || isLoadingCourses;
+
+    // Verificar se usuário não está registrado no Convex
+    const userNotFound = isUserLoaded && user?.id && convexUser === null;
 
     const filteredCourses = (courses || []).filter((course) =>
         course.title.toLowerCase().includes(searchQuery.toLowerCase())
@@ -156,9 +170,18 @@ export default function ProfessorCoursesPage() {
 
             {/* Courses Grid */}
             {isLoading ? (
-                <div className="flex items-center justify-center py-12">
+                <div className="flex flex-col items-center justify-center py-12 gap-2">
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <p className="text-sm text-muted-foreground">Carregando cursos...</p>
                 </div>
+            ) : userNotFound ? (
+                <motion.div variants={item} className="text-center py-12">
+                    <BookOpen className="h-12 w-12 mx-auto text-destructive/60 mb-4" />
+                    <h3 className="text-lg font-medium text-destructive">Usuário não encontrado</h3>
+                    <p className="text-muted-foreground mb-4">
+                        Seu usuário não está registrado no sistema. Entre em contato com o administrador.
+                    </p>
+                </motion.div>
             ) : filteredCourses.length === 0 ? (
                 <motion.div variants={item} className="text-center py-12">
                     <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />

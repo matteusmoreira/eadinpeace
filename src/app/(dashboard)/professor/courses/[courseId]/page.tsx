@@ -93,10 +93,35 @@ export default function EditCoursePage() {
     const createModule = useMutation(api.courses.createModule);
     const createLesson = useMutation(api.courses.createLesson);
 
-    if (!courseWithContent) {
+    // Debug: Log para verificar o estado do curso
+    console.log("[EditCoursePage] Debug:", {
+        courseId,
+        courseWithContent: courseWithContent === undefined ? "loading" : courseWithContent === null ? "not found" : courseWithContent.title,
+    });
+
+    // Estado de loading (query ainda não retornou)
+    if (courseWithContent === undefined) {
         return (
-            <div className="flex items-center justify-center min-h-[400px]">
+            <div className="flex flex-col items-center justify-center min-h-[400px] gap-2">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="text-sm text-muted-foreground">Carregando curso...</p>
+            </div>
+        );
+    }
+
+    // Curso não encontrado (query retornou null)
+    if (courseWithContent === null) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+                <BookOpen className="h-12 w-12 text-muted-foreground" />
+                <h2 className="text-xl font-semibold">Curso não encontrado</h2>
+                <p className="text-muted-foreground">O curso solicitado não existe ou você não tem permissão para acessá-lo.</p>
+                <Link href="/professor/courses">
+                    <Button>
+                        <ArrowLeft className="h-4 w-4 mr-2" />
+                        Voltar para Meus Cursos
+                    </Button>
+                </Link>
             </div>
         );
     }

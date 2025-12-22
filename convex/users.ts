@@ -5,10 +5,20 @@ import { mutation, query } from "./_generated/server";
 export const getByClerkId = query({
     args: { clerkId: v.string() },
     handler: async (ctx, args) => {
-        return await ctx.db
+        console.log("[users:getByClerkId] Buscando usuário com clerkId:", args.clerkId);
+
+        const user = await ctx.db
             .query("users")
             .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
             .first();
+
+        if (user) {
+            console.log("[users:getByClerkId] Usuário encontrado:", user.email, "Role:", user.role, "ID:", user._id);
+        } else {
+            console.log("[users:getByClerkId] Usuário NÃO encontrado para clerkId:", args.clerkId);
+        }
+
+        return user;
     },
 });
 

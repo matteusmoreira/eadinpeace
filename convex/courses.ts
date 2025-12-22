@@ -189,20 +189,30 @@ export const getPublishedByOrganization = query({
 export const getWithContent = query({
     args: { courseId: v.id("courses") },
     handler: async (ctx, args) => {
+        console.log("[courses:getWithContent] Buscando curso com ID:", args.courseId);
+
         // Verificar autenticação - retorna null se não autenticado
         const identity = await ctx.auth.getUserIdentity();
         if (!identity) {
+            console.log("[courses:getWithContent] Usuário NÃO autenticado");
             return null;
         }
+        console.log("[courses:getWithContent] Usuário autenticado:", identity.subject);
 
         try {
             const course = await ctx.db.get(args.courseId);
-            if (!course) return null;
+            if (!course) {
+                console.log("[courses:getWithContent] Curso NÃO encontrado para ID:", args.courseId);
+                return null;
+            }
+            console.log("[courses:getWithContent] Curso encontrado:", course.title, "InstructorId:", course.instructorId);
 
             const modules = await ctx.db
                 .query("modules")
                 .withIndex("by_course", (q) => q.eq("courseId", args.courseId))
                 .collect();
+
+            console.log("[courses:getWithContent] Módulos encontrados:", modules.length);
 
             const modulesWithLessons = await Promise.all(
                 modules.map(async (module) => {
@@ -236,17 +246,26 @@ export const getWithContent = query({
 export const getByInstructor = query({
     args: { instructorId: v.id("users") },
     handler: async (ctx, args) => {
+        console.log("[courses:getByInstructor] Buscando cursos para instructorId:", args.instructorId);
+
         // Verificar autenticação - retorna array vazio se não autenticado
         const identity = await ctx.auth.getUserIdentity();
         if (!identity) {
+            console.log("[courses:getByInstructor] Usuário NÃO autenticado");
             return [];
         }
+        console.log("[courses:getByInstructor] Usuário autenticado:", identity.subject);
 
         try {
-            return await ctx.db
+            const courses = await ctx.db
                 .query("courses")
                 .withIndex("by_instructor", (q) => q.eq("instructorId", args.instructorId))
                 .collect();
+
+            console.log("[courses:getByInstructor] Cursos encontrados:", courses.length);
+            courses.forEach(c => console.log("  - Curso:", c.title, "ID:", c._id));
+
+            return courses;
         } catch (error) {
             console.error("[courses:getByInstructor] Erro:", error);
             return [];
