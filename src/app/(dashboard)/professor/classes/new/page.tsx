@@ -32,6 +32,7 @@ import { api } from "@convex/_generated/api";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Id } from "@convex/_generated/dataModel";
+import { useUser } from "@clerk/nextjs";
 
 const container = {
     hidden: { opacity: 0 },
@@ -45,6 +46,7 @@ const item = {
 
 export default function NewClassPage() {
     const router = useRouter();
+    const { user } = useUser();
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Form state
@@ -57,8 +59,17 @@ export default function NewClassPage() {
     const [enrollmentType, setEnrollmentType] = useState<"manual" | "open" | "token" | "approval">("manual");
     const [requiresApproval, setRequiresApproval] = useState(false);
 
+    // Get Convex user
+    const convexUser = useQuery(
+        api.users.getByClerkId,
+        user?.id ? { clerkId: user.id } : "skip"
+    );
+
     // Get courses where user is instructor
-    const courses = useQuery(api.courses.getByInstructor, {});
+    const courses = useQuery(
+        api.courses.getByInstructor,
+        convexUser?._id ? { instructorId: convexUser._id } : "skip"
+    );
 
     const createClass = useMutation(api.classes.create);
 
