@@ -23,6 +23,7 @@ import {
     BookOpen,
     BarChart3,
     UserPlus,
+    Plus,
 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
@@ -83,6 +84,12 @@ export default function ProfessorClassesPage() {
                     <h1 className="text-2xl md:text-3xl font-bold">Minhas Turmas</h1>
                     <p className="text-muted-foreground">Gerencie as turmas onde você é professor</p>
                 </div>
+                <Link href="/professor/classes/new">
+                    <Button className="gap-2">
+                        <Plus className="h-4 w-4" />
+                        Nova Turma
+                    </Button>
+                </Link>
             </motion.div>
 
             {/* Stats */}
@@ -162,11 +169,19 @@ export default function ProfessorClassesPage() {
                     <h3 className="text-lg font-medium mb-2">
                         {search || statusFilter !== "all" ? "Nenhum resultado encontrado" : "Você ainda não tem turmas"}
                     </h3>
-                    <p className="text-muted-foreground">
+                    <p className="text-muted-foreground mb-4">
                         {search || statusFilter !== "all"
                             ? "Tente ajustar os filtros"
-                            : "Entre em contato com o administrador para ser adicionado como professor de uma turma"}
+                            : "Crie sua primeira turma para começar a gerenciar seus alunos"}
                     </p>
+                    {!(search || statusFilter !== "all") && (
+                        <Link href="/professor/classes/new">
+                            <Button className="gap-2">
+                                <Plus className="h-4 w-4" />
+                                Criar Primeira Turma
+                            </Button>
+                        </Link>
+                    )}
                 </motion.div>
             ) : (
                 <motion.div variants={item} className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
