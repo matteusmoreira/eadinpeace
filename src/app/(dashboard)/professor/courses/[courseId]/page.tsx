@@ -224,10 +224,12 @@ export default function EditCoursePage(props: { params: Promise<{ courseId: stri
                             onCheckedChange={handlePublishToggle}
                         />
                     </div>
-                    <Button variant="outline">
-                        <Eye className="h-4 w-4 mr-2" />
-                        Preview
-                    </Button>
+                    <Link href={`/professor/courses/${courseId}/preview`} target="_blank">
+                        <Button variant="outline">
+                            <Eye className="h-4 w-4 mr-2" />
+                            Preview
+                        </Button>
+                    </Link>
                 </div>
             </motion.div>
 
