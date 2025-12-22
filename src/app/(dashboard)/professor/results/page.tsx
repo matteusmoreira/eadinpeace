@@ -341,7 +341,7 @@ export default function ProfessorResultsPage() {
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">Todas as turmas</SelectItem>
-                        {classes?.map((cls) => (
+                        {classes?.filter(cls => cls !== null).map((cls) => (
                             <SelectItem key={cls._id} value={cls._id}>
                                 {cls.name}
                             </SelectItem>

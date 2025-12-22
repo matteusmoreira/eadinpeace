@@ -298,16 +298,12 @@ export const getQuizResults = query({
             const identity = await ctx.auth.getUserIdentity();
             if (!identity) return [];
 
-            let quizzes: any[] = [];
-
-            if (args.courseId) {
-                quizzes = await ctx.db
+            const quizzes = args.courseId
+                ? await ctx.db
                     .query("quizzes")
                     .withIndex("by_course", (q) => q.eq("courseId", args.courseId!))
-                    .collect();
-            } else {
-                quizzes = await ctx.db.query("quizzes").collect();
-            }
+                    .collect()
+                : await ctx.db.query("quizzes").collect();
 
             // Get class students if filtering by class
             let classStudentIds: Id<"users">[] = [];
@@ -356,7 +352,7 @@ export const getQuizResults = query({
                 return {
                     _id: quiz._id,
                     title: quiz.title,
-                    type: quiz.type || "quiz",
+                    type: "quiz",
                     courseName: course?.title || "N/A",
                     totalAttempts: attempts.length,
                     gradedAttempts: gradedAttempts.length,
