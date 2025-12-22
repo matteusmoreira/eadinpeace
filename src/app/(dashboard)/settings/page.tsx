@@ -49,6 +49,14 @@ export default function SettingsPage() {
         user?.id ? { clerkId: user.id } : "skip"
     );
 
+    // Mutation to update user
+    const updateUser = useMutation(api.users.update);
+
+    const [formData, setFormData] = useState({
+        firstName: user?.firstName || "",
+        lastName: user?.lastName || "",
+    });
+
     const [notifications, setNotifications] = useState({
         email: true,
         push: true,
@@ -58,11 +66,25 @@ export default function SettingsPage() {
     });
 
     const handleSaveProfile = async () => {
+        if (!convexUser?._id) {
+            toast.error("Usuário não encontrado");
+            return;
+        }
+
         setIsLoading(true);
-        // Simulate saving
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        setIsLoading(false);
-        toast.success("Perfil atualizado com sucesso!");
+        try {
+            await updateUser({
+                userId: convexUser._id,
+                firstName: formData.firstName,
+                lastName: formData.lastName,
+            });
+            toast.success("Perfil atualizado com sucesso!");
+        } catch (error) {
+            console.error("Erro ao atualizar perfil:", error);
+            toast.error("Erro ao atualizar perfil");
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -128,11 +150,19 @@ export default function SettingsPage() {
                                 <div className="grid gap-4 md:grid-cols-2">
                                     <div className="space-y-2">
                                         <Label htmlFor="firstName">Nome</Label>
-                                        <Input id="firstName" defaultValue={user?.firstName || ""} />
+                                        <Input
+                                            id="firstName"
+                                            value={formData.firstName}
+                                            onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
+                                        />
                                     </div>
                                     <div className="space-y-2">
                                         <Label htmlFor="lastName">Sobrenome</Label>
-                                        <Input id="lastName" defaultValue={user?.lastName || ""} />
+                                        <Input
+                                            id="lastName"
+                                            value={formData.lastName}
+                                            onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
+                                        />
                                     </div>
                                 </div>
 

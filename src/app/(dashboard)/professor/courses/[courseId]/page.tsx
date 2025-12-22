@@ -93,11 +93,6 @@ export default function EditCoursePage(props: { params: Promise<{ courseId: stri
     const createModule = useMutation(api.courses.createModule);
     const createLesson = useMutation(api.courses.createLesson);
 
-    // Debug: Log para verificar o estado do curso
-    console.log("[EditCoursePage] Debug:", {
-        courseId,
-        courseWithContent: courseWithContent === undefined ? "loading" : courseWithContent === null ? "not found" : courseWithContent.title,
-    });
 
     // Estado de loading (query ainda não retornou)
     if (courseWithContent === undefined) {

@@ -217,9 +217,6 @@ export default function AdminNewCoursePage() {
     };
 
     const handleCreateCategory = async () => {
-        console.log("handleCreateCategory chamada - newCategory:", newCategory);
-        console.log("effectiveOrgId:", effectiveOrgId);
-
         const categoryName = newCategory.name.trim();
 
         if (!categoryName) {

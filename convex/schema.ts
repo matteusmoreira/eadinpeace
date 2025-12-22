@@ -970,4 +970,58 @@ export default defineSchema({
         .index("by_session", ["sessionId"])
         .index("by_user", ["userId"])
         .index("by_session_user", ["sessionId", "userId"]),
+
+    // ================================
+    // CONFIGURAÇÕES DA PLATAFORMA
+    // ================================
+
+    platformSettings: defineTable({
+        key: v.string(), // Chave única para cada configuração (ex: "general", "email", "payment", "security", "appearance")
+
+        // Configurações Gerais
+        platformName: v.optional(v.string()),
+        platformUrl: v.optional(v.string()),
+        supportEmail: v.optional(v.string()),
+        maxFileSize: v.optional(v.number()),
+        enableRegistration: v.optional(v.boolean()),
+        maintenanceMode: v.optional(v.boolean()),
+
+        // Configurações de Email (SMTP)
+        smtpHost: v.optional(v.string()),
+        smtpPort: v.optional(v.string()),
+        smtpUser: v.optional(v.string()),
+        smtpPassword: v.optional(v.string()),
+        fromEmail: v.optional(v.string()),
+        fromName: v.optional(v.string()),
+        enableEmailNotifications: v.optional(v.boolean()),
+
+        // Configurações de Pagamento
+        stripePublicKey: v.optional(v.string()),
+        stripeSecretKey: v.optional(v.string()),
+        enablePayments: v.optional(v.boolean()),
+        currency: v.optional(v.string()),
+
+        // Configurações de Segurança
+        enable2FA: v.optional(v.boolean()),
+        sessionTimeout: v.optional(v.number()),
+        maxLoginAttempts: v.optional(v.number()),
+        passwordMinLength: v.optional(v.number()),
+        requireUppercase: v.optional(v.boolean()),
+        requireNumbers: v.optional(v.boolean()),
+
+        // Configurações de Aparência
+        primaryColor: v.optional(v.string()),
+        secondaryColor: v.optional(v.string()),
+        theme: v.optional(v.string()),
+        font: v.optional(v.string()),
+        enableDarkMode: v.optional(v.boolean()),
+        enableAnimations: v.optional(v.boolean()),
+        borderRadius: v.optional(v.string()),
+        logoUrl: v.optional(v.string()),
+        faviconUrl: v.optional(v.string()),
+
+        updatedAt: v.number(),
+        updatedBy: v.optional(v.id("users")),
+    })
+        .index("by_key", ["key"]),
 });

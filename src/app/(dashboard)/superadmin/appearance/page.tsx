@@ -24,8 +24,11 @@ import {
     Image as ImageIcon,
     RefreshCw,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { useUser } from "@clerk/nextjs";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@convex/_generated/api";
 
 const container = {
     hidden: { opacity: 0 },
@@ -55,7 +58,20 @@ const fontOptions = [
 ];
 
 export default function SuperadminAppearancePage() {
+    const { user } = useUser();
     const [isLoading, setIsLoading] = useState(false);
+
+    // Get current user
+    const convexUser = useQuery(
+        api.users.getByClerkId,
+        user?.id ? { clerkId: user.id } : "skip"
+    );
+
+    // Get appearance settings
+    const appearanceSettings = useQuery(api.platformSettings.getByKey, { key: "appearance" });
+
+    // Mutation
+    const updateAppearance = useMutation(api.platformSettings.updateAppearance);
 
     const [settings, setSettings] = useState({
         primaryColor: "#8B5CF6",
@@ -69,13 +85,34 @@ export default function SuperadminAppearancePage() {
         faviconUrl: "",
     });
 
+    // Load settings from database
+    useEffect(() => {
+        if (appearanceSettings) {
+            setSettings(prev => ({
+                ...prev,
+                primaryColor: appearanceSettings.primaryColor || prev.primaryColor,
+                secondaryColor: appearanceSettings.secondaryColor || prev.secondaryColor,
+                theme: appearanceSettings.theme || prev.theme,
+                font: appearanceSettings.font || prev.font,
+                enableDarkMode: appearanceSettings.enableDarkMode ?? prev.enableDarkMode,
+                enableAnimations: appearanceSettings.enableAnimations ?? prev.enableAnimations,
+                borderRadius: appearanceSettings.borderRadius || prev.borderRadius,
+                logoUrl: appearanceSettings.logoUrl || prev.logoUrl,
+                faviconUrl: appearanceSettings.faviconUrl || prev.faviconUrl,
+            }));
+        }
+    }, [appearanceSettings]);
+
     const handleSave = async () => {
         setIsLoading(true);
         try {
-            // In production, this would save to the database
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await updateAppearance({
+                ...settings,
+                userId: convexUser?._id,
+            });
             toast.success("Configurações de aparência salvas com sucesso!");
         } catch (error) {
+            console.error("Erro ao salvar configurações:", error);
             toast.error("Erro ao salvar configurações");
         } finally {
             setIsLoading(false);

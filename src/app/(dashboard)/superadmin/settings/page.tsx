@@ -20,8 +20,11 @@ import {
     Loader2,
     AlertTriangle,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { useUser } from "@clerk/nextjs";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@convex/_generated/api";
 
 const container = {
     hidden: { opacity: 0 },
@@ -34,7 +37,24 @@ const item = {
 };
 
 export default function SuperadminSettingsPage() {
+    const { user } = useUser();
     const [isLoading, setIsLoading] = useState(false);
+    const [activeSection, setActiveSection] = useState("");
+
+    // Get current user
+    const convexUser = useQuery(
+        api.users.getByClerkId,
+        user?.id ? { clerkId: user.id } : "skip"
+    );
+
+    // Get all settings
+    const allSettings = useQuery(api.platformSettings.getAll);
+
+    // Mutations
+    const updateGeneral = useMutation(api.platformSettings.updateGeneral);
+    const updateEmail = useMutation(api.platformSettings.updateEmail);
+    const updatePayment = useMutation(api.platformSettings.updatePayment);
+    const updateSecurity = useMutation(api.platformSettings.updateSecurity);
 
     const [generalSettings, setGeneralSettings] = useState({
         platformName: "EAD Pro",
@@ -71,16 +91,92 @@ export default function SuperadminSettingsPage() {
         requireNumbers: true,
     });
 
+    // Load settings from database
+    useEffect(() => {
+        if (allSettings) {
+            if (allSettings.general) {
+                setGeneralSettings(prev => ({
+                    ...prev,
+                    platformName: allSettings.general.platformName || prev.platformName,
+                    platformUrl: allSettings.general.platformUrl || prev.platformUrl,
+                    supportEmail: allSettings.general.supportEmail || prev.supportEmail,
+                    maxFileSize: allSettings.general.maxFileSize || prev.maxFileSize,
+                    enableRegistration: allSettings.general.enableRegistration ?? prev.enableRegistration,
+                    maintenanceMode: allSettings.general.maintenanceMode ?? prev.maintenanceMode,
+                }));
+            }
+            if (allSettings.email) {
+                setEmailSettings(prev => ({
+                    ...prev,
+                    smtpHost: allSettings.email.smtpHost || prev.smtpHost,
+                    smtpPort: allSettings.email.smtpPort || prev.smtpPort,
+                    smtpUser: allSettings.email.smtpUser || prev.smtpUser,
+                    smtpPassword: allSettings.email.smtpPassword || prev.smtpPassword,
+                    fromEmail: allSettings.email.fromEmail || prev.fromEmail,
+                    fromName: allSettings.email.fromName || prev.fromName,
+                    enableEmailNotifications: allSettings.email.enableEmailNotifications ?? prev.enableEmailNotifications,
+                }));
+            }
+            if (allSettings.payment) {
+                setPaymentSettings(prev => ({
+                    ...prev,
+                    stripePublicKey: allSettings.payment.stripePublicKey || prev.stripePublicKey,
+                    stripeSecretKey: allSettings.payment.stripeSecretKey || prev.stripeSecretKey,
+                    enablePayments: allSettings.payment.enablePayments ?? prev.enablePayments,
+                    currency: allSettings.payment.currency || prev.currency,
+                }));
+            }
+            if (allSettings.security) {
+                setSecuritySettings(prev => ({
+                    ...prev,
+                    enable2FA: allSettings.security.enable2FA ?? prev.enable2FA,
+                    sessionTimeout: allSettings.security.sessionTimeout || prev.sessionTimeout,
+                    maxLoginAttempts: allSettings.security.maxLoginAttempts || prev.maxLoginAttempts,
+                    passwordMinLength: allSettings.security.passwordMinLength || prev.passwordMinLength,
+                    requireUppercase: allSettings.security.requireUppercase ?? prev.requireUppercase,
+                    requireNumbers: allSettings.security.requireNumbers ?? prev.requireNumbers,
+                }));
+            }
+        }
+    }, [allSettings]);
+
     const handleSave = async (section: string) => {
         setIsLoading(true);
+        setActiveSection(section);
         try {
-            // In production, this would save to the database
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            switch (section) {
+                case "Geral":
+                    await updateGeneral({
+                        ...generalSettings,
+                        userId: convexUser?._id,
+                    });
+                    break;
+                case "Email":
+                    await updateEmail({
+                        ...emailSettings,
+                        userId: convexUser?._id,
+                    });
+                    break;
+                case "Pagamentos":
+                    await updatePayment({
+                        ...paymentSettings,
+                        userId: convexUser?._id,
+                    });
+                    break;
+                case "Segurança":
+                    await updateSecurity({
+                        ...securitySettings,
+                        userId: convexUser?._id,
+                    });
+                    break;
+            }
             toast.success(`Configurações de ${section} salvas com sucesso!`);
         } catch (error) {
+            console.error("Erro ao salvar configurações:", error);
             toast.error("Erro ao salvar configurações");
         } finally {
             setIsLoading(false);
+            setActiveSection("");
         }
     };
 

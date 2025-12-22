@@ -91,13 +91,6 @@ export default function ProfessorCoursesPage() {
     // Mutation to delete course
     const removeCourse = useMutation(api.courses.remove);
 
-    // Debug: Log para verificar estados
-    console.log("[ProfessorCoursesPage] Debug:", {
-        isUserLoaded,
-        clerkUserId: user?.id,
-        convexUser: convexUser ? { id: convexUser._id, email: convexUser.email, role: convexUser.role } : null,
-        coursesCount: courses?.length,
-    });
 
     // Melhor tratamento de estado de loading
     const isLoadingUser = !isUserLoaded || (user?.id && convexUser === undefined);

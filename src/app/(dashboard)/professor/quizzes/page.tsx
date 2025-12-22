@@ -54,6 +54,8 @@ import { cn } from "@/lib/utils";
 import { useUser } from "@clerk/nextjs";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
+import { Id } from "@convex/_generated/dataModel";
+import { toast } from "sonner";
 import {
     QuestionType,
     getQuestionTypeLabel,
@@ -128,6 +130,12 @@ export default function ProfessorQuizzesPage() {
             ? { instructorId: currentUser._id }
             : "skip"
     );
+
+    // Mutations
+    const createQuiz = useMutation(api.quizzes.create);
+    const updateQuiz = useMutation(api.quizzes.update);
+    const addQuestionMutation = useMutation(api.quizzes.addQuestion);
+    const removeQuiz = useMutation(api.quizzes.remove);
 
     const isLoading = quizzes === undefined;
 
@@ -313,11 +321,73 @@ export default function ProfessorQuizzesPage() {
     };
 
     const handleSaveQuiz = async () => {
+        if (!quizForm.title || !quizForm.courseId) {
+            toast.error("Preencha o título e selecione um curso");
+            return;
+        }
+        if (questions.length === 0) {
+            toast.error("Adicione pelo menos uma questão");
+            return;
+        }
+
         setIsSaving(true);
-        // TODO: Call Convex mutation
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        setIsSaving(false);
-        setIsCreating(false);
+        try {
+            let quizId: Id<"quizzes">;
+
+            if (editingQuiz) {
+                // Update existing quiz
+                await updateQuiz({
+                    quizId: editingQuiz._id,
+                    title: quizForm.title,
+                    passingScore: parseInt(quizForm.passingScore),
+                    timeLimit: parseInt(quizForm.timeLimit) * 60, // Convert to seconds
+                });
+                quizId = editingQuiz._id;
+                toast.success("Quiz atualizado com sucesso!");
+            } else {
+                // Create new quiz
+                quizId = await createQuiz({
+                    courseId: quizForm.courseId as Id<"courses">,
+                    lessonId: quizForm.lessonId ? quizForm.lessonId as Id<"lessons"> : undefined,
+                    title: quizForm.title,
+                    passingScore: parseInt(quizForm.passingScore),
+                    timeLimit: parseInt(quizForm.timeLimit) * 60, // Convert to seconds
+                });
+
+                // Add all questions to the quiz
+                for (const question of questions) {
+                    await addQuestionMutation({
+                        quizId,
+                        type: question.type,
+                        question: question.text,
+                        options: question.options?.map(o => o.text).filter(t => t.length > 0),
+                        correctAnswer: question.type === "true_false"
+                            ? question.correctAnswer
+                            : question.options?.find(o => o.isCorrect)?.text,
+                        correctAnswers: question.type === "multiple_choice"
+                            ? question.options?.filter(o => o.isCorrect).map(o => o.text)
+                            : undefined,
+                        matchPairs: question.matchPairs?.filter(p => p.prompt && p.answer),
+                        correctOrder: question.correctOrder?.filter(o => o.length > 0),
+                        blankAnswers: question.blankAnswers?.filter(b => b.length > 0),
+                        mediaUrl: question.mediaUrl || undefined,
+                        mediaType: question.mediaType || undefined,
+                        explanation: question.explanation || undefined,
+                        points: question.points,
+                    });
+                }
+                toast.success("Quiz criado com sucesso!");
+            }
+
+            setIsCreating(false);
+            setEditingQuiz(null);
+            setQuestions([]);
+        } catch (error) {
+            console.error("Erro ao salvar quiz:", error);
+            toast.error("Erro ao salvar quiz");
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     // Quiz Editor View
@@ -382,14 +452,25 @@ export default function ProfessorQuizzesPage() {
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label>Curso</Label>
-                                    <Select>
+                                    <Label>Curso *</Label>
+                                    <Select
+                                        value={quizForm.courseId}
+                                        onValueChange={(value) => setQuizForm((prev) => ({ ...prev, courseId: value }))}
+                                    >
                                         <SelectTrigger>
                                             <SelectValue placeholder="Selecione o curso" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="1">JavaScript do Zero</SelectItem>
-                                            <SelectItem value="2">React Avançado</SelectItem>
+                                            {(courses || []).map((course) => (
+                                                <SelectItem key={course._id} value={course._id}>
+                                                    {course.title}
+                                                </SelectItem>
+                                            ))}
+                                            {(!courses || courses.length === 0) && (
+                                                <SelectItem value="" disabled>
+                                                    Nenhum curso encontrado
+                                                </SelectItem>
+                                            )}
                                         </SelectContent>
                                     </Select>
                                 </div>
