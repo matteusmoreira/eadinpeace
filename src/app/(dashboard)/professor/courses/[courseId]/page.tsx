@@ -46,9 +46,9 @@ import {
     ChevronRight,
     Settings,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
@@ -65,8 +65,8 @@ const item = {
     show: { opacity: 1, y: 0 },
 };
 
-export default function EditCoursePage() {
-    const params = useParams();
+export default function EditCoursePage(props: { params: Promise<{ courseId: string }> }) {
+    const params = use(props.params);
     const router = useRouter();
     const courseId = params.courseId as Id<"courses">;
 

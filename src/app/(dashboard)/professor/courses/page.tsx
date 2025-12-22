@@ -14,6 +14,16 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
     BookOpen,
     Plus,
     Search,
@@ -29,10 +39,13 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { useUser } from "@clerk/nextjs";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { Id } from "@convex/_generated/dataModel";
 
 const container = {
     hidden: { opacity: 0 },
@@ -57,7 +70,10 @@ const levelColors = {
 };
 
 export default function ProfessorCoursesPage() {
+    const router = useRouter();
     const [searchQuery, setSearchQuery] = useState("");
+    const [courseToDelete, setCourseToDelete] = useState<Id<"courses"> | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
     const { user, isLoaded: isUserLoaded } = useUser();
 
     // Get instructor ID from Convex user
@@ -71,6 +87,9 @@ export default function ProfessorCoursesPage() {
         api.courses.getByInstructor,
         convexUser?._id ? { instructorId: convexUser._id } : "skip"
     );
+
+    // Mutation to delete course
+    const removeCourse = useMutation(api.courses.remove);
 
     // Debug: Log para verificar estados
     console.log("[ProfessorCoursesPage] Debug:", {
@@ -100,6 +119,22 @@ export default function ProfessorCoursesPage() {
         const mins = minutes % 60;
         if (hours === 0) return `${mins}min`;
         return `${hours}h ${mins}min`;
+    };
+
+    const handleDeleteCourse = async () => {
+        if (!courseToDelete) return;
+
+        setIsDeleting(true);
+        try {
+            await removeCourse({ courseId: courseToDelete });
+            toast.success("Curso excluído com sucesso!");
+            setCourseToDelete(null);
+        } catch (error) {
+            toast.error("Erro ao excluir curso");
+            console.error(error);
+        } finally {
+            setIsDeleting(false);
+        }
     };
 
     return (
@@ -260,16 +295,23 @@ export default function ProfessorCoursesPage() {
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
-                                            <DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => router.push(`/professor/courses/${course._id}`)}>
                                                 <Eye className="h-4 w-4 mr-2" />
                                                 Visualizar
                                             </DropdownMenuItem>
-                                            <DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => router.push(`/professor/courses/${course._id}/edit`)}>
+                                                <Edit className="h-4 w-4 mr-2" />
+                                                Editar Conteúdo
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => router.push(`/professor/students?courseId=${course._id}`)}>
                                                 <Users className="h-4 w-4 mr-2" />
                                                 Ver Alunos
                                             </DropdownMenuItem>
                                             <DropdownMenuSeparator />
-                                            <DropdownMenuItem className="text-destructive">
+                                            <DropdownMenuItem
+                                                className="text-destructive"
+                                                onClick={() => setCourseToDelete(course._id)}
+                                            >
                                                 <Trash2 className="h-4 w-4 mr-2" />
                                                 Excluir
                                             </DropdownMenuItem>
@@ -281,6 +323,36 @@ export default function ProfessorCoursesPage() {
                     ))}
                 </motion.div>
             )}
+
+            {/* Delete Confirmation Dialog */}
+            <AlertDialog open={!!courseToDelete} onOpenChange={(open) => !open && setCourseToDelete(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Tem certeza que deseja excluir este curso? Esta ação não pode ser desfeita.
+                            Todos os módulos, aulas e matrículas serão removidos.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleDeleteCourse}
+                            disabled={isDeleting}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                            {isDeleting ? (
+                                <>
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    Excluindo...
+                                </>
+                            ) : (
+                                "Excluir Curso"
+                            )}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </motion.div>
     );
 }

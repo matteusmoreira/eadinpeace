@@ -52,7 +52,7 @@ import {
     Loader2,
     Check,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation } from "convex/react";
@@ -99,16 +99,14 @@ interface LocalLesson {
     isFree: boolean;
 }
 
-export default function EditCoursePage({
-    params,
-}: {
-    params: { courseId: string };
-}) {
+export default function EditCoursePage(props: { params: Promise<{ courseId: string }> }) {
+    const params = use(props.params);
+    const courseId = params.courseId as Id<"courses">;
     const router = useRouter();
 
     // Fetch course data from Convex
     const courseData = useQuery(api.courses.getWithContent, {
-        courseId: params.courseId as Id<"courses">
+        courseId: courseId
     });
 
     // Mutations
@@ -227,7 +225,7 @@ export default function EditCoursePage({
             // Add new module via API
             try {
                 await createModule({
-                    courseId: params.courseId as Id<"courses">,
+                    courseId: courseId,
                     title: moduleForm.title,
                     description: moduleForm.description,
                 });
@@ -292,7 +290,7 @@ export default function EditCoursePage({
             // Add new lesson via API
             try {
                 await createLesson({
-                    courseId: params.courseId as Id<"courses">,
+                    courseId: courseId,
                     moduleId: selectedModuleId as Id<"modules">,
                     title: lessonForm.title,
                     type: "video",
@@ -349,7 +347,7 @@ export default function EditCoursePage({
         setIsSaving(true);
         try {
             await updateCourse({
-                courseId: params.courseId as Id<"courses">,
+                courseId: courseId,
                 title: course.title,
                 description: course.description,
                 category: course.category,
