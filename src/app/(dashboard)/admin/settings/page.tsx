@@ -395,7 +395,7 @@ export default function BunnySettingsPage() {
                                         <li>No dashboard do Bunny, vá para <strong>Stream</strong></li>
                                         <li>Clique em <strong>Video Libraries</strong></li>
                                         <li>Clique em <strong>Add Video Library</strong></li>
-                                        <li>Dê um nome (ex: "EAD Videos") e configure as opções</li>
+                                        <li>Dê um nome (ex: &quot;EAD Videos&quot;) e configure as opções</li>
                                     </ol>
                                 </AccordionContent>
                             </AccordionItem>

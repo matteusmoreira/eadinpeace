@@ -129,7 +129,7 @@ export const getFeed = query({
         const followingIds = new Set(following.map((f) => f.followingId));
 
         // Buscar posts da organização
-        let postsQuery = ctx.db
+        const postsQuery = ctx.db
             .query("socialPosts")
             .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
             .order("desc");

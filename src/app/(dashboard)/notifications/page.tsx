@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -106,6 +107,11 @@ export default function NotificationsPage() {
 
     const unreadCount = notifications?.filter(n => !n.isRead).length || 0;
 
+    const [now, setNow] = useState<number | null>(null);
+    useEffect(() => {
+        setNow(Date.now());
+    }, []);
+
     const handleMarkAsRead = async (notificationId: Id<"notifications">) => {
         await markAsRead({ notificationId });
     };
@@ -120,7 +126,9 @@ export default function NotificationsPage() {
     };
 
     const formatDate = (timestamp: number) => {
-        const diff = Date.now() - timestamp;
+        if (now === null) return new Date(timestamp).toLocaleDateString("pt-BR");
+
+        const diff = now - timestamp;
         const minutes = Math.floor(diff / 60000);
         const hours = Math.floor(diff / 3600000);
         const days = Math.floor(diff / 86400000);

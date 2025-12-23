@@ -1,24 +1,19 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { requireAuth } from "./authHelpers";
 
 // Get user by Clerk ID
 export const getByClerkId = query({
     args: { clerkId: v.string() },
     handler: async (ctx, args) => {
-        console.log("[users:getByClerkId] Buscando usuário com clerkId:", args.clerkId);
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) return null;
+        if (identity.subject !== args.clerkId) return null;
 
-        const user = await ctx.db
+        return await ctx.db
             .query("users")
             .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
             .first();
-
-        if (user) {
-            console.log("[users:getByClerkId] Usuário encontrado:", user.email, "Role:", user.role, "ID:", user._id);
-        } else {
-            console.log("[users:getByClerkId] Usuário NÃO encontrado para clerkId:", args.clerkId);
-        }
-
-        return user;
     },
 });
 
@@ -63,14 +58,30 @@ export const syncFromClerk = mutation({
 export const getById = query({
     args: { userId: v.id("users") },
     handler: async (ctx, args) => {
-        // Verificar autenticação - retorna null se não autenticado
         const identity = await ctx.auth.getUserIdentity();
         if (!identity) {
             return null;
         }
 
         try {
-            return await ctx.db.get(args.userId);
+            const caller = await ctx.db
+                .query("users")
+                .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+                .first();
+            if (!caller) return null;
+
+            const target = await ctx.db.get(args.userId);
+            if (!target) return null;
+
+            if (caller.role === "superadmin") return target;
+
+            if (caller._id === target._id) return target;
+
+            if (caller.role === "admin" && caller.organizationId && caller.organizationId === target.organizationId) {
+                return target;
+            }
+
+            return null;
         } catch (error) {
             console.error("[users:getById] Erro:", error);
             return null;
@@ -82,13 +93,21 @@ export const getById = query({
 export const getByOrganization = query({
     args: { organizationId: v.id("organizations") },
     handler: async (ctx, args) => {
-        // Verificar autenticação - retorna array vazio se não autenticado
         const identity = await ctx.auth.getUserIdentity();
         if (!identity) {
             return [];
         }
 
         try {
+            const caller = await ctx.db
+                .query("users")
+                .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+                .first();
+            if (!caller) return [];
+
+            if (!["superadmin", "admin", "professor"].includes(caller.role)) return [];
+            if (caller.role !== "superadmin" && caller.organizationId !== args.organizationId) return [];
+
             return await ctx.db
                 .query("users")
                 .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
@@ -104,13 +123,18 @@ export const getByOrganization = query({
 export const getAll = query({
     args: {},
     handler: async (ctx) => {
-        // DEBUG: Log authentication status
         const identity = await ctx.auth.getUserIdentity();
-        console.log("[users:getAll] Identity:", identity ? "authenticated" : "NOT authenticated");
+        if (!identity) return [];
 
         try {
+            const caller = await ctx.db
+                .query("users")
+                .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+                .first();
+            if (!caller) return [];
+            if (caller.role !== "superadmin") return [];
+
             const users = await ctx.db.query("users").collect();
-            console.log("[users:getAll] Found users:", users.length);
 
             // Enrich with organization data
             const enrichedUsers = await Promise.all(
@@ -146,13 +170,19 @@ export const getByRole = query({
         )
     },
     handler: async (ctx, args) => {
-        // Verificar autenticação - retorna array vazio se não autenticado
         const identity = await ctx.auth.getUserIdentity();
         if (!identity) {
             return [];
         }
 
         try {
+            const caller = await ctx.db
+                .query("users")
+                .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+                .first();
+            if (!caller) return [];
+            if (caller.role !== "superadmin") return [];
+
             return await ctx.db
                 .query("users")
                 .withIndex("by_role", (q) => q.eq("role", args.role))
@@ -180,6 +210,14 @@ export const upsertFromClerk = mutation({
         )),
     },
     handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+        if (identity.subject !== args.clerkId) {
+            throw new Error("Acesso negado");
+        }
+
         const existingUser = await ctx.db
             .query("users")
             .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
@@ -188,7 +226,6 @@ export const upsertFromClerk = mutation({
         const now = Date.now();
 
         if (existingUser) {
-            // Update existing user - include role if specified
             const updateData: Record<string, unknown> = {
                 email: args.email,
                 firstName: args.firstName,
@@ -198,26 +235,20 @@ export const upsertFromClerk = mutation({
                 updatedAt: now,
             };
 
-            // If role is specified, update it
-            if (args.role) {
-                updateData.role = args.role;
-                // Superadmins don't belong to any organization
-                if (args.role === "superadmin") {
-                    updateData.organizationId = undefined;
-                }
-            }
-
             await ctx.db.patch(existingUser._id, updateData);
             return existingUser._id;
         } else {
-            // Create new user
+            const anyUser = await ctx.db.query("users").take(1);
+            const allowRoleBootstrap = anyUser.length === 0;
+            const role = allowRoleBootstrap ? (args.role || "student") : "student";
+
             return await ctx.db.insert("users", {
                 clerkId: args.clerkId,
                 email: args.email,
                 firstName: args.firstName,
                 lastName: args.lastName,
                 imageUrl: args.imageUrl,
-                role: args.role || "student",
+                role,
                 isActive: true,
                 lastLoginAt: now,
                 createdAt: now,
@@ -244,10 +275,17 @@ export const create = mutation({
         clerkId: v.optional(v.string()), // Clerk ID se usuário já foi criado no Clerk
     },
     handler: async (ctx, args) => {
-        // Verificar autenticação
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            throw new Error("Não autenticado");
+        const auth = await requireAuth(ctx);
+        if (auth.user.role !== "superadmin" && auth.user.role !== "admin") {
+            throw new Error("Acesso negado");
+        }
+
+        if (auth.user.role === "admin") {
+            if (!auth.user.organizationId) throw new Error("Organização não encontrada");
+            if (args.role === "superadmin") throw new Error("Acesso negado");
+            if (args.organizationId && args.organizationId !== auth.user.organizationId) {
+                throw new Error("Acesso negado");
+            }
         }
 
         const now = Date.now();
@@ -265,6 +303,9 @@ export const create = mutation({
         // Se tem clerkId, o usuário já está no Clerk e pode logar
         const hasClerkId = !!args.clerkId;
 
+        const organizationId =
+            auth.user.role === "admin" ? auth.user.organizationId : args.organizationId;
+
         return await ctx.db.insert("users", {
             clerkId: args.clerkId || `pending_${now}`, // Will be updated when user accepts invitation
             email: args.email,
@@ -272,7 +313,7 @@ export const create = mutation({
             lastName: args.lastName,
             imageUrl: args.imageUrl,
             role: args.role,
-            organizationId: args.organizationId,
+            organizationId,
             isActive: hasClerkId, // Ativo se já criou no Clerk, senão pending
             createdAt: now,
             updatedAt: now,
@@ -297,13 +338,25 @@ export const update = mutation({
         isActive: v.optional(v.boolean()),
     },
     handler: async (ctx, args) => {
-        // Verificar autenticação
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            throw new Error("Não autenticado");
-        }
+        const auth = await requireAuth(ctx);
 
         const { userId, ...updates } = args;
+
+        if (auth.user.role !== "superadmin" && auth.user.role !== "admin") {
+            throw new Error("Acesso negado");
+        }
+
+        const target = await ctx.db.get(userId);
+        if (!target) throw new Error("Usuário não encontrado");
+
+        if (auth.user.role === "admin") {
+            if (!auth.user.organizationId) throw new Error("Organização não encontrada");
+            if (target.organizationId !== auth.user.organizationId) throw new Error("Acesso negado");
+            if (updates.role === "superadmin") throw new Error("Acesso negado");
+            if (updates.organizationId && updates.organizationId !== auth.user.organizationId) {
+                throw new Error("Acesso negado");
+            }
+        }
 
         // Remove undefined values
         const cleanUpdates = Object.fromEntries(
@@ -329,10 +382,18 @@ export const updateRole = mutation({
         ),
     },
     handler: async (ctx, args) => {
-        // Verificar autenticação
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            throw new Error("Não autenticado");
+        const auth = await requireAuth(ctx);
+        if (auth.user.role !== "superadmin" && auth.user.role !== "admin") {
+            throw new Error("Acesso negado");
+        }
+
+        if (auth.user.role === "admin") {
+            if (args.role === "superadmin") throw new Error("Acesso negado");
+            const target = await ctx.db.get(args.userId);
+            if (!target) throw new Error("Usuário não encontrado");
+            if (!auth.user.organizationId || target.organizationId !== auth.user.organizationId) {
+                throw new Error("Acesso negado");
+            }
         }
 
         await ctx.db.patch(args.userId, {
@@ -349,10 +410,17 @@ export const assignToOrganization = mutation({
         organizationId: v.optional(v.id("organizations")),
     },
     handler: async (ctx, args) => {
-        // Verificar autenticação
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            throw new Error("Não autenticado");
+        const auth = await requireAuth(ctx);
+        if (auth.user.role !== "superadmin" && auth.user.role !== "admin") {
+            throw new Error("Acesso negado");
+        }
+
+        if (auth.user.role === "admin") {
+            if (!auth.user.organizationId) throw new Error("Organização não encontrada");
+            if (args.organizationId !== auth.user.organizationId) throw new Error("Acesso negado");
+            const target = await ctx.db.get(args.userId);
+            if (!target) throw new Error("Usuário não encontrado");
+            if (target.organizationId !== auth.user.organizationId) throw new Error("Acesso negado");
         }
 
         await ctx.db.patch(args.userId, {
@@ -366,10 +434,18 @@ export const assignToOrganization = mutation({
 export const remove = mutation({
     args: { userId: v.id("users") },
     handler: async (ctx, args) => {
-        // Verificar autenticação
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            throw new Error("Não autenticado");
+        const auth = await requireAuth(ctx);
+        if (auth.user.role !== "superadmin" && auth.user.role !== "admin") {
+            throw new Error("Acesso negado");
+        }
+
+        if (auth.user.role === "admin") {
+            const target = await ctx.db.get(args.userId);
+            if (!target) throw new Error("Usuário não encontrado");
+            if (!auth.user.organizationId || target.organizationId !== auth.user.organizationId) {
+                throw new Error("Acesso negado");
+            }
+            if (target.role === "superadmin") throw new Error("Acesso negado");
         }
 
         await ctx.db.delete(args.userId);
@@ -500,13 +576,17 @@ export const getGlobalStats = query({
             },
         };
 
-        // Verificar autenticação - retorna valores padrão se não autenticado
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            return defaultStats;
-        }
-
         try {
+            let auth;
+            try {
+                auth = await requireAuth(ctx);
+            } catch {
+                return defaultStats;
+            }
+            if (auth.user.role !== "superadmin") {
+                return defaultStats;
+            }
+
             const users = await ctx.db.query("users").collect();
             const organizations = await ctx.db.query("organizations").collect();
             const enrollments = await ctx.db.query("enrollments").collect();

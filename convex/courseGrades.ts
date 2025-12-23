@@ -17,7 +17,7 @@ export const calculate = mutation({
 
         const quizScores = [];
         let totalQuizWeight = 0;
-        let totalAssignmentWeight = 0;
+        const totalAssignmentWeight = 0;
 
         for (const quiz of quizzes) {
             const attempts = await ctx.db
@@ -52,10 +52,10 @@ export const calculate = mutation({
             .collect();
 
         const assignmentScores: { lessonId: any; score: number; weight: number; weightedScore: number }[] = [];
-        for (const module of modules) {
+        for (const courseModule of modules) {
             const assignments = await ctx.db
                 .query("lessons")
-                .withIndex("by_module", (q) => q.eq("moduleId", module._id))
+                .withIndex("by_module", (q) => q.eq("moduleId", courseModule._id))
                 .filter((q) => q.eq(q.field("type"), "assignment"))
                 .collect();
 
@@ -198,7 +198,7 @@ export const getStudentGradebook = query({
                     .collect();
 
                 let bestScore = null;
-                let attemptCount = attempts.length;
+                const attemptCount = attempts.length;
                 let lastAttempt = null;
 
                 if (attempts.length > 0) {

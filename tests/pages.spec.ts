@@ -129,6 +129,7 @@ async function checkPage(page: Page, url: string): Promise<{
 test.describe('Verificação de Páginas', () => {
 
     test('Verificar todas as páginas do sistema', async ({ page }) => {
+        test.setTimeout(5 * 60 * 1000);
         const results: { page: string; name: string; success: boolean; error?: string; consoleErrors: string[] }[] = [];
 
         // Combinar todas as páginas

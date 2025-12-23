@@ -127,8 +127,8 @@ export function CreatePostForm({ author, onSubmit, isSubmitting = false }: Creat
         if (!content.trim()) return;
 
         // Validar URLs antes de enviar
-        let finalImageUrl = imageUrl.trim();
-        let finalVideoUrl = videoUrl.trim();
+        const finalImageUrl = imageUrl.trim();
+        const finalVideoUrl = videoUrl.trim();
 
         if (finalImageUrl && !isValidImageUrl(finalImageUrl)) {
             setImageError("URL de imagem inválida");

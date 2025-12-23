@@ -1,4 +1,5 @@
-import { test as setup, expect } from '@playwright/test';
+import { test as setup } from '@playwright/test';
+import fs from 'fs';
 import path from 'path';
 
 /**
@@ -8,11 +9,20 @@ import path from 'path';
 const authFile = path.join(__dirname, '../.auth/user.json');
 
 setup('autenticar no sistema', async ({ page }) => {
+    fs.mkdirSync(path.dirname(authFile), { recursive: true });
+
+    const email = process.env.E2E_EMAIL;
+    const password = process.env.E2E_PASSWORD;
+
+    if (!email || !password) {
+        await page.goto('/');
+        await page.waitForLoadState('domcontentloaded');
+        await page.context().storageState({ path: authFile });
+        return;
+    }
+
     // Navegar para a página de login
     await page.goto('/sign-in');
-
-    // Aguardar o formulário de login do Clerk carregar
-    await page.waitForLoadState('networkidle');
 
     // Preencher as credenciais
     // O Clerk pode ter diferentes seletores, vamos tentar identificar os campos
@@ -22,7 +32,7 @@ setup('autenticar no sistema', async ({ page }) => {
 
     // Preencher o email
     const emailInput = page.locator('input[name="identifier"], input[type="email"], input[id*="email"], input[autocomplete="email"]').first();
-    await emailInput.fill('matteusmoreira@gmail.com');
+    await emailInput.fill(email);
 
     // Clicar no botão de continuar/enviar
     const continueButton = page.locator('button[type="submit"], button:has-text("Continuar"), button:has-text("Continue"), button:has-text("Entrar"), button:has-text("Sign in")').first();
@@ -33,7 +43,7 @@ setup('autenticar no sistema', async ({ page }) => {
 
     // Preencher a senha
     const passwordInput = page.locator('input[type="password"], input[name="password"]').first();
-    await passwordInput.fill('@Moreira2025');
+    await passwordInput.fill(password);
 
     // Clicar no botão de login
     const loginButton = page.locator('button[type="submit"], button:has-text("Continuar"), button:has-text("Continue"), button:has-text("Entrar"), button:has-text("Sign in")').first();

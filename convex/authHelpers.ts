@@ -44,6 +44,10 @@ export async function requireAuth(ctx: QueryCtx | MutationCtx): Promise<AuthResu
         throw new Error("Usuário não encontrado no sistema");
     }
 
+    if (user.isActive === false) {
+        throw new Error("Usuário inativo");
+    }
+
     return {
         identity: {
             subject: identity.subject,
@@ -101,8 +105,18 @@ export async function requireOwnerOrAdmin(
 ): Promise<AuthResult> {
     const auth = await requireAuth(ctx);
 
-    // Superadmin e admin podem acessar qualquer recurso
-    if (auth.user.role === "superadmin" || auth.user.role === "admin") {
+    if (auth.user.role === "superadmin") {
+        return auth;
+    }
+
+    if (auth.user.role === "admin") {
+        const targetUser = await ctx.db.get(resourceUserId);
+        if (!targetUser) {
+            throw new Error("Usuário não encontrado");
+        }
+        if (!auth.user.organizationId || targetUser.organizationId !== auth.user.organizationId) {
+            throw new Error("Acesso negado: recurso de outra organização");
+        }
         return auth;
     }
 

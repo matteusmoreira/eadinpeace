@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { requireAuth, requireAuthWithOrg, requireRole } from "./authHelpers";
 
 // Buscar planos disponíveis
 export const getPlans = query({
@@ -32,6 +33,7 @@ export const createPlan = mutation({
         isActive: v.boolean(),
     },
     handler: async (ctx, args) => {
+        await requireRole(ctx, ["superadmin"]);
         return await ctx.db.insert("subscriptionPlans", {
             ...args,
             createdAt: Date.now(),
@@ -54,6 +56,7 @@ export const updatePlan = mutation({
         isActive: v.optional(v.boolean()),
     },
     handler: async (ctx, args) => {
+        await requireRole(ctx, ["superadmin"]);
         const { planId, ...updates } = args;
         await ctx.db.patch(planId, {
             ...updates,
@@ -68,6 +71,11 @@ export const getSubscriptionByOrganization = query({
         organizationId: v.id("organizations"),
     },
     handler: async (ctx, args) => {
+        const auth = await requireAuthWithOrg(ctx, args.organizationId);
+        if (auth.user.role !== "superadmin" && auth.user.role !== "admin") {
+            throw new Error("Acesso negado");
+        }
+
         const subscription = await ctx.db
             .query("subscriptions")
             .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
@@ -92,6 +100,11 @@ export const createSubscription = mutation({
         paymentMethod: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
+        const auth = await requireAuthWithOrg(ctx, args.organizationId);
+        if (auth.user.role !== "superadmin" && auth.user.role !== "admin") {
+            throw new Error("Acesso negado");
+        }
+
         const plan = await ctx.db.get(args.planId);
         if (!plan) throw new Error("Plano não encontrado");
 
@@ -143,6 +156,20 @@ export const cancelSubscription = mutation({
         immediately: v.optional(v.boolean()),
     },
     handler: async (ctx, args) => {
+        const auth = await requireAuth(ctx);
+        if (auth.user.role !== "superadmin" && auth.user.role !== "admin") {
+            throw new Error("Acesso negado");
+        }
+
+        const subscription = await ctx.db.get(args.subscriptionId);
+        if (!subscription) {
+            throw new Error("Assinatura não encontrada");
+        }
+
+        if (auth.user.role !== "superadmin" && auth.user.organizationId !== subscription.organizationId) {
+            throw new Error("Acesso negado");
+        }
+
         if (args.immediately) {
             await ctx.db.patch(args.subscriptionId, {
                 status: "canceled",
@@ -171,6 +198,11 @@ export const createTransaction = mutation({
         stripePaymentIntentId: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
+        const auth = await requireAuthWithOrg(ctx, args.organizationId);
+        if (auth.user.role !== "superadmin" && auth.user.role !== "admin") {
+            throw new Error("Acesso negado");
+        }
+
         return await ctx.db.insert("transactions", {
             ...args,
             createdAt: Date.now(),
@@ -185,7 +217,12 @@ export const getTransactionsByOrganization = query({
         limit: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
-        let query = ctx.db
+        const auth = await requireAuthWithOrg(ctx, args.organizationId);
+        if (auth.user.role !== "superadmin" && auth.user.role !== "admin") {
+            throw new Error("Acesso negado");
+        }
+
+        const query = ctx.db
             .query("transactions")
             .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
             .order("desc");
@@ -204,6 +241,7 @@ export const getAllTransactions = query({
         limit: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
+        await requireRole(ctx, ["superadmin"]);
         const transactions = await ctx.db
             .query("transactions")
             .order("desc")
@@ -226,6 +264,7 @@ export const getAllTransactions = query({
 export const getFinancialSummary = query({
     args: {},
     handler: async (ctx) => {
+        await requireRole(ctx, ["superadmin"]);
         const transactions = await ctx.db.query("transactions").collect();
         const subscriptions = await ctx.db.query("subscriptions").collect();
 

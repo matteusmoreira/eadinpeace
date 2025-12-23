@@ -6,14 +6,18 @@ import { requireAuth, requireAuthWithOrg, requireRole, requireCourseAccess } fro
 export const getAll = query({
     args: {},
     handler: async (ctx) => {
-        // DEBUG: Verificar autenticação
-        const identity = await ctx.auth.getUserIdentity();
-        console.log("[courses:getAll] Identity:", identity ? "authenticated" : "NOT authenticated");
-
         try {
-            // Se não autenticado, retorna todos os cursos (temporariamente para debug)
-            let courses = await ctx.db.query("courses").collect();
-            console.log("[courses:getAll] Found courses:", courses.length);
+            const auth = await requireAuth(ctx);
+
+            const courses =
+                auth.user.role === "superadmin"
+                    ? await ctx.db.query("courses").collect()
+                    : auth.user.organizationId
+                        ? await ctx.db
+                            .query("courses")
+                            .withIndex("by_organization", (q) => q.eq("organizationId", auth.user.organizationId!))
+                            .collect()
+                        : [];
 
             // Enrich with instructor and organization
             const enrichedCourses = await Promise.all(
@@ -50,7 +54,6 @@ export const getAll = query({
 
             return enrichedCourses;
         } catch (error) {
-            console.error("[courses:getAll] Erro:", error);
             return [];
         }
     },
@@ -61,31 +64,17 @@ export const getAll = query({
 export const getById = query({
     args: { courseId: v.id("courses") },
     handler: async (ctx, args) => {
-        // Verificar autenticação - retorna null se não autenticado
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            return null;
-        }
-
         try {
+            const auth = await requireAuth(ctx);
             const course = await ctx.db.get(args.courseId);
             if (!course) return null;
 
-            // Obter usuário para verificar role
-            const user = await ctx.db
-                .query("users")
-                .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-                .first();
-
-            // Verificar acesso à organização (exceto superadmin)
-            if (user && user.role !== "superadmin" && user.organizationId !== course.organizationId) {
-                console.log("[courses:getById] Acesso negado: curso de outra organização");
+            if (auth.user.role !== "superadmin" && auth.user.organizationId !== course.organizationId) {
                 return null;
             }
 
             return course;
         } catch (error) {
-            console.error("[courses:getById] Erro:", error);
             return null;
         }
     },
@@ -95,13 +84,9 @@ export const getById = query({
 export const getByOrganization = query({
     args: { organizationId: v.id("organizations") },
     handler: async (ctx, args) => {
-        // Verificar autenticação - retorna array vazio se não autenticado
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            return [];
-        }
-
         try {
+            await requireAuthWithOrg(ctx, args.organizationId);
+
             const courses = await ctx.db
                 .query("courses")
                 .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
@@ -131,7 +116,6 @@ export const getByOrganization = query({
 
             return enrichedCourses;
         } catch (error) {
-            console.error("[courses:getByOrganization] Erro:", error);
             return [];
         }
     },
@@ -141,13 +125,9 @@ export const getByOrganization = query({
 export const getPublishedByOrganization = query({
     args: { organizationId: v.id("organizations") },
     handler: async (ctx, args) => {
-        // Verificar autenticação - retorna array vazio se não autenticado
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            return [];
-        }
-
         try {
+            await requireAuthWithOrg(ctx, args.organizationId);
+
             const courses = await ctx.db
                 .query("courses")
                 .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
@@ -179,7 +159,6 @@ export const getPublishedByOrganization = query({
 
             return enrichedCourses;
         } catch (error) {
-            console.error("[courses:getPublishedByOrganization] Erro:", error);
             return [];
         }
     },
@@ -189,39 +168,29 @@ export const getPublishedByOrganization = query({
 export const getWithContent = query({
     args: { courseId: v.id("courses") },
     handler: async (ctx, args) => {
-        console.log("[courses:getWithContent] Buscando curso com ID:", args.courseId);
-
-        // Verificar autenticação - retorna null se não autenticado
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            console.log("[courses:getWithContent] Usuário NÃO autenticado");
-            return null;
-        }
-        console.log("[courses:getWithContent] Usuário autenticado:", identity.subject);
-
         try {
+            const auth = await requireAuth(ctx);
             const course = await ctx.db.get(args.courseId);
             if (!course) {
-                console.log("[courses:getWithContent] Curso NÃO encontrado para ID:", args.courseId);
                 return null;
             }
-            console.log("[courses:getWithContent] Curso encontrado:", course.title, "InstructorId:", course.instructorId);
+            if (auth.user.role !== "superadmin" && auth.user.organizationId !== course.organizationId) {
+                return null;
+            }
 
             const modules = await ctx.db
                 .query("modules")
                 .withIndex("by_course", (q) => q.eq("courseId", args.courseId))
                 .collect();
 
-            console.log("[courses:getWithContent] Módulos encontrados:", modules.length);
-
             const modulesWithLessons = await Promise.all(
-                modules.map(async (module) => {
+                modules.map(async (courseModule) => {
                     const lessons = await ctx.db
                         .query("lessons")
-                        .withIndex("by_module", (q) => q.eq("moduleId", module._id))
+                        .withIndex("by_module", (q) => q.eq("moduleId", courseModule._id))
                         .collect();
                     return {
-                        ...module,
+                        ...courseModule,
                         lessons: lessons.sort((a, b) => a.order - b.order),
                     };
                 })
@@ -236,7 +205,6 @@ export const getWithContent = query({
                 modules: modulesWithLessons.sort((a, b) => a.order - b.order),
             };
         } catch (error) {
-            console.error("[courses:getWithContent] Erro:", error);
             return null;
         }
     },
@@ -246,28 +214,29 @@ export const getWithContent = query({
 export const getByInstructor = query({
     args: { instructorId: v.id("users") },
     handler: async (ctx, args) => {
-        console.log("[courses:getByInstructor] Buscando cursos para instructorId:", args.instructorId);
-
-        // Verificar autenticação - retorna array vazio se não autenticado
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            console.log("[courses:getByInstructor] Usuário NÃO autenticado");
-            return [];
-        }
-        console.log("[courses:getByInstructor] Usuário autenticado:", identity.subject);
-
         try {
+            const auth = await requireRole(ctx, ["superadmin", "admin", "professor"]);
+
+            if (auth.user.role === "professor" && auth.user._id !== args.instructorId) {
+                return [];
+            }
+
+            if (auth.user.role === "admin") {
+                const instructor = await ctx.db.get(args.instructorId);
+                if (!instructor) return [];
+                if (!auth.user.organizationId || instructor.organizationId !== auth.user.organizationId) return [];
+            }
+
             const courses = await ctx.db
                 .query("courses")
                 .withIndex("by_instructor", (q) => q.eq("instructorId", args.instructorId))
                 .collect();
 
-            console.log("[courses:getByInstructor] Cursos encontrados:", courses.length);
-            courses.forEach(c => console.log("  - Curso:", c.title, "ID:", c._id));
-
+            if (auth.user.role !== "superadmin") {
+                return courses.filter((c) => c.organizationId === auth.user.organizationId);
+            }
             return courses;
         } catch (error) {
-            console.error("[courses:getByInstructor] Erro:", error);
             return [];
         }
     },
@@ -287,24 +256,43 @@ export const create = mutation({
         price: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
-        // DEBUG: Verificar autenticação
-        const identity = await ctx.auth.getUserIdentity();
-        console.log("[courses:create] Identity:", identity ? "authenticated" : "NOT authenticated");
-
         try {
+            const auth = await requireRole(ctx, ["superadmin", "admin", "professor"]);
+
+            const organizationId =
+                auth.user.role === "superadmin"
+                    ? args.organizationId
+                    : auth.user.organizationId;
+            if (!organizationId) throw new Error("Organização não encontrada");
+
+            const instructorId =
+                auth.user.role === "professor"
+                    ? auth.user._id
+                    : args.instructorId;
+
+            if (auth.user.role === "admin" && args.organizationId !== auth.user.organizationId) {
+                throw new Error("Acesso negado");
+            }
+
+            const instructor = await ctx.db.get(instructorId);
+            if (!instructor) throw new Error("Instrutor não encontrado");
+            if (auth.user.role !== "superadmin" && instructor.organizationId !== organizationId) {
+                throw new Error("Acesso negado");
+            }
+
             const now = Date.now();
             const courseId = await ctx.db.insert("courses", {
                 ...args,
+                organizationId,
+                instructorId,
                 duration: 0,
                 isPublished: false,
                 isFeatured: false,
                 createdAt: now,
                 updatedAt: now,
             });
-            console.log("[courses:create] Created course:", courseId);
             return courseId;
         } catch (error) {
-            console.error("[courses:create] Error:", error);
             throw error;
         }
     },
@@ -324,19 +312,14 @@ export const update = mutation({
         price: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
-        // DEBUG: Verificar autenticação
-        const identity = await ctx.auth.getUserIdentity();
-        console.log("[courses:update] Identity:", identity ? "authenticated" : "NOT authenticated");
-
         try {
+            await requireCourseAccess(ctx, args.courseId);
             const { courseId, ...updates } = args;
             await ctx.db.patch(courseId, {
                 ...updates,
                 updatedAt: Date.now(),
             });
-            console.log("[courses:update] Updated course:", courseId);
         } catch (error) {
-            console.error("[courses:update] Error:", error);
             throw error;
         }
     },
@@ -346,11 +329,9 @@ export const update = mutation({
 export const remove = mutation({
     args: { courseId: v.id("courses") },
     handler: async (ctx, args) => {
-        // DEBUG: Verificar autenticação
-        const identity = await ctx.auth.getUserIdentity();
-        console.log("[courses:remove] Identity:", identity ? "authenticated" : "NOT authenticated");
-
         try {
+            await requireCourseAccess(ctx, args.courseId);
+
             // Delete all lessons
             const lessons = await ctx.db
                 .query("lessons")
@@ -365,15 +346,13 @@ export const remove = mutation({
                 .query("modules")
                 .withIndex("by_course", (q) => q.eq("courseId", args.courseId))
                 .collect();
-            for (const module of modules) {
-                await ctx.db.delete(module._id);
+            for (const courseModule of modules) {
+                await ctx.db.delete(courseModule._id);
             }
 
             // Delete course
             await ctx.db.delete(args.courseId);
-            console.log("[courses:remove] Deleted course:", args.courseId);
         } catch (error) {
-            console.error("[courses:remove] Error:", error);
             throw error;
         }
     },
@@ -387,9 +366,7 @@ export const createModule = mutation({
         description: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
-        // DEBUG: Verificar autenticação
-        const identity = await ctx.auth.getUserIdentity();
-        console.log("[courses:createModule] Identity:", identity ? "authenticated" : "NOT authenticated");
+        await requireCourseAccess(ctx, args.courseId);
 
         const existingModules = await ctx.db
             .query("modules")
@@ -442,9 +419,11 @@ export const createLesson = mutation({
         isFree: v.optional(v.boolean()),
     },
     handler: async (ctx, args) => {
-        // DEBUG: Verificar autenticação
-        const identity = await ctx.auth.getUserIdentity();
-        console.log("[courses:createLesson] Identity:", identity ? "authenticated" : "NOT authenticated");
+        await requireCourseAccess(ctx, args.courseId);
+
+        const courseModule = await ctx.db.get(args.moduleId);
+        if (!courseModule) throw new Error("Módulo não encontrado");
+        if (courseModule.courseId !== args.courseId) throw new Error("Acesso negado");
 
         const existingLessons = await ctx.db
             .query("lessons")
@@ -521,14 +500,11 @@ export const updateLesson = mutation({
         isPublished: v.optional(v.boolean()),
     },
     handler: async (ctx, args) => {
-        // DEBUG: Verificar autenticação
-        const identity = await ctx.auth.getUserIdentity();
-        console.log("[courses:updateLesson] Identity:", identity ? "authenticated" : "NOT authenticated");
-
         const lesson = await ctx.db.get(args.lessonId);
         if (!lesson) {
             throw new Error("Aula não encontrada");
         }
+        await requireCourseAccess(ctx, lesson.courseId);
 
         const { lessonId, ...updates } = args;
         const oldDuration = lesson.duration ?? 0;
@@ -570,14 +546,11 @@ export const deleteLesson = mutation({
         lessonId: v.id("lessons"),
     },
     handler: async (ctx, args) => {
-        // DEBUG: Verificar autenticação
-        const identity = await ctx.auth.getUserIdentity();
-        console.log("[courses:deleteLesson] Identity:", identity ? "authenticated" : "NOT authenticated");
-
         const lesson = await ctx.db.get(args.lessonId);
         if (!lesson) {
             throw new Error("Aula não encontrada");
         }
+        await requireCourseAccess(ctx, lesson.courseId);
 
         // Update course duration
         const course = await ctx.db.get(lesson.courseId);
@@ -621,13 +594,9 @@ export const getStats = query({
             completionRate: 0,
         };
 
-        // Verificar autenticação - retorna valores padrão se não autenticado
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            return defaultStats;
-        }
-
         try {
+            await requireCourseAccess(ctx, args.courseId);
+
             const enrollments = await ctx.db
                 .query("enrollments")
                 .withIndex("by_course", (q) => q.eq("courseId", args.courseId))
@@ -643,7 +612,6 @@ export const getStats = query({
                 completionRate: enrollments.length > 0 ? Math.round((completed.length / enrollments.length) * 100) : 0,
             };
         } catch (error) {
-            console.error("[courses:getStats] Erro:", error);
             return defaultStats;
         }
     },

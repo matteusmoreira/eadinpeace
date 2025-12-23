@@ -58,27 +58,13 @@ export const getAll = query({
 export const getByUser = query({
     args: { userId: v.optional(v.id("users")) },
     handler: async (ctx, args) => {
-        // Verificar autenticação básica
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            console.log("[getByUser] Não autenticado");
-            return [];
-        }
-
         try {
-            // Verificar se userId foi fornecido
             if (!args.userId) {
-                console.log("[getByUser] userId não fornecido");
                 return [];
             }
 
-            // Verificar se o userId é válido
             const userId = args.userId;
-            const targetUser = await ctx.db.get(userId);
-            if (!targetUser) {
-                console.log("[getByUser] Usuário alvo não encontrado:", userId);
-                return [];
-            }
+            await requireOwnerOrAdmin(ctx, userId);
 
             const enrollments = await ctx.db
                 .query("enrollments")
@@ -123,7 +109,6 @@ export const getByUser = query({
 
             return enrollmentsWithCourses;
         } catch (error) {
-            console.error("[getByUser] Erro:", error);
             return [];
         }
     },
@@ -204,19 +189,27 @@ export const updateLessonProgress = mutation({
         isCompleted: v.boolean(),
     },
     handler: async (ctx, args) => {
-        // Verificar autenticação
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            throw new Error("Não autenticado");
-        }
+        const auth = await requireOwnerOrAdmin(ctx, args.userId);
 
         const now = Date.now();
 
-        // Get user to find their organization
         const user = await ctx.db.get(args.userId);
         if (!user || !user.organizationId) {
             throw new Error("User or organization not found");
         }
+        if (auth.user.role !== "superadmin" && user.organizationId !== auth.user.organizationId) {
+            throw new Error("Acesso negado");
+        }
+
+        const course = await ctx.db.get(args.courseId);
+        if (!course) throw new Error("Curso não encontrado");
+        if (auth.user.role !== "superadmin" && course.organizationId !== user.organizationId) {
+            throw new Error("Acesso negado");
+        }
+
+        const lesson = await ctx.db.get(args.lessonId);
+        if (!lesson) throw new Error("Aula não encontrada");
+        if (lesson.courseId !== args.courseId) throw new Error("Acesso negado");
 
         // Update or create lesson progress
         const existingProgress = await ctx.db
@@ -280,7 +273,10 @@ export const updateLessonProgress = mutation({
                 .withIndex("by_course", (q) => q.eq("courseId", args.courseId))
                 .collect();
 
-            const progress = Math.round((completedLessons.length / allLessons.length) * 100);
+            const progress =
+                allLessons.length > 0
+                    ? Math.round((completedLessons.length / allLessons.length) * 100)
+                    : 0;
             const isComplete = progress === 100;
             const wasAlreadyComplete = enrollment.completedAt !== undefined;
 

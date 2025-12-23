@@ -247,7 +247,7 @@ export const getUnresolvedByCourse = query({
             .withIndex("by_course", (q) => q.eq("courseId", args.courseId))
             .collect();
 
-        let unresolvedComments: any[] = [];
+        const unresolvedComments: any[] = [];
         for (const lesson of lessons) {
             const comments = await ctx.db
                 .query("lessonComments")

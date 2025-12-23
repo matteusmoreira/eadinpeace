@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -64,6 +65,11 @@ export default function AdminDashboardPage() {
 
     const isLoading = courses === undefined || allUsers === undefined;
 
+    const [now, setNow] = useState<number | null>(null);
+    useEffect(() => {
+        setNow(Date.now());
+    }, []);
+
     // Calculate stats
     const totalUsers = orgUsers.length;
     const professors = orgUsers.filter(u => u.role === "professor").length;
@@ -78,7 +84,9 @@ export default function AdminDashboardPage() {
         .slice(0, 5);
 
     const formatDate = (timestamp: number) => {
-        const diff = Date.now() - timestamp;
+        if (now === null) return new Date(timestamp).toLocaleDateString("pt-BR");
+
+        const diff = now - timestamp;
         const hours = Math.floor(diff / 3600000);
         const days = Math.floor(diff / 86400000);
 

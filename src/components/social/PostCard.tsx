@@ -314,7 +314,7 @@ export function PostCard({
                     {/* Comentário do compartilhamento */}
                     {post.isShared && post.shareComment && (
                         <p className="mt-3 text-sm italic text-muted-foreground">
-                            "{post.shareComment}"
+                            &quot;{post.shareComment}&quot;
                         </p>
                     )}
 

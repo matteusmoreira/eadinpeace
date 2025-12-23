@@ -1,17 +1,22 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { requireAuth } from "./authHelpers";
 
 // Get all organizations
 export const getAll = query({
     args: {},
     handler: async (ctx) => {
-        // Verificar autenticação - retorna array vazio se não autenticado
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            return [];
-        }
-
         try {
+            let auth;
+            try {
+                auth = await requireAuth(ctx);
+            } catch {
+                return [];
+            }
+            if (auth.user.role !== "superadmin") {
+                return [];
+            }
+
             const orgs = await ctx.db.query("organizations").collect();
 
             // Enrich with user counts
@@ -48,13 +53,18 @@ export const getAll = query({
 export const getById = query({
     args: { organizationId: v.id("organizations") },
     handler: async (ctx, args) => {
-        // Verificar autenticação - retorna null se não autenticado
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            return null;
-        }
-
         try {
+            let auth;
+            try {
+                auth = await requireAuth(ctx);
+            } catch {
+                return null;
+            }
+
+            if (auth.user.role !== "superadmin" && auth.user.organizationId !== args.organizationId) {
+                return null;
+            }
+
             return await ctx.db.get(args.organizationId);
         } catch (error) {
             console.error("[organizations:getById] Erro:", error);
@@ -67,17 +77,25 @@ export const getById = query({
 export const getBySlug = query({
     args: { slug: v.string() },
     handler: async (ctx, args) => {
-        // Verificar autenticação - retorna null se não autenticado
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            return null;
-        }
-
         try {
-            return await ctx.db
+            let auth;
+            try {
+                auth = await requireAuth(ctx);
+            } catch {
+                return null;
+            }
+
+            const org = await ctx.db
                 .query("organizations")
                 .withIndex("by_slug", (q) => q.eq("slug", args.slug))
                 .first();
+            if (!org) return null;
+
+            if (auth.user.role !== "superadmin" && auth.user.organizationId !== org._id) {
+                return null;
+            }
+
+            return org;
         } catch (error) {
             console.error("[organizations:getBySlug] Erro:", error);
             return null;
@@ -89,17 +107,25 @@ export const getBySlug = query({
 export const getByClerkOrgId = query({
     args: { clerkOrgId: v.string() },
     handler: async (ctx, args) => {
-        // Verificar autenticação - retorna null se não autenticado
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            return null;
-        }
-
         try {
-            return await ctx.db
+            let auth;
+            try {
+                auth = await requireAuth(ctx);
+            } catch {
+                return null;
+            }
+
+            const org = await ctx.db
                 .query("organizations")
                 .withIndex("by_clerk_org", (q) => q.eq("clerkOrgId", args.clerkOrgId))
                 .first();
+            if (!org) return null;
+
+            if (auth.user.role !== "superadmin" && auth.user.organizationId !== org._id) {
+                return null;
+            }
+
+            return org;
         } catch (error) {
             console.error("[organizations:getByClerkOrgId] Erro:", error);
             return null;
@@ -125,10 +151,9 @@ export const create = mutation({
         adminClerkId: v.optional(v.string()), // Clerk ID do admin (se já criado)
     },
     handler: async (ctx, args) => {
-        // Verificar autenticação
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            throw new Error("Não autenticado");
+        const auth = await requireAuth(ctx);
+        if (auth.user.role !== "superadmin") {
+            throw new Error("Acesso negado");
         }
 
         const now = Date.now();
@@ -200,10 +225,9 @@ export const update = mutation({
         isActive: v.optional(v.boolean()),
     },
     handler: async (ctx, args) => {
-        // Verificar autenticação
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            throw new Error("Não autenticado");
+        const auth = await requireAuth(ctx);
+        if (auth.user.role !== "superadmin") {
+            throw new Error("Acesso negado");
         }
 
         const { organizationId, ...updates } = args;
@@ -250,10 +274,9 @@ export const update = mutation({
 export const remove = mutation({
     args: { organizationId: v.id("organizations") },
     handler: async (ctx, args) => {
-        // Verificar autenticação
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            throw new Error("Não autenticado");
+        const auth = await requireAuth(ctx);
+        if (auth.user.role !== "superadmin") {
+            throw new Error("Acesso negado");
         }
 
         // Remove all users from this organization
@@ -298,13 +321,17 @@ export const getStats = query({
             },
         };
 
-        // Verificar autenticação - retorna valores padrão se não autenticado
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            return defaultStats;
-        }
-
         try {
+            let auth;
+            try {
+                auth = await requireAuth(ctx);
+            } catch {
+                return defaultStats;
+            }
+            if (auth.user.role !== "superadmin" && auth.user.organizationId !== args.organizationId) {
+                return defaultStats;
+            }
+
             const users = await ctx.db
                 .query("users")
                 .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
@@ -353,13 +380,17 @@ export const getGlobalStats = query({
             },
         };
 
-        // Verificar autenticação - retorna valores padrão se não autenticado
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            return defaultStats;
-        }
-
         try {
+            let auth;
+            try {
+                auth = await requireAuth(ctx);
+            } catch {
+                return defaultStats;
+            }
+            if (auth.user.role !== "superadmin") {
+                return defaultStats;
+            }
+
             const orgs = await ctx.db.query("organizations").collect();
             const users = await ctx.db.query("users").collect();
             const courses = await ctx.db.query("courses").collect();
