@@ -220,7 +220,14 @@ export const update = mutation({
         name: v.optional(v.string()),
         slug: v.optional(v.string()),
         logo: v.optional(v.string()),
+        favicon: v.optional(v.string()),
         primaryColor: v.optional(v.string()),
+        secondaryColor: v.optional(v.string()),
+        font: v.optional(v.string()),
+        borderRadius: v.optional(v.string()),
+        theme: v.optional(v.string()),
+        enableDarkMode: v.optional(v.boolean()),
+        enableAnimations: v.optional(v.boolean()),
         plan: v.optional(v.union(v.literal("starter"), v.literal("professional"), v.literal("enterprise"))),
         isActive: v.optional(v.boolean()),
     },
@@ -267,6 +274,54 @@ export const update = mutation({
             ...cleanUpdates,
             updatedAt: Date.now(),
         });
+    },
+});
+
+// Update organization logo
+export const updateLogo = mutation({
+    args: {
+        organizationId: v.id("organizations"),
+        storageId: v.id("_storage"),
+    },
+    handler: async (ctx, args) => {
+        const auth = await requireAuth(ctx);
+        if (auth.user.role !== "superadmin") {
+            throw new Error("Acesso negado");
+        }
+
+        const url = await ctx.storage.getUrl(args.storageId);
+        if (!url) throw new Error("Erro ao gerar URL do arquivo");
+
+        await ctx.db.patch(args.organizationId, {
+            logo: url,
+            updatedAt: Date.now(),
+        });
+
+        return url;
+    },
+});
+
+// Update organization favicon
+export const updateFavicon = mutation({
+    args: {
+        organizationId: v.id("organizations"),
+        storageId: v.id("_storage"),
+    },
+    handler: async (ctx, args) => {
+        const auth = await requireAuth(ctx);
+        if (auth.user.role !== "superadmin") {
+            throw new Error("Acesso negado");
+        }
+
+        const url = await ctx.storage.getUrl(args.storageId);
+        if (!url) throw new Error("Erro ao gerar URL do arquivo");
+
+        await ctx.db.patch(args.organizationId, {
+            favicon: url,
+            updatedAt: Date.now(),
+        });
+
+        return url;
     },
 });
 

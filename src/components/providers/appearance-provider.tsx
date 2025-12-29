@@ -4,6 +4,8 @@ import { createContext, useContext, useEffect, ReactNode } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { useTheme } from "./theme-provider";
+import { useOrganization } from "@clerk/nextjs";
+import { Id } from "@convex/_generated/dataModel";
 
 type AppearanceSettings = {
     primaryColor: string;
@@ -45,6 +47,8 @@ function hexToHSL(hex: string): { h: number; s: number; l: number } {
     hex = hex.replace(/^#/, '');
 
     // Parse hex
+    if (!hex) return { h: 0, s: 0, l: 0 }; // Fallback
+
     const r = parseInt(hex.substring(0, 2), 16) / 255;
     const g = parseInt(hex.substring(2, 4), 16) / 255;
     const b = parseInt(hex.substring(4, 6), 16) / 255;
@@ -94,33 +98,46 @@ function getForegroundColor(hex: string): string {
 
 export function AppearanceProvider({ children }: { children: ReactNode }) {
     const { setTheme } = useTheme();
+    const { organization } = useOrganization();
 
-    // Buscar configurações de aparência do Convex
-    const appearanceData = useQuery(api.platformSettings.getByKey, { key: "appearance" });
+    // Buscar configurações globais
+    const globalSettingsData = useQuery(api.platformSettings.getByKey, { key: "appearance" });
 
-    const isLoading = appearanceData === undefined;
+    // Buscar configurações da organização (se existir)
+    // Note: We need a query that returns minimal info or checks by Clerk Org ID if we don't have the Convex ID yet.
+    // However, usually we can get the convex organization by Clerk ID.
+    // Let's assume we use `getByClerkOrgId` if we have `organization.id`.
+    const orgSettingsData = useQuery(
+        api.organizations.getByClerkOrgId,
+        organization?.id ? { clerkOrgId: organization.id } : "skip"
+    );
 
-    const settings: AppearanceSettings = appearanceData ? {
-        primaryColor: appearanceData.primaryColor || defaultSettings.primaryColor,
-        secondaryColor: appearanceData.secondaryColor || defaultSettings.secondaryColor,
-        theme: appearanceData.theme || defaultSettings.theme,
-        font: appearanceData.font || defaultSettings.font,
-        enableDarkMode: appearanceData.enableDarkMode ?? defaultSettings.enableDarkMode,
-        enableAnimations: appearanceData.enableAnimations ?? defaultSettings.enableAnimations,
-        borderRadius: appearanceData.borderRadius || defaultSettings.borderRadius,
-        logoUrl: appearanceData.logoUrl || defaultSettings.logoUrl,
-        faviconUrl: appearanceData.faviconUrl || defaultSettings.faviconUrl,
-    } : defaultSettings;
+    const isLoading = globalSettingsData === undefined && (organization?.id ? orgSettingsData === undefined : false);
+
+    // Merge settings: Global < Default < Org
+    const mergedSettings: AppearanceSettings = {
+        primaryColor: orgSettingsData?.primaryColor || globalSettingsData?.primaryColor || defaultSettings.primaryColor,
+        secondaryColor: orgSettingsData?.secondaryColor || globalSettingsData?.secondaryColor || defaultSettings.secondaryColor,
+        theme: orgSettingsData?.theme || globalSettingsData?.theme || defaultSettings.theme,
+        font: orgSettingsData?.font || globalSettingsData?.font || defaultSettings.font,
+        enableDarkMode: orgSettingsData?.enableDarkMode ?? globalSettingsData?.enableDarkMode ?? defaultSettings.enableDarkMode,
+        enableAnimations: orgSettingsData?.enableAnimations ?? globalSettingsData?.enableAnimations ?? defaultSettings.enableAnimations,
+        borderRadius: orgSettingsData?.borderRadius || globalSettingsData?.borderRadius || defaultSettings.borderRadius,
+        logoUrl: orgSettingsData?.logo || globalSettingsData?.logoUrl || defaultSettings.logoUrl,
+        faviconUrl: orgSettingsData?.favicon || globalSettingsData?.faviconUrl || defaultSettings.faviconUrl,
+    };
 
     // Aplicar tema quando as configurações mudarem
     useEffect(() => {
-        if (!isLoading && settings.theme) {
-            const validTheme = settings.theme as "dark" | "light" | "system";
+        if (!isLoading && mergedSettings.theme) {
+            const validTheme = mergedSettings.theme as "dark" | "light" | "system";
             if (["dark", "light", "system"].includes(validTheme)) {
+                // Only override if explicitly set to something other than system, or handle system carefully?
+                // UseTheme usually handles 'system'.
                 setTheme(validTheme);
             }
         }
-    }, [isLoading, settings.theme, setTheme]);
+    }, [isLoading, mergedSettings.theme, setTheme]);
 
     // Aplicar cores dinâmicas
     useEffect(() => {
@@ -128,30 +145,32 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
 
         const root = document.documentElement;
 
-        // Aplicar cor primária
-        const primaryHSL = hexToHSL(settings.primaryColor);
-        const secondaryHSL = hexToHSL(settings.secondaryColor);
+        // Validar cores antes de aplicar
+        if (!mergedSettings.primaryColor) return;
+        const colorToUse = mergedSettings.primaryColor.startsWith('#') ? mergedSettings.primaryColor : `#${mergedSettings.primaryColor}`;
+        const secondaryToUse = mergedSettings.secondaryColor ? (mergedSettings.secondaryColor.startsWith('#') ? mergedSettings.secondaryColor : `#${mergedSettings.secondaryColor}`) : colorToUse;
 
         // Light mode colors
-        root.style.setProperty('--primary', settings.primaryColor);
-        root.style.setProperty('--primary-foreground', getForegroundColor(settings.primaryColor));
-        root.style.setProperty('--accent', settings.secondaryColor);
-        root.style.setProperty('--accent-foreground', getForegroundColor(settings.secondaryColor));
-        root.style.setProperty('--ring', settings.primaryColor);
-        root.style.setProperty('--sidebar-primary', settings.primaryColor);
-        root.style.setProperty('--sidebar-primary-foreground', getForegroundColor(settings.primaryColor));
-        root.style.setProperty('--sidebar-ring', settings.primaryColor);
+        root.style.setProperty('--primary', colorToUse);
+        root.style.setProperty('--primary-foreground', getForegroundColor(colorToUse));
+        root.style.setProperty('--accent', secondaryToUse);
+        root.style.setProperty('--accent-foreground', getForegroundColor(secondaryToUse));
+        // Also update other variables mapped to primary usually
+        root.style.setProperty('--ring', colorToUse);
+        root.style.setProperty('--sidebar-primary', colorToUse);
+        root.style.setProperty('--sidebar-primary-foreground', getForegroundColor(colorToUse));
+        root.style.setProperty('--sidebar-ring', colorToUse);
 
         // Chart colors
-        root.style.setProperty('--chart-1', settings.primaryColor);
-        root.style.setProperty('--chart-2', settings.secondaryColor);
+        root.style.setProperty('--chart-1', colorToUse);
+        root.style.setProperty('--chart-2', secondaryToUse);
 
         // Gradient
-        const gradientPrimary = `linear-gradient(135deg, ${settings.primaryColor} 0%, ${settings.secondaryColor} 50%, ${adjustLightness(settings.secondaryColor, 10)} 100%)`;
+        const gradientPrimary = `linear-gradient(135deg, ${colorToUse} 0%, ${secondaryToUse} 50%, ${adjustLightness(secondaryToUse, 10)} 100%)`;
         root.style.setProperty('--gradient-primary', gradientPrimary);
 
         // Aplicar border radius
-        const radiusValue = parseFloat(settings.borderRadius);
+        const radiusValue = parseFloat(mergedSettings.borderRadius || "0.5");
         root.style.setProperty('--radius', `${radiusValue}rem`);
 
         // Aplicar fonte
@@ -163,13 +182,13 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
             'lato': '"Lato", system-ui, sans-serif',
         };
 
-        if (fontMap[settings.font]) {
-            root.style.setProperty('--font-sans', fontMap[settings.font]);
-            document.body.style.fontFamily = fontMap[settings.font];
+        if (fontMap[mergedSettings.font]) {
+            root.style.setProperty('--font-sans', fontMap[mergedSettings.font]);
+            document.body.style.fontFamily = fontMap[mergedSettings.font];
         }
 
         // Aplicar animações
-        if (!settings.enableAnimations) {
+        if (!mergedSettings.enableAnimations) {
             root.style.setProperty('--animation-duration', '0s');
             root.classList.add('no-animations');
         } else {
@@ -178,21 +197,21 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
         }
 
         // Aplicar favicon
-        if (settings.faviconUrl) {
+        if (mergedSettings.faviconUrl) {
             const existingFavicon = document.querySelector("link[rel='icon']");
             if (existingFavicon) {
-                existingFavicon.setAttribute('href', settings.faviconUrl);
+                existingFavicon.setAttribute('href', mergedSettings.faviconUrl);
             } else {
                 const link = document.createElement('link');
                 link.rel = 'icon';
-                link.href = settings.faviconUrl;
+                link.href = mergedSettings.faviconUrl;
                 document.head.appendChild(link);
             }
         }
-    }, [isLoading, settings]);
+    }, [isLoading, mergedSettings]);
 
     return (
-        <AppearanceContext.Provider value={{ settings, isLoading }}>
+        <AppearanceContext.Provider value={{ settings: mergedSettings, isLoading }}>
             {children}
         </AppearanceContext.Provider>
     );

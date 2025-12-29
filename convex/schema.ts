@@ -7,7 +7,14 @@ export default defineSchema({
         name: v.string(),
         slug: v.string(),
         logo: v.optional(v.string()),
-        primaryColor: v.optional(v.string()),
+        favicon: v.optional(v.string()),
+        primaryColor: v.optional(v.string()), // Main brand color
+        secondaryColor: v.optional(v.string()), // Accent/Secondary color
+        font: v.optional(v.string()), // inter, roboto, etc.
+        borderRadius: v.optional(v.string()), // 0, 0.25, 0.5, 0.75, 1
+        theme: v.optional(v.string()), // light, dark, system
+        enableDarkMode: v.optional(v.boolean()),
+        enableAnimations: v.optional(v.boolean()),
         plan: v.union(v.literal("starter"), v.literal("professional"), v.literal("enterprise")),
         maxUsers: v.number(),
         maxCourses: v.number(),
