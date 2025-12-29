@@ -43,6 +43,8 @@ import { useClerk, useUser } from "@clerk/nextjs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useOrganization } from "@/hooks/use-organization";
 import { AlertCircle, XCircle } from "lucide-react";
+import { useQuery } from "convex/react";
+import { api } from "@convex/_generated/api";
 
 export type UserRole = "superadmin" | "admin" | "professor" | "student";
 
@@ -227,6 +229,8 @@ interface SidebarProps {
     isMobile?: boolean;
 }
 
+
+
 export function Sidebar({ role, isMobile = false }: SidebarProps) {
     const pathname = usePathname();
     const [isCollapsed, setIsCollapsed] = useState(false);
@@ -235,6 +239,15 @@ export function Sidebar({ role, isMobile = false }: SidebarProps) {
     const { user } = useUser();
 
     const { isImpersonating, clearSelectedOrg, selectedOrgId } = useOrganization();
+
+    // Fetch Custom Settings
+    const appearanceSettings = useQuery(api.platformSettings.getByKey, { key: "appearance" });
+    const generalSettings = useQuery(api.platformSettings.getByKey, { key: "general" });
+
+    // Default values
+    const platformName = generalSettings?.platformName || "EAD Pro";
+    const logoUrl = appearanceSettings?.logoUrl;
+    // ...
 
     const filteredSections = menuSections.filter((section) => {
         // Se for superadmin e estiver impersonating, mostra seções de superadmin E admin
@@ -295,10 +308,22 @@ export function Sidebar({ role, isMobile = false }: SidebarProps) {
                                 exit={{ opacity: 0 }}
                                 className="flex items-center gap-2"
                             >
-                                <div className="h-8 w-8 rounded-lg gradient-bg flex items-center justify-center">
-                                    <GraduationCap className="h-5 w-5 text-white" />
-                                </div>
-                                <span className="font-bold text-lg gradient-text">EAD Pro</span>
+                                {logoUrl ? (
+                                    <div className="flex items-center justify-start h-8">
+                                        <img
+                                            src={logoUrl}
+                                            alt={platformName}
+                                            className="h-full object-contain max-w-[200px]"
+                                        />
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="h-8 w-8 rounded-lg gradient-bg flex items-center justify-center shrink-0">
+                                            <GraduationCap className="h-5 w-5 text-white" />
+                                        </div>
+                                        <span className="font-bold text-lg gradient-text truncate">{platformName}</span>
+                                    </>
+                                )}
                             </motion.div>
                         ) : (
                             <motion.div
@@ -308,9 +333,19 @@ export function Sidebar({ role, isMobile = false }: SidebarProps) {
                                 exit={{ opacity: 0 }}
                                 className="flex justify-center w-full"
                             >
-                                <div className="h-8 w-8 rounded-lg gradient-bg flex items-center justify-center">
-                                    <GraduationCap className="h-5 w-5 text-white" />
-                                </div>
+                                {logoUrl ? (
+                                    <div className="flex items-center justify-center h-8 w-8">
+                                        <img
+                                            src={logoUrl}
+                                            alt={platformName}
+                                            className="max-h-8 max-w-8 object-contain"
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className="h-8 w-8 rounded-lg gradient-bg flex items-center justify-center">
+                                        <GraduationCap className="h-5 w-5 text-white" />
+                                    </div>
+                                )}
                             </motion.div>
                         )}
                     </AnimatePresence>
@@ -319,7 +354,7 @@ export function Sidebar({ role, isMobile = false }: SidebarProps) {
                             variant="ghost"
                             size="icon"
                             onClick={() => setIsCollapsed(!isCollapsed)}
-                            className="h-8 w-8"
+                            className="h-8 w-8 ml-auto"
                         >
                             {isCollapsed ? (
                                 <ChevronRight className="h-4 w-4" />

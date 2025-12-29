@@ -500,8 +500,8 @@ export default function SuperadminAppearancePage() {
                                         onChange={(e) => handleFileUpload(e, "logo")}
                                     />
                                     <div
-                                        className={`border-2 border-dashed rounded-lg p-8 text-center hover:border-primary transition-colors cursor-pointer relative ${selectedOrgId === "global" ? "opacity-50 cursor-not-allowed" : ""}`}
-                                        onClick={() => selectedOrgId !== "global" && logoInputRef.current?.click()}
+                                        className="border-2 border-dashed rounded-lg p-8 text-center hover:border-primary transition-colors cursor-pointer relative"
+                                        onClick={() => logoInputRef.current?.click()}
                                     >
                                         {isUploadingLogo && (
                                             <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-10">
@@ -514,7 +514,7 @@ export default function SuperadminAppearancePage() {
                                             <>
                                                 <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                                                 <p className="text-sm text-muted-foreground">
-                                                    {selectedOrgId === "global" ? "Selecione uma organização para upload" : "Arraste uma imagem ou clique para selecionar"}
+                                                    Arraste uma imagem ou clique para selecionar
                                                 </p>
                                                 <p className="text-xs text-muted-foreground mt-1">
                                                     PNG, SVG ou JPG (max. 2MB)
@@ -534,8 +534,8 @@ export default function SuperadminAppearancePage() {
                                         onChange={(e) => handleFileUpload(e, "favicon")}
                                     />
                                     <div
-                                        className={`border-2 border-dashed rounded-lg p-8 text-center hover:border-primary transition-colors cursor-pointer relative ${selectedOrgId === "global" ? "opacity-50 cursor-not-allowed" : ""}`}
-                                        onClick={() => selectedOrgId !== "global" && faviconInputRef.current?.click()}
+                                        className="border-2 border-dashed rounded-lg p-8 text-center hover:border-primary transition-colors cursor-pointer relative"
+                                        onClick={() => faviconInputRef.current?.click()}
                                     >
                                         {isUploadingFavicon && (
                                             <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-10">
@@ -548,7 +548,7 @@ export default function SuperadminAppearancePage() {
                                             <>
                                                 <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                                                 <p className="text-sm text-muted-foreground">
-                                                    {selectedOrgId === "global" ? "Selecione uma organização para upload" : "Arraste uma imagem ou clique para selecionar"}
+                                                    Arraste uma imagem ou clique para selecionar
                                                 </p>
                                                 <p className="text-xs text-muted-foreground mt-1">
                                                     ICO ou PNG (32x32 ou 64x64)
