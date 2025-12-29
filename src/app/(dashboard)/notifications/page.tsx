@@ -142,7 +142,7 @@ export default function NotificationsPage() {
 
     return (
         <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
-            <motion.div variants={item} className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl md:text-3xl font-bold">Notificações</h1>
                     <p className="text-muted-foreground">
@@ -164,7 +164,7 @@ export default function NotificationsPage() {
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
             ) : notifications?.length === 0 ? (
-                <motion.div variants={item} className="text-center py-12">
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.3 }} className="text-center py-12">
                     <Bell className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
                     <h3 className="text-lg font-medium mb-2">Nenhuma notificação</h3>
                     <p className="text-muted-foreground">
@@ -172,7 +172,7 @@ export default function NotificationsPage() {
                     </p>
                 </motion.div>
             ) : (
-                <motion.div variants={item} className="space-y-2">
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.3 }} className="space-y-2">
                     {notifications.map((notification) => {
                         const config = typeConfig[notification.type] || typeConfig.info;
                         const Icon = config.icon;

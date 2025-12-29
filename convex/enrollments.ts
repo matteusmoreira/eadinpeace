@@ -76,10 +76,8 @@ export const getByUser = query({
                 enrollments.map(async (enrollment) => {
                     const course = await ctx.db.get(enrollment.courseId);
                     if (!course) {
-                        return {
-                            ...enrollment,
-                            course: null,
-                        };
+                        // Curso foi excluído, retornar null para filtrar depois
+                        return null;
                     }
 
                     // Get instructor
@@ -107,7 +105,8 @@ export const getByUser = query({
                 })
             );
 
-            return enrollmentsWithCourses;
+            // Filtrar enrollments de cursos que foram excluídos
+            return enrollmentsWithCourses.filter((e) => e !== null);
         } catch (error) {
             return [];
         }

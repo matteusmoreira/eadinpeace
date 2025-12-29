@@ -1,6 +1,77 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalMutation } from "./_generated/server";
 import { requireAuth } from "./authHelpers";
+
+// Helper function to generate URL-friendly slug from name
+function generateSlug(firstName: string, lastName: string): string {
+    const base = `${firstName}-${lastName}`
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "") // Remove acentos
+        .replace(/[^a-z0-9-]/g, "-")     // Caracteres especiais viram hífen
+        .replace(/-+/g, "-")              // Remove hífens duplicados
+        .replace(/^-|-$/g, "");           // Remove hífens no início/fim
+    return base || "usuario";
+}
+
+// Get user by Slug (URL amigável)
+export const getBySlug = query({
+    args: { slug: v.string() },
+    handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) return null;
+
+        const user = await ctx.db
+            .query("users")
+            .withIndex("by_slug", (q) => q.eq("slug", args.slug))
+            .first();
+
+        if (!user) return null;
+
+        // Check permission - allow if superadmin, admin of same org, or self
+        const caller = await ctx.db
+            .query("users")
+            .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+            .first();
+
+        if (!caller) return null;
+
+        if (caller.role === "superadmin") return user;
+        if (caller._id === user._id) return user;
+        if (caller.role === "admin" && caller.organizationId && caller.organizationId === user.organizationId) {
+            return user;
+        }
+
+        return null;
+    },
+});
+
+// Internal helper to generate unique slug
+async function generateUniqueSlug(
+    ctx: { db: any },
+    firstName: string,
+    lastName: string,
+    excludeUserId?: any
+): Promise<string> {
+    let slug = generateSlug(firstName, lastName);
+    let counter = 1;
+
+    while (true) {
+        const existing = await ctx.db
+            .query("users")
+            .withIndex("by_slug", (q: any) => q.eq("slug", slug))
+            .first();
+
+        if (!existing || (excludeUserId && existing._id === excludeUserId)) {
+            break;
+        }
+
+        slug = `${generateSlug(firstName, lastName)}-${counter}`;
+        counter++;
+    }
+
+    return slug;
+}
 
 // Get user by Clerk ID
 export const getByClerkId = query({
@@ -242,11 +313,15 @@ export const upsertFromClerk = mutation({
             const allowRoleBootstrap = anyUser.length === 0;
             const role = allowRoleBootstrap ? (args.role || "student") : "student";
 
+            // Generate unique slug for new user
+            const slug = await generateUniqueSlug(ctx, args.firstName, args.lastName);
+
             return await ctx.db.insert("users", {
                 clerkId: args.clerkId,
                 email: args.email,
                 firstName: args.firstName,
                 lastName: args.lastName,
+                slug,
                 imageUrl: args.imageUrl,
                 role,
                 isActive: true,
@@ -306,11 +381,15 @@ export const create = mutation({
         const organizationId =
             auth.user.role === "admin" ? auth.user.organizationId : args.organizationId;
 
+        // Generate unique slug for new user
+        const slug = await generateUniqueSlug(ctx, args.firstName, args.lastName);
+
         return await ctx.db.insert("users", {
             clerkId: args.clerkId || `pending_${now}`, // Will be updated when user accepts invitation
             email: args.email,
             firstName: args.firstName,
             lastName: args.lastName,
+            slug,
             imageUrl: args.imageUrl,
             role: args.role,
             organizationId,
@@ -507,6 +586,15 @@ export const getStats = query({
                 .withIndex("by_user", (q) => q.eq("userId", args.userId))
                 .collect();
 
+            // Filtrar apenas enrollments cujos cursos ainda existem
+            const validEnrollments = [];
+            for (const enrollment of enrollments) {
+                const course = await ctx.db.get(enrollment.courseId);
+                if (course) {
+                    validEnrollments.push(enrollment);
+                }
+            }
+
             const certificates = await ctx.db
                 .query("certificates")
                 .withIndex("by_user", (q) => q.eq("userId", args.userId))
@@ -523,8 +611,8 @@ export const getStats = query({
                 .collect();
 
             return {
-                coursesInProgress: enrollments.filter((e) => !e.completedAt).length,
-                coursesCompleted: enrollments.filter((e) => e.completedAt).length,
+                coursesInProgress: validEnrollments.filter((e) => !e.completedAt).length,
+                coursesCompleted: validEnrollments.filter((e) => e.completedAt).length,
                 certificates: certificates.length,
                 currentStreak: streak?.currentStreak || 0,
                 achievements: achievements.length,
@@ -841,5 +929,48 @@ export const getOrCreateUserOrganization = query({
 
         console.log("[getOrCreateUserOrganization] No organization found");
         return null;
+    },
+});
+
+// Migration: Add slugs to existing users who don't have one
+export const migrateAddSlugs = internalMutation({
+    handler: async (ctx) => {
+        const users = await ctx.db.query("users").collect();
+        let updated = 0;
+
+        for (const user of users) {
+            if (!user.slug) {
+                const slug = await generateUniqueSlug(ctx, user.firstName, user.lastName, user._id);
+                await ctx.db.patch(user._id, { slug });
+                updated++;
+            }
+        }
+
+        console.log(`[migrateAddSlugs] Updated ${updated} users with slugs`);
+        return { updated };
+    },
+});
+
+// Public mutation to trigger slug migration (for admin use)
+export const addSlugToExistingUsers = mutation({
+    args: {},
+    handler: async (ctx) => {
+        const auth = await requireAuth(ctx);
+        if (auth.user.role !== "superadmin") {
+            throw new Error("Acesso negado");
+        }
+
+        const users = await ctx.db.query("users").collect();
+        let updated = 0;
+
+        for (const user of users) {
+            if (!user.slug) {
+                const slug = await generateUniqueSlug(ctx, user.firstName, user.lastName, user._id);
+                await ctx.db.patch(user._id, { slug });
+                updated++;
+            }
+        }
+
+        return { updated, message: `${updated} usuários atualizados com slug` };
     },
 });

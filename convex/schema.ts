@@ -25,6 +25,7 @@ export default defineSchema({
         email: v.string(),
         firstName: v.string(),
         lastName: v.string(),
+        slug: v.optional(v.string()), // URL amigável: matteus-bochimpani
         imageUrl: v.optional(v.string()),
         role: v.union(
             v.literal("superadmin"),
@@ -40,6 +41,7 @@ export default defineSchema({
     })
         .index("by_clerk_id", ["clerkId"])
         .index("by_email", ["email"])
+        .index("by_slug", ["slug"])
         .index("by_organization", ["organizationId"])
         .index("by_role", ["role"]),
 
