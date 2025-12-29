@@ -186,23 +186,40 @@ export const updateAppearance = mutation({
     handler: async (ctx, args) => {
         const { userId, logoStorageId, faviconStorageId, ...updates } = args;
 
-        // Create a mutable copy and explicitly type it as any to allow adding properties
-        const patchData: any = { ...updates };
+        // Create a copy of updates to modify
+        const patchData: Record<string, any> = { ...updates };
 
         // Resolve storage IDs to URLs if provided
         if (logoStorageId) {
-            const url = await ctx.storage.getUrl(logoStorageId);
-            if (url) {
-                patchData.logoUrl = url;
+            try {
+                const url = await ctx.storage.getUrl(logoStorageId);
+                if (url) {
+                    patchData.logoUrl = url;
+                }
+            } catch (error) {
+                console.error("Error getting logo URL:", error);
+                throw new Error("Failed to process logo upload");
             }
         }
 
         if (faviconStorageId) {
-            const url = await ctx.storage.getUrl(faviconStorageId);
-            if (url) {
-                patchData.faviconUrl = url;
+            try {
+                const url = await ctx.storage.getUrl(faviconStorageId);
+                if (url) {
+                    patchData.faviconUrl = url;
+                }
+            } catch (error) {
+                console.error("Error getting favicon URL:", error);
+                throw new Error("Failed to process favicon upload");
             }
         }
+
+        // Clean undefined values
+        Object.keys(patchData).forEach((key) => {
+            if (patchData[key] === undefined) {
+                delete patchData[key];
+            }
+        });
 
         const existing = await ctx.db
             .query("platformSettings")
