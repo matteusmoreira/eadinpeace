@@ -5,6 +5,8 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useEffect, useRef, useMemo } from "react";
 import { memoryCache, CACHE_TTL, CACHE_KEYS } from "@/lib/cache";
+import { useOrganizationState } from "@/components/providers/organization-provider";
+import { Id } from "@convex/_generated/dataModel";
 
 export function useCurrentUser() {
     const { user: clerkUser, isLoaded } = useUser();
@@ -51,10 +53,19 @@ export function useCurrentUser() {
     // Retorna dados do cache enquanto carrega para UX mais fluída
     const user = convexUser ?? cachedUser;
 
+    const organizationContext = useOrganizationState();
+    const selectedOrgId = organizationContext?.selectedOrgId;
+
+    // A organização efetiva é a selecionada (se for superadmin) ou a do próprio usuário
+    const organizationId = (user?.role === "superadmin" && selectedOrgId)
+        ? selectedOrgId
+        : (user?.organizationId as Id<"organizations"> | undefined);
+
     return {
         user,
         clerkUser,
         isLoading: !isLoaded || (convexUser === undefined && cachedUser === null),
+        organizationId,
     };
 }
 

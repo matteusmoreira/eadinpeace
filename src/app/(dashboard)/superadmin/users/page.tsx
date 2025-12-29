@@ -256,7 +256,7 @@ export default function UsersPage() {
                                 </TableHeader>
                                 <TableBody>
                                     {filteredUsers.map((user) => {
-                                        const role = roleConfig[user.role];
+                                        const role = roleConfig[user.role] || roleConfig.student;
                                         return (
                                             <TableRow key={user._id}>
                                                 <TableCell>

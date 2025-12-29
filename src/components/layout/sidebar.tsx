@@ -41,6 +41,8 @@ import {
 import { useState, useEffect } from "react";
 import { useClerk, useUser } from "@clerk/nextjs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useOrganization } from "@/hooks/use-organization";
+import { AlertCircle, XCircle } from "lucide-react";
 
 export type UserRole = "superadmin" | "admin" | "professor" | "student";
 
@@ -232,9 +234,15 @@ export function Sidebar({ role, isMobile = false }: SidebarProps) {
     const { signOut } = useClerk();
     const { user } = useUser();
 
-    const filteredSections = menuSections.filter((section) =>
-        section.roles.includes(role)
-    );
+    const { isImpersonating, clearSelectedOrg, selectedOrgId } = useOrganization();
+
+    const filteredSections = menuSections.filter((section) => {
+        // Se for superadmin e estiver impersonating, mostra seções de superadmin E admin
+        if (role === "superadmin" && isImpersonating) {
+            return section.roles.includes("superadmin") || section.roles.includes("admin");
+        }
+        return section.roles.includes(role);
+    });
 
     const showExpanded = isMobile ? true : (!isCollapsed || isHovering);
 
@@ -324,7 +332,7 @@ export function Sidebar({ role, isMobile = false }: SidebarProps) {
 
                 {/* Role Badge */}
                 {showExpanded && (
-                    <div className="px-4 py-3 border-b border-sidebar-border">
+                    <div className="px-4 py-3 border-b border-sidebar-border space-y-2">
                         <Badge className={cn("w-full justify-center py-1", roleLabels[role].color, "text-white border-0")}>
                             {role === "superadmin" && <Shield className="h-3 w-3 mr-1" />}
                             {role === "admin" && <UserCog className="h-3 w-3 mr-1" />}
@@ -332,6 +340,18 @@ export function Sidebar({ role, isMobile = false }: SidebarProps) {
                             {role === "student" && <Users className="h-3 w-3 mr-1" />}
                             {roleLabels[role].label}
                         </Badge>
+
+                        {isImpersonating && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full text-[10px] h-7 gap-1 border-dashed border-destructive text-destructive hover:bg-destructive/5"
+                                onClick={() => clearSelectedOrg()}
+                            >
+                                <XCircle className="h-3 w-3" />
+                                Sair da Organização
+                            </Button>
+                        )}
                     </div>
                 )}
 

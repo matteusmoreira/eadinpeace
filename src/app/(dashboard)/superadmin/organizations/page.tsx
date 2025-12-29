@@ -47,6 +47,8 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { Id } from "@convex/_generated/dataModel";
 import { toast } from "sonner";
+import { useOrganization } from "@/hooks/use-organization";
+import { useRouter } from "next/navigation";
 
 const container = {
     hidden: { opacity: 0 },
@@ -78,6 +80,8 @@ export default function OrganizationsPage() {
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [selectedOrg, setSelectedOrg] = useState<any>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const router = useRouter();
+    const { setSelectedOrgId } = useOrganization();
 
     // Convex queries
     const organizations = useQuery(api.organizations.getAll);
@@ -110,6 +114,12 @@ export default function OrganizationsPage() {
         } finally {
             setIsDeleting(false);
         }
+    };
+
+    const handleImpersonate = (orgId: Id<"organizations">) => {
+        setSelectedOrgId(orgId);
+        toast.success("Acessando como administrador da organização...");
+        router.push("/admin");
     };
 
     const formatDate = (timestamp: number) => {
@@ -293,11 +303,13 @@ export default function OrganizationsPage() {
                                                                 Editar
                                                             </Link>
                                                         </DropdownMenuItem>
-                                                        <DropdownMenuItem>
-                                                            <Users className="h-4 w-4 mr-2" />
-                                                            Ver Usuários
+                                                        <DropdownMenuItem asChild>
+                                                            <Link href={`/superadmin/organizations/${org._id}/users`}>
+                                                                <Users className="h-4 w-4 mr-2" />
+                                                                Ver Usuários
+                                                            </Link>
                                                         </DropdownMenuItem>
-                                                        <DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => handleImpersonate(org._id)}>
                                                             <ExternalLink className="h-4 w-4 mr-2" />
                                                             Acessar como Admin
                                                         </DropdownMenuItem>

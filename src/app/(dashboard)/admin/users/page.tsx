@@ -45,7 +45,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
-import { useUser } from "@clerk/nextjs";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { toast } from "sonner";
 import { Id } from "@convex/_generated/dataModel";
 
@@ -72,16 +72,10 @@ const roleColors: Record<string, string> = {
 };
 
 export default function AdminUsersPage() {
-    const { user } = useUser();
+    const { user: convexUser, organizationId, isLoading: userLoading } = useCurrentUser();
     const [search, setSearch] = useState("");
     const [roleFilter, setRoleFilter] = useState<string>("all");
     const [deleteId, setDeleteId] = useState<Id<"users"> | null>(null);
-
-    // Get Convex user
-    const convexUser = useQuery(
-        api.users.getByClerkId,
-        user?.id ? { clerkId: user.id } : "skip"
-    );
 
     // Get all users
     const allUsers = useQuery(api.users.getAll);
@@ -89,9 +83,9 @@ export default function AdminUsersPage() {
     const deleteUser = useMutation(api.users.remove);
 
     // Filter to organization users
-    const orgUsers = allUsers?.filter(u => u.organizationId === convexUser?.organizationId) || [];
+    const orgUsers = allUsers?.filter(u => u.organizationId === organizationId) || [];
 
-    const isLoading = allUsers === undefined;
+    const isLoading = userLoading || allUsers === undefined;
 
     // Apply filters
     const filteredUsers = orgUsers.filter((u) => {

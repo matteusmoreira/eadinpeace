@@ -36,14 +36,13 @@ export default function SuperadminReportsPage() {
     const isLoading = globalReport === undefined;
 
     return (
-        <motion.div
-            variants={container}
-            initial="hidden"
-            animate="show"
-            className="space-y-6"
-        >
+        <div className="space-y-6">
             {/* Header */}
-            <motion.div variants={item} className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex flex-col md:flex-row md:items-center justify-between gap-4"
+            >
                 <div>
                     <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2">
                         <BarChart3 className="h-8 w-8 text-primary" />
@@ -60,7 +59,12 @@ export default function SuperadminReportsPage() {
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
             ) : (
-                <>
+                <motion.div
+                    variants={container}
+                    initial="hidden"
+                    animate="show"
+                    className="space-y-6"
+                >
                     {/* Stats Cards */}
                     <motion.div variants={item} className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                         <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
@@ -316,8 +320,8 @@ export default function SuperadminReportsPage() {
                             </CardContent>
                         </Card>
                     </motion.div>
-                </>
+                </motion.div>
             )}
-        </motion.div>
+        </div>
     );
 }

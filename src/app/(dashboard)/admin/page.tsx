@@ -20,7 +20,7 @@ import {
 import Link from "next/link";
 import { useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
-import { useUser } from "@clerk/nextjs";
+import { useCurrentUser } from "@/hooks/use-current-user";
 
 const container = {
     hidden: { opacity: 0 },
@@ -42,16 +42,7 @@ const roleColors: Record<string, string> = {
 };
 
 export default function AdminDashboardPage() {
-    const { user } = useUser();
-
-    // Get Convex user
-    const convexUser = useQuery(
-        api.users.getByClerkId,
-        user?.id ? { clerkId: user.id } : "skip"
-    );
-
-    // Get organization stats
-    const organizationId = convexUser?.organizationId;
+    const { user: convexUser, organizationId, isLoading: userLoading } = useCurrentUser();
 
     const courses = useQuery(
         api.courses.getByOrganization,
@@ -63,7 +54,7 @@ export default function AdminDashboardPage() {
     // Filter users by organization
     const orgUsers = allUsers?.filter(u => u.organizationId === organizationId) || [];
 
-    const isLoading = courses === undefined || allUsers === undefined;
+    const isLoading = userLoading || courses === undefined || allUsers === undefined;
 
     const [now, setNow] = useState<number | null>(null);
     useEffect(() => {
@@ -97,14 +88,13 @@ export default function AdminDashboardPage() {
     };
 
     return (
-        <motion.div
-            variants={container}
-            initial="hidden"
-            animate="show"
-            className="space-y-6"
-        >
+        <div className="space-y-6">
             {/* Header */}
-            <motion.div variants={item} className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex flex-col md:flex-row md:items-center justify-between gap-4"
+            >
                 <div>
                     <h1 className="text-2xl md:text-3xl font-bold">Dashboard</h1>
                     <p className="text-muted-foreground">
@@ -132,7 +122,12 @@ export default function AdminDashboardPage() {
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
             ) : (
-                <>
+                <motion.div
+                    variants={container}
+                    initial="hidden"
+                    animate="show"
+                    className="space-y-6"
+                >
                     {/* Stats */}
                     <motion.div variants={item} className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                         <Card className="hover:shadow-lg transition-all duration-300">
@@ -309,8 +304,8 @@ export default function AdminDashboardPage() {
                             </Card>
                         </motion.div>
                     </div>
-                </>
+                </motion.div>
             )}
-        </motion.div>
+        </div>
     );
 }

@@ -56,14 +56,13 @@ export default function SuperadminDashboardPage() {
     };
 
     return (
-        <motion.div
-            variants={container}
-            initial="hidden"
-            animate="show"
-            className="space-y-6"
-        >
+        <div className="space-y-6">
             {/* Header */}
-            <motion.div variants={item} className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex flex-col md:flex-row md:items-center justify-between gap-4"
+            >
                 <div>
                     <h1 className="text-2xl md:text-3xl font-bold">Dashboard</h1>
                     <p className="text-muted-foreground">
@@ -92,7 +91,12 @@ export default function SuperadminDashboardPage() {
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
             ) : (
-                <>
+                <motion.div
+                    variants={container}
+                    initial="hidden"
+                    animate="show"
+                    className="space-y-6"
+                >
                     <motion.div variants={item} className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                         <Card className="hover:shadow-lg transition-all duration-300">
                             <CardContent className="pt-6">
@@ -326,8 +330,8 @@ export default function SuperadminDashboardPage() {
                             </Card>
                         </motion.div>
                     </div>
-                </>
+                </motion.div>
             )}
-        </motion.div>
+        </div>
     );
 }

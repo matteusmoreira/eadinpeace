@@ -5,6 +5,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { AppearanceProvider } from "@/components/providers/appearance-provider";
 import { ConvexClientProvider } from "@/components/providers/convex-provider";
+import { OrganizationProvider } from "@/components/providers/organization-provider";
 import { ptBR } from "@clerk/localizations";
 import { Toaster } from "sonner";
 
@@ -31,8 +32,10 @@ export default function RootLayout({
           <ConvexClientProvider>
             <ThemeProvider defaultTheme="system" storageKey="ead-theme">
               <AppearanceProvider>
-                {children}
-                <Toaster richColors position="top-right" />
+                <OrganizationProvider>
+                  {children}
+                  <Toaster richColors position="top-right" />
+                </OrganizationProvider>
               </AppearanceProvider>
             </ThemeProvider>
           </ConvexClientProvider>

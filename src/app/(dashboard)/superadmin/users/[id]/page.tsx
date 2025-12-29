@@ -284,35 +284,42 @@ export default function EditUserPage() {
                             <CardContent className="space-y-4">
                                 <div className="space-y-2">
                                     <Label htmlFor="role">Função</Label>
-                                    <Select
-                                        value={formData.role}
-                                        onValueChange={(value: UserRole) =>
-                                            setFormData((prev) => ({
-                                                ...prev,
-                                                role: value,
-                                                // Clear organization if superadmin
-                                                organizationId:
-                                                    value === "superadmin" ? "" : prev.organizationId,
-                                            }))
-                                        }
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Selecione a função" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {Object.entries(roleConfig).map(([key, config]) => (
-                                                <SelectItem key={key} value={key}>
-                                                    <div className="flex items-center gap-2">
-                                                        <config.icon className="h-4 w-4" />
-                                                        {config.label}
-                                                    </div>
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <p className="text-xs text-muted-foreground">
-                                        {roleConfig[formData.role].description}
-                                    </p>
+                                    {(() => {
+                                        const config = roleConfig[formData.role as keyof typeof roleConfig] || roleConfig.student;
+                                        return (
+                                            <>
+                                                <Select
+                                                    value={formData.role}
+                                                    onValueChange={(value: UserRole) =>
+                                                        setFormData((prev) => ({
+                                                            ...prev,
+                                                            role: value,
+                                                            // Clear organization if superadmin
+                                                            organizationId:
+                                                                value === "superadmin" ? "" : prev.organizationId,
+                                                        }))
+                                                    }
+                                                >
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Selecione a função" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {Object.entries(roleConfig).map(([key, config]) => (
+                                                            <SelectItem key={key} value={key}>
+                                                                <div className="flex items-center gap-2">
+                                                                    <config.icon className="h-4 w-4" />
+                                                                    {config.label}
+                                                                </div>
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {config.description}
+                                                </p>
+                                            </>
+                                        );
+                                    })()}
                                 </div>
 
                                 {formData.role !== "superadmin" && (
@@ -360,9 +367,15 @@ export default function EditUserPage() {
                                 <div className="pt-4 border-t space-y-3">
                                     <Label>Status Atual</Label>
                                     <div className="flex flex-wrap gap-2">
-                                        <Badge className={roleConfig[user.role as UserRole].color}>
-                                            {roleConfig[user.role as UserRole].label}
-                                        </Badge>
+                                        {(() => {
+                                            const currentRole = user.role as keyof typeof roleConfig;
+                                            const config = roleConfig[currentRole] || roleConfig.student;
+                                            return (
+                                                <Badge className={config.color}>
+                                                    {config.label}
+                                                </Badge>
+                                            );
+                                        })()}
                                         <Badge variant={user.isActive ? "default" : "secondary"}>
                                             {user.isActive ? "Ativo" : "Inativo"}
                                         </Badge>
@@ -399,6 +412,6 @@ export default function EditUserPage() {
                     </Button>
                 </motion.div>
             </form>
-        </motion.div>
+        </motion.div >
     );
 }

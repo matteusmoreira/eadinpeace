@@ -5,6 +5,7 @@ import { useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { Id } from "@convex/_generated/dataModel";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { useOrganization } from "@/hooks/use-organization";
 import { memoryCache, CACHE_TTL, CACHE_KEYS } from "@/lib/cache";
 
 // Tipos para os dados estáticos
@@ -68,7 +69,7 @@ interface StaticDataProviderProps {
  */
 export function StaticDataProvider({ children }: StaticDataProviderProps) {
     const { user, isLoading: userLoading } = useCurrentUser();
-    const organizationId = user?.organizationId as Id<"organizations"> | undefined;
+    const { organizationId } = useOrganization();
 
     // Busca categorias
     const categoriesQuery = useQuery(

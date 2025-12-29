@@ -101,8 +101,12 @@ export default function ProfessorDashboardPage() {
     };
 
     return (
-        <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
-            <motion.div variants={item} className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-6">
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex flex-col md:flex-row md:items-center justify-between gap-4"
+            >
                 <div>
                     <h1 className="text-2xl md:text-3xl font-bold">
                         Olá, Professor {user?.firstName}! 👋
@@ -122,7 +126,12 @@ export default function ProfessorDashboardPage() {
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
             ) : (
-                <>
+                <motion.div
+                    variants={container}
+                    initial="hidden"
+                    animate="show"
+                    className="space-y-6"
+                >
                     <motion.div variants={item} className="grid gap-4 md:grid-cols-4">
                         <Card className="hover:shadow-lg transition-all">
                             <CardContent className="pt-6">
@@ -364,8 +373,8 @@ export default function ProfessorDashboardPage() {
                             </Card>
                         </motion.div>
                     </div>
-                </>
+                </motion.div>
             )}
-        </motion.div>
+        </div>
     );
 }
