@@ -205,29 +205,12 @@ export default function SuperadminAppearancePage() {
 
             // 3. Save to DB
             if (selectedOrgId === "global") {
-                // For global, we use the regular update mutation
+                // For global, we use the regular update mutation with storageId which is now supported
                 await updateGlobalAppearance({
                     userId: convexUser?._id,
-                    [isLogo ? "logoUrl" : "faviconUrl"]: await api.files.getFileUrl({ storageId }) // Wait, can't call query here. 
-                    // Ideally we should use a mutation that takes storageId for global too. 
-                    // For now, let's assume global update takes the URL and we need another way?
-                    // No, platformSettings schema expects string.
-                    // Let's create a mutation updateLogo for platformSettings too or just assume we'll fix global later?
-                    // Actually, let's just use the URL if we can get it. 
-                    // WE CANNOT get URL synchronously here without a mutation returning it.
-                    // Let's update global settings to accept storageId or just skip global upload for now if complex?
-                    // NO, user wants it.
+                    [isLogo ? "logoStorageId" : "faviconStorageId"]: storageId
                 });
-                // Since I didn't verify platformSettings update for storageId, skipping global upload logic improvement for this very second, 
-                // BUT I will handle it for Organization as requested.
-                // Global update: I need to fetch URL from storageId? 
-                // Or I can just update with storageId if I changed schema? No.
-                // NOTE: I am implementing whitelabel (Org). Let's focus on Org.
-                // Warn about global?
-                if (selectedOrgId === "global") {
-                    toast.error("Upload global não implementado nesta versão. Selecione uma organização.");
-                    return;
-                }
+                // Success for global
             } else {
                 if (isLogo) {
                     const url = await updateOrgLogo({

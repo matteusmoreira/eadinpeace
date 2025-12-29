@@ -179,10 +179,28 @@ export const updateAppearance = mutation({
         borderRadius: v.optional(v.string()),
         logoUrl: v.optional(v.string()),
         faviconUrl: v.optional(v.string()),
+        logoStorageId: v.optional(v.id("_storage")),
+        faviconStorageId: v.optional(v.id("_storage")),
         userId: v.optional(v.id("users")),
     },
     handler: async (ctx, args) => {
-        const { userId, ...updates } = args;
+        const { userId, logoStorageId, faviconStorageId, ...updates } = args;
+
+        // Resolve storage IDs to URLs if provided
+        if (logoStorageId) {
+            const url = await ctx.storage.getUrl(logoStorageId);
+            if (url) {
+                updates.logoUrl = url;
+            }
+        }
+
+        if (faviconStorageId) {
+            const url = await ctx.storage.getUrl(faviconStorageId);
+            if (url) {
+                updates.faviconUrl = url;
+            }
+        }
+
         const existing = await ctx.db
             .query("platformSettings")
             .withIndex("by_key", (q) => q.eq("key", "appearance"))
