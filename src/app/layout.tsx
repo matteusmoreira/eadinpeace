@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import { ThemeProvider } from "@/components/providers/theme-provider";
+import { AppearanceProvider } from "@/components/providers/appearance-provider";
 import { ConvexClientProvider } from "@/components/providers/convex-provider";
 import { ptBR } from "@clerk/localizations";
 import { Toaster } from "sonner";
@@ -29,8 +30,10 @@ export default function RootLayout({
         <body className={`${inter.variable} font-sans antialiased`}>
           <ConvexClientProvider>
             <ThemeProvider defaultTheme="system" storageKey="ead-theme">
-              {children}
-              <Toaster richColors position="top-right" />
+              <AppearanceProvider>
+                {children}
+                <Toaster richColors position="top-right" />
+              </AppearanceProvider>
             </ThemeProvider>
           </ConvexClientProvider>
         </body>
