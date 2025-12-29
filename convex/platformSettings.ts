@@ -186,18 +186,21 @@ export const updateAppearance = mutation({
     handler: async (ctx, args) => {
         const { userId, logoStorageId, faviconStorageId, ...updates } = args;
 
+        // Create a mutable copy and explicitly type it as any to allow adding properties
+        const patchData: any = { ...updates };
+
         // Resolve storage IDs to URLs if provided
         if (logoStorageId) {
             const url = await ctx.storage.getUrl(logoStorageId);
             if (url) {
-                updates.logoUrl = url;
+                patchData.logoUrl = url;
             }
         }
 
         if (faviconStorageId) {
             const url = await ctx.storage.getUrl(faviconStorageId);
             if (url) {
-                updates.faviconUrl = url;
+                patchData.faviconUrl = url;
             }
         }
 
@@ -208,14 +211,14 @@ export const updateAppearance = mutation({
 
         if (existing) {
             await ctx.db.patch(existing._id, {
-                ...updates,
+                ...patchData,
                 updatedAt: Date.now(),
                 updatedBy: userId,
             });
         } else {
             await ctx.db.insert("platformSettings", {
                 key: "appearance",
-                ...updates,
+                ...patchData,
                 updatedAt: Date.now(),
                 updatedBy: userId,
             });
