@@ -461,15 +461,16 @@ export default function ProfessorQuizzesPage() {
                                             <SelectValue placeholder="Selecione o curso" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {(courses || []).map((course) => (
-                                                <SelectItem key={course._id} value={course._id}>
-                                                    {course.title}
-                                                </SelectItem>
-                                            ))}
-                                            {(!courses || courses.length === 0) && (
-                                                <SelectItem value="" disabled>
+                                            {(courses || []).length === 0 ? (
+                                                <div className="px-2 py-4 text-sm text-muted-foreground text-center">
                                                     Nenhum curso encontrado
-                                                </SelectItem>
+                                                </div>
+                                            ) : (
+                                                (courses || []).map((course) => (
+                                                    <SelectItem key={course._id} value={course._id}>
+                                                        {course.title}
+                                                    </SelectItem>
+                                                ))
                                             )}
                                         </SelectContent>
                                     </Select>
