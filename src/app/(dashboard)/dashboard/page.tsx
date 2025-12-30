@@ -220,68 +220,77 @@ export default function DashboardPage() {
                     </Link>
                 </div>
 
-                {enrollments && enrollments.length > 0 ? (
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        {enrollments.slice(0, 3).map((enrollment: any) => (
-                            <Card
-                                key={enrollment._id}
-                                className="group overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
-                            >
-                                <div className="relative aspect-video overflow-hidden bg-muted">
-                                    {enrollment.course?.thumbnail ? (
-                                        <img
-                                            src={enrollment.course.thumbnail}
-                                            alt={enrollment.course?.title || "Course"}
-                                            className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500"
-                                        />
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center">
-                                            <BookOpen className="h-12 w-12 text-muted-foreground" />
+                {/* Filtrar apenas matrículas com cursos válidos (curso existe e tem título) */}
+                {(() => {
+                    const validEnrollments = enrollments?.filter((e: any) => e.course && e.course.title) || [];
+
+                    if (validEnrollments.length > 0) {
+                        return (
+                            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                {validEnrollments.slice(0, 3).map((enrollment: any) => (
+                                    <Card
+                                        key={enrollment._id}
+                                        className="group overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
+                                    >
+                                        <div className="relative aspect-video overflow-hidden bg-muted">
+                                            {enrollment.course?.thumbnail ? (
+                                                <img
+                                                    src={enrollment.course.thumbnail}
+                                                    alt={enrollment.course?.title || "Course"}
+                                                    className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500"
+                                                />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center">
+                                                    <BookOpen className="h-12 w-12 text-muted-foreground" />
+                                                </div>
+                                            )}
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                <Link href={`/student/courses/${enrollment.courseId}/learn`}>
+                                                    <Button size="lg" className="gap-2 gradient-bg border-0">
+                                                        <Play className="h-5 w-5" />
+                                                        Continuar
+                                                    </Button>
+                                                </Link>
+                                            </div>
                                         </div>
-                                    )}
-                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                        <Link href={`/student/courses/${enrollment.courseId}/learn`}>
-                                            <Button size="lg" className="gap-2 gradient-bg border-0">
-                                                <Play className="h-5 w-5" />
-                                                Continuar
-                                            </Button>
-                                        </Link>
-                                    </div>
-                                </div>
-                                <CardHeader className="pb-2">
-                                    <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
-                                        {enrollment.course?.title || "Curso"}
-                                    </CardTitle>
-                                    <CardDescription className="flex items-center gap-2">
-                                        <span>{enrollment.completedLessons?.length || 0} aulas concluídas</span>
-                                    </CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between text-sm">
-                                            <span className="text-muted-foreground">Progresso</span>
-                                            <span className="font-medium">{enrollment.progress || 0}%</span>
-                                        </div>
-                                        <Progress value={enrollment.progress || 0} className="h-2" />
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        ))}
-                    </div>
-                ) : (
-                    <Card className="p-12 text-center">
-                        <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                        <h3 className="text-lg font-medium mb-2">Nenhum curso em andamento</h3>
-                        <p className="text-muted-foreground mb-4">
-                            Explore nosso catálogo e comece a aprender hoje!
-                        </p>
-                        <Link href="/student/search">
-                            <Button className="gradient-bg border-0">
-                                Explorar Cursos
-                            </Button>
-                        </Link>
-                    </Card>
-                )}
+                                        <CardHeader className="pb-2">
+                                            <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">
+                                                {enrollment.course?.title || "Curso"}
+                                            </CardTitle>
+                                            <CardDescription className="flex items-center gap-2">
+                                                <span>{enrollment.completedLessons?.length || 0} aulas concluídas</span>
+                                            </CardDescription>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <div className="space-y-2">
+                                                <div className="flex justify-between text-sm">
+                                                    <span className="text-muted-foreground">Progresso</span>
+                                                    <span className="font-medium">{enrollment.progress || 0}%</span>
+                                                </div>
+                                                <Progress value={enrollment.progress || 0} className="h-2" />
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                ))}
+                            </div>
+                        );
+                    }
+
+                    return (
+                        <Card className="p-12 text-center">
+                            <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                            <h3 className="text-lg font-medium mb-2">Nenhum curso em andamento</h3>
+                            <p className="text-muted-foreground mb-4">
+                                Explore nosso catálogo e comece a aprender hoje!
+                            </p>
+                            <Link href="/student/search">
+                                <Button className="gradient-bg border-0">
+                                    Explorar Cursos
+                                </Button>
+                            </Link>
+                        </Card>
+                    );
+                })()}
             </motion.div>
 
             {/* Achievements Section */}
@@ -303,8 +312,8 @@ export default function DashboardPage() {
                                     <div
                                         key={achievement.id}
                                         className={`flex flex-col items-center gap-2 p-4 rounded-xl transition-all duration-300 ${achievement.unlocked
-                                                ? "bg-primary/10 hover:bg-primary/20"
-                                                : "bg-muted opacity-50"
+                                            ? "bg-primary/10 hover:bg-primary/20"
+                                            : "bg-muted opacity-50"
                                             }`}
                                     >
                                         <span className="text-3xl">{achievement.icon}</span>
