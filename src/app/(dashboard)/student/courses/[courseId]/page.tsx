@@ -29,10 +29,14 @@ import {
     Award,
     Menu,
     X,
+    FileText,
+    ClipboardList,
+    Trophy,
+    AlertCircle,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { Id } from "@convex/_generated/dataModel";
@@ -45,6 +49,7 @@ import { useContentProtection } from "@/hooks/useContentProtection";
 
 export default function CoursePlayerPage() {
     const params = useParams();
+    const router = useRouter();
     const courseId = params.courseId as Id<"courses">;
     const { user } = useUser();
 
@@ -64,6 +69,12 @@ export default function CoursePlayerPage() {
     const progress = useQuery(
         api.enrollments.getCourseProgress,
         convexUser?._id ? { userId: convexUser._id, courseId } : "skip"
+    );
+
+    // Get quiz for current lesson if it's an exam
+    const currentLessonQuiz = useQuery(
+        api.quizzes.getByLesson,
+        currentLessonId ? { lessonId: currentLessonId } : "skip"
     );
 
     const updateProgress = useMutation(api.enrollments.updateLessonProgress);
@@ -168,29 +179,180 @@ export default function CoursePlayerPage() {
             </div>
 
             <div className="flex-1 flex overflow-hidden">
-                {/* Video Player */}
+                {/* Content Area */}
                 <div className={cn(
                     "flex-1 flex flex-col",
                     sidebarOpen && "hidden md:flex"
                 )}>
-                    {/* Video */}
-                    <div className="flex-1 bg-black flex items-center justify-center relative">
-                        {currentLesson?.videoUrl ? (
-                            <ProtectedYouTubePlayer
-                                videoUrl={currentLesson.videoUrl}
-                                title={currentLesson.title}
-                                className="absolute inset-0 w-full h-full"
-                                protectionEnabled={true}
-                                youtubeParams={{
-                                    modestbranding: true,
-                                    rel: false,
-                                    controls: true,
-                                }}
-                            />
-                        ) : (
-                            <div className="text-center text-white">
-                                <Play className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                                <p className="text-lg">Vídeo não disponível</p>
+                    {/* Content based on lesson type */}
+                    <div className="flex-1 bg-background flex items-center justify-center relative">
+                        {/* Video lesson */}
+                        {(currentLesson?.type === "video" || (!currentLesson?.type && currentLesson?.videoUrl)) && (
+                            currentLesson?.videoUrl ? (
+                                <div className="absolute inset-0 bg-black">
+                                    <ProtectedYouTubePlayer
+                                        videoUrl={currentLesson.videoUrl}
+                                        title={currentLesson.title}
+                                        className="absolute inset-0 w-full h-full"
+                                        protectionEnabled={true}
+                                        youtubeParams={{
+                                            modestbranding: true,
+                                            rel: false,
+                                            controls: true,
+                                        }}
+                                    />
+                                </div>
+                            ) : (
+                                <div className="text-center text-muted-foreground">
+                                    <Play className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                                    <p className="text-lg">Vídeo não disponível</p>
+                                </div>
+                            )
+                        )}
+
+                        {/* Exam/Quiz lesson */}
+                        {currentLesson?.type === "exam" && (
+                            <div className="w-full max-w-2xl mx-auto p-6">
+                                <Card className="overflow-hidden border-2 border-primary/20">
+                                    <div className="h-2 gradient-bg" />
+                                    <CardHeader className="text-center pb-4">
+                                        <div className="h-16 w-16 mx-auto rounded-2xl gradient-bg flex items-center justify-center mb-4">
+                                            <ClipboardList className="h-8 w-8 text-white" />
+                                        </div>
+                                        <CardTitle className="text-2xl">{currentLesson.title}</CardTitle>
+                                        <CardDescription className="text-base">
+                                            {currentLesson.description || "Avalie seu conhecimento sobre o conteúdo estudado"}
+                                        </CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="space-y-6">
+                                        {currentLessonQuiz ? (
+                                            <>
+                                                {/* Quiz Info */}
+                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                                                    <div className="p-4 rounded-lg bg-muted">
+                                                        <p className="text-2xl font-bold">{currentLessonQuiz.questions?.length || 0}</p>
+                                                        <p className="text-sm text-muted-foreground">Questões</p>
+                                                    </div>
+                                                    <div className="p-4 rounded-lg bg-muted">
+                                                        <p className="text-2xl font-bold">{currentLessonQuiz.timeLimit || "∞"}</p>
+                                                        <p className="text-sm text-muted-foreground">
+                                                            {currentLessonQuiz.timeLimit ? "Minutos" : "Sem limite"}
+                                                        </p>
+                                                    </div>
+                                                    <div className="p-4 rounded-lg bg-muted">
+                                                        <p className="text-2xl font-bold">{currentLessonQuiz.passingScore || 70}%</p>
+                                                        <p className="text-sm text-muted-foreground">Nota mínima</p>
+                                                    </div>
+                                                    <div className="p-4 rounded-lg bg-muted">
+                                                        <p className="text-2xl font-bold">{currentLessonQuiz.maxAttempts || "∞"}</p>
+                                                        <p className="text-sm text-muted-foreground">Tentativas</p>
+                                                    </div>
+                                                </div>
+
+                                                {/* Instructions */}
+                                                {currentLesson.instructions && (
+                                                    <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                                                        <div className="flex items-start gap-3">
+                                                            <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5" />
+                                                            <div>
+                                                                <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+                                                                    Instruções
+                                                                </p>
+                                                                <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
+                                                                    {currentLesson.instructions}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Start Quiz Button */}
+                                                <Button
+                                                    className="w-full gap-2 gradient-bg border-0 text-lg py-6"
+                                                    size="lg"
+                                                    onClick={() => router.push(`/student/quiz/${currentLessonQuiz._id}`)}
+                                                >
+                                                    <Trophy className="h-5 w-5" />
+                                                    Iniciar Prova
+                                                </Button>
+                                            </>
+                                        ) : (
+                                            <div className="text-center py-8">
+                                                <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+                                                <p className="text-muted-foreground">Carregando prova...</p>
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        )}
+
+                        {/* Text lesson */}
+                        {currentLesson?.type === "text" && (
+                            <div className="w-full h-full overflow-auto p-6">
+                                <div className="max-w-3xl mx-auto prose dark:prose-invert">
+                                    <h1>{currentLesson.title}</h1>
+                                    {currentLesson.textContent ? (
+                                        <div dangerouslySetInnerHTML={{ __html: currentLesson.textContent }} />
+                                    ) : (
+                                        <p className="text-muted-foreground">Conteúdo não disponível</p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* PDF lesson */}
+                        {currentLesson?.type === "pdf" && (
+                            <div className="w-full h-full flex items-center justify-center p-6">
+                                {currentLesson.fileUrl ? (
+                                    <iframe
+                                        src={currentLesson.fileUrl}
+                                        className="w-full h-full border-0"
+                                        title={currentLesson.title}
+                                    />
+                                ) : (
+                                    <div className="text-center text-muted-foreground">
+                                        <FileText className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                                        <p className="text-lg">PDF não disponível</p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Assignment lesson */}
+                        {currentLesson?.type === "assignment" && (
+                            <div className="w-full max-w-2xl mx-auto p-6">
+                                <Card>
+                                    <CardHeader className="text-center">
+                                        <div className="h-16 w-16 mx-auto rounded-2xl bg-blue-500/10 flex items-center justify-center mb-4">
+                                            <FileText className="h-8 w-8 text-blue-500" />
+                                        </div>
+                                        <CardTitle>{currentLesson.title}</CardTitle>
+                                        <CardDescription>{currentLesson.description}</CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        {currentLesson.instructions && (
+                                            <div className="p-4 rounded-lg bg-muted mb-4">
+                                                <p className="text-sm font-medium mb-2">Instruções:</p>
+                                                <p className="text-sm text-muted-foreground">{currentLesson.instructions}</p>
+                                            </div>
+                                        )}
+                                        {currentLesson.dueDate && (
+                                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                <Clock className="h-4 w-4" />
+                                                <span>Prazo: {new Date(currentLesson.dueDate).toLocaleDateString('pt-BR')}</span>
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        )}
+
+                        {/* Fallback for unknown types */}
+                        {!currentLesson?.type && !currentLesson?.videoUrl && (
+                            <div className="text-center text-muted-foreground">
+                                <BookOpen className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                                <p className="text-lg">Conteúdo não disponível</p>
                             </div>
                         )}
                     </div>

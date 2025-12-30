@@ -46,20 +46,11 @@ export default function CreateQuizPage() {
     const { user } = useUser();
     const currentUser = useQuery(api.users.getByClerkId, user?.id ? { clerkId: user.id } : "skip");
 
-    // Para admins/superadmins, buscar todos os cursos. Para professores, apenas os que são instrutores
-    const isAdminOrSuperadmin = currentUser?.role === "admin" || currentUser?.role === "superadmin";
-
-    const allCourses = useQuery(
+    // Buscar todos os cursos da organização (api.courses.getAll já filtra por organização)
+    const courses = useQuery(
         api.courses.getAll,
-        isAdminOrSuperadmin ? {} : "skip"
+        currentUser ? {} : "skip"
     );
-
-    const instructorCourses = useQuery(
-        api.courses.getByInstructor,
-        !isAdminOrSuperadmin && currentUser?._id ? { instructorId: currentUser._id } : "skip"
-    );
-
-    const courses = isAdminOrSuperadmin ? allCourses : instructorCourses;
 
     const createQuiz = useMutation(api.quizzes.create);
     const publishQuiz = useMutation(api.quizzes.publish);

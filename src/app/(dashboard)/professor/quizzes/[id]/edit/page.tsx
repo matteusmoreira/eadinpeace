@@ -57,9 +57,10 @@ export default function EditQuizPage() {
     const currentUser = useQuery(api.users.getByClerkId, user?.id ? { clerkId: user.id } : "skip");
     const quiz = useQuery(api.quizzes.getById, { quizId: quizId as any });
     const quizQuestions = useQuery(api.quizzes.getQuestions, { quizId: quizId as any });
+    // Buscar todos os cursos da organização (api.courses.getAll já filtra por organização)
     const courses = useQuery(
-        api.courses.getByInstructor,
-        currentUser?._id ? { instructorId: currentUser._id } : "skip"
+        api.courses.getAll,
+        currentUser ? {} : "skip"
     );
 
     const updateQuiz = useMutation(api.quizzes.update);

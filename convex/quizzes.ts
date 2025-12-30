@@ -1,14 +1,78 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
+// Get all quizzes (for superadmins or admins viewing all organizational quizzes)
+export const getAll = query({
+    args: {},
+    handler: async (ctx) => {
+        // Get all courses first
+        const courses = await ctx.db.query("courses").collect();
+
+        const courseMap = new Map(courses.map(c => [c._id, c]));
+
+        // Get all quizzes
+        const quizzes = await ctx.db.query("quizzes").collect();
+
+        // Enrich quizzes with course name and stats
+        const enrichedQuizzes = await Promise.all(
+            quizzes.map(async (quiz) => {
+                const course = courseMap.get(quiz.courseId);
+
+                const questions = await ctx.db
+                    .query("quizQuestions")
+                    .withIndex("by_quiz", (q) => q.eq("quizId", quiz._id))
+                    .collect();
+
+                const attempts = await ctx.db
+                    .query("quizAttempts")
+                    .withIndex("by_quiz", (q) => q.eq("quizId", quiz._id))
+                    .collect();
+
+                const avgScore = attempts.length > 0
+                    ? Math.round(attempts.reduce((sum, a) => sum + a.score, 0) / attempts.length)
+                    : 0;
+
+                return {
+                    ...quiz,
+                    courseName: course?.title || "Sem curso",
+                    questionCount: questions.length,
+                    attemptCount: attempts.length,
+                    avgScore,
+                };
+            })
+        );
+
+        return enrichedQuizzes;
+    },
+});
+
 // Get quiz by lesson
 export const getByLesson = query({
     args: { lessonId: v.id("lessons") },
     handler: async (ctx, args) => {
-        const quiz = await ctx.db
+        // Primeiro tenta buscar pelo lessonId diretamente
+        let quiz = await ctx.db
             .query("quizzes")
             .withIndex("by_lesson", (q) => q.eq("lessonId", args.lessonId))
             .first();
+
+        // Se não encontrou, busca o lesson e tenta encontrar um quiz do mesmo curso
+        if (!quiz) {
+            const lesson = await ctx.db.get(args.lessonId);
+            if (lesson && lesson.type === "exam") {
+                // Busca quizzes do curso que têm título similar ao título da aula
+                const courseQuizzes = await ctx.db
+                    .query("quizzes")
+                    .withIndex("by_course", (q) => q.eq("courseId", lesson.courseId))
+                    .collect();
+
+                // Tenta encontrar um quiz com título semelhante ou usa o primeiro publicado
+                quiz = courseQuizzes.find(q =>
+                    q.title.toLowerCase().includes(lesson.title.toLowerCase()) ||
+                    lesson.title.toLowerCase().includes(q.title.toLowerCase())
+                ) || courseQuizzes.find(q => q.isPublished) || courseQuizzes[0];
+            }
+        }
 
         if (!quiz) return null;
 
@@ -61,6 +125,53 @@ export const getByCourse = query({
         );
 
         return enrichedQuizzes;
+    },
+});
+
+// Get all quizzes for an organization (for admins)
+export const getByOrganization = query({
+    args: { organizationId: v.id("organizations") },
+    handler: async (ctx, args) => {
+        // Get all courses for this organization
+        const courses = await ctx.db
+            .query("courses")
+            .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+            .collect();
+
+        // Get all quizzes for these courses
+        const allQuizzes = [];
+        for (const course of courses) {
+            const quizzes = await ctx.db
+                .query("quizzes")
+                .withIndex("by_course", (q) => q.eq("courseId", course._id))
+                .collect();
+
+            for (const quiz of quizzes) {
+                const questions = await ctx.db
+                    .query("quizQuestions")
+                    .withIndex("by_quiz", (q) => q.eq("quizId", quiz._id))
+                    .collect();
+
+                const attempts = await ctx.db
+                    .query("quizAttempts")
+                    .withIndex("by_quiz", (q) => q.eq("quizId", quiz._id))
+                    .collect();
+
+                const avgScore = attempts.length > 0
+                    ? Math.round(attempts.reduce((sum, a) => sum + a.score, 0) / attempts.length)
+                    : 0;
+
+                allQuizzes.push({
+                    ...quiz,
+                    courseName: course.title,
+                    questionCount: questions.length,
+                    attemptCount: attempts.length,
+                    avgScore,
+                });
+            }
+        }
+
+        return allQuizzes;
     },
 });
 

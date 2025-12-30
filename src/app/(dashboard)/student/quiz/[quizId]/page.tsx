@@ -59,13 +59,12 @@ export default function QuizPage() {
         user?.id ? { clerkId: user.id } : "skip"
     );
 
-    const quiz = useQuery(api.quizzes.getByLesson, { lessonId: quizId as any });
-    const directQuiz = useQuery(api.quizzes.getByCourse, { courseId: quizId as any });
+    // Buscar o quiz diretamente pelo ID
+    const quizData = useQuery(api.quizzes.getWithQuestions, { quizId });
 
     const submitAttempt = useMutation(api.quizzes.submitAttempt);
 
     // Use the quiz data that's available
-    const quizData: any = quiz || (directQuiz && directQuiz[0]);
     const questions = quizData?.questions || [];
     const currentQuestion = questions[currentQuestionIndex];
     const isLastQuestion = currentQuestionIndex === questions.length - 1;
