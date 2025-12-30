@@ -78,15 +78,18 @@ export default function ProfessorQuizzesPage() {
     const isAdmin = currentUser?.role === "admin";
     const isProfessor = currentUser?.role === "professor";
 
-    // Superadmins podem ver tudo, admins veem da organização, professores veem apenas os seus
+    // Verificar se o admin tem um organizationId válido
+    const hasValidOrgId = isAdmin && currentUser?.organizationId !== undefined && currentUser?.organizationId !== null;
+
+    // Superadmins podem ver tudo, admins sem org também veem tudo, professores veem apenas os seus
     const allQuizzes = useQuery(
         api.quizzes.getAll,
-        isSuperadmin ? {} : "skip"
+        isSuperadmin || (isAdmin && !hasValidOrgId) ? {} : "skip"
     );
 
     const orgQuizzes = useQuery(
         api.quizzes.getByOrganization,
-        isAdmin && currentUser?.organizationId
+        hasValidOrgId && currentUser?.organizationId
             ? { organizationId: currentUser.organizationId }
             : "skip"
     );
@@ -99,7 +102,11 @@ export default function ProfessorQuizzesPage() {
     );
 
     // Selecionar a lista correta baseado na role
-    const quizzes = isSuperadmin ? allQuizzes : isAdmin ? orgQuizzes : instructorQuizzes;
+    const quizzes = isSuperadmin || (isAdmin && !hasValidOrgId)
+        ? allQuizzes
+        : isAdmin && hasValidOrgId
+            ? orgQuizzes
+            : instructorQuizzes;
 
     // Mutations
     const removeQuiz = useMutation(api.quizzes.remove);
