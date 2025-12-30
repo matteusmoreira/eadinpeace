@@ -62,7 +62,19 @@ export default function QuizPage() {
     // Buscar o quiz diretamente pelo ID
     const quizData = useQuery(api.quizzes.getWithQuestions, { quizId });
 
+    // Buscar tentativas anteriores do usuário
+    const userAttempts = useQuery(
+        api.quizzes.getUserAttempts,
+        quizData && convexUser ? { quizId, userId: convexUser._id } : "skip"
+    );
+
     const submitAttempt = useMutation(api.quizzes.submitAttempt);
+
+    // Verificar se atingiu o limite de tentativas
+    const maxAttempts = quizData?.maxAttempts || 0;
+    const currentAttemptCount = userAttempts?.length || 0;
+    const hasReachedLimit = maxAttempts > 0 && currentAttemptCount >= maxAttempts;
+    const remainingAttempts = maxAttempts > 0 ? Math.max(0, maxAttempts - currentAttemptCount) : -1; // -1 = ilimitado
 
     // Use the quiz data that's available
     const questions = quizData?.questions || [];
@@ -100,6 +112,12 @@ export default function QuizPage() {
     };
 
     const startQuiz = () => {
+        // Verificar limite de tentativas antes de iniciar
+        if (hasReachedLimit) {
+            toast.error(`Você já atingiu o limite máximo de ${maxAttempts} tentativa(s) para esta prova.`);
+            return;
+        }
+
         setState("inProgress");
         setStartTime(Date.now());
         setTimeLeft(quizData?.timeLimit ? quizData.timeLimit * 60 : 0);
@@ -213,6 +231,14 @@ export default function QuizPage() {
     };
 
     const restartQuiz = () => {
+        // Verificar se ainda pode tentar novamente
+        // Precisamos verificar o novo count (atual + 1 que acabou de fazer)
+        const newAttemptCount = currentAttemptCount + 1; // A tentativa atual já foi contada
+        if (maxAttempts > 0 && newAttemptCount >= maxAttempts) {
+            toast.error(`Você atingiu o limite máximo de ${maxAttempts} tentativa(s) para esta prova.`);
+            return;
+        }
+
         setState("intro");
         setCurrentQuestionIndex(0);
         setAnswers([]);
@@ -283,14 +309,45 @@ export default function QuizPage() {
                                     <span className="text-muted-foreground">Nota mínima para aprovação</span>
                                     <span className="font-medium">{quizData.passingScore || 70}%</span>
                                 </div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground">Tentativas</span>
+                                    <span className={`font-medium ${hasReachedLimit ? "text-red-500" : ""}`}>
+                                        {maxAttempts > 0
+                                            ? `${currentAttemptCount}/${maxAttempts} usadas`
+                                            : "Ilimitadas"}
+                                    </span>
+                                </div>
+                                {currentAttemptCount > 0 && userAttempts && (
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-muted-foreground">Melhor nota</span>
+                                        <span className="font-medium text-emerald-500">
+                                            {Math.max(...userAttempts.map(a => a.score))}%
+                                        </span>
+                                    </div>
+                                )}
                             </div>
+
+                            {hasReachedLimit && (
+                                <div className="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 flex items-start gap-3">
+                                    <XCircle className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5" />
+                                    <div>
+                                        <p className="text-sm font-medium text-red-900 dark:text-red-200">
+                                            Limite de tentativas atingido
+                                        </p>
+                                        <p className="text-xs text-red-700 dark:text-red-400 mt-1">
+                                            Você já usou todas as {maxAttempts} tentativa(s) disponíveis para esta prova.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
 
                             <Button
                                 className="w-full gap-2 gradient-bg border-0"
                                 size="lg"
                                 onClick={startQuiz}
+                                disabled={hasReachedLimit}
                             >
-                                Iniciar Prova
+                                {hasReachedLimit ? "Limite Atingido" : "Iniciar Prova"}
                                 <ArrowRight className="h-4 w-4" />
                             </Button>
                         </CardContent>
@@ -443,10 +500,23 @@ export default function QuizPage() {
                             {/* Actions */}
                             <div className="flex gap-3">
                                 {!requiresManual && (
-                                    <Button variant="outline" className="flex-1 gap-2" onClick={restartQuiz}>
-                                        <RefreshCw className="h-4 w-4" />
-                                        Tentar Novamente
-                                    </Button>
+                                    <>
+                                        {/* Verifica se ainda pode tentar: 
+                                            - Se maxAttempts é 0 ou undefined = ilimitado
+                                            - Se ainda tem tentativas disponíveis */}
+                                        {(maxAttempts === 0 || (currentAttemptCount + 1) < maxAttempts) ? (
+                                            <Button variant="outline" className="flex-1 gap-2" onClick={restartQuiz}>
+                                                <RefreshCw className="h-4 w-4" />
+                                                Tentar Novamente ({maxAttempts > 0 ? `${maxAttempts - currentAttemptCount - 1} restante(s)` : "∞"})
+                                            </Button>
+                                        ) : maxAttempts > 0 ? (
+                                            <div className="flex-1 text-center">
+                                                <p className="text-sm text-muted-foreground">
+                                                    Você usou todas as suas {maxAttempts} tentativa(s)
+                                                </p>
+                                            </div>
+                                        ) : null}
+                                    </>
                                 )}
                                 <Link href="/student" className="flex-1">
                                     <Button className="w-full gap-2">

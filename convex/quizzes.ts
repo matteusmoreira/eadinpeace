@@ -342,6 +342,23 @@ export const submitAttempt = mutation({
         const quiz = await ctx.db.get(args.quizId);
         if (!quiz) throw new Error("Quiz not found");
 
+        // Verificar limite de tentativas ANTES de processar
+        if (quiz.maxAttempts && quiz.maxAttempts > 0) {
+            const existingAttempts = await ctx.db
+                .query("quizAttempts")
+                .filter((q) =>
+                    q.and(
+                        q.eq(q.field("quizId"), args.quizId),
+                        q.eq(q.field("userId"), args.userId)
+                    )
+                )
+                .collect();
+
+            if (existingAttempts.length >= quiz.maxAttempts) {
+                throw new Error(`Você já atingiu o limite máximo de ${quiz.maxAttempts} tentativa(s) para esta prova.`);
+            }
+        }
+
         // Get questions
         const questions = await ctx.db
             .query("quizQuestions")
@@ -368,9 +385,23 @@ export const submitAttempt = mutation({
                 case "true_false":
                 case "single_choice":
                 case "short_answer":
-                    // Comparação simples de string
-                    isCorrect = userAnswer?.answer?.toLowerCase().trim() ===
-                        question.correctAnswer?.toLowerCase().trim();
+                    // Comparação de string normalizada
+                    const userAns = userAnswer?.answer?.toString().toLowerCase().trim() || "";
+                    const correctAns = question.correctAnswer?.toString().toLowerCase().trim() || "";
+
+                    // Debug log para identificar problemas
+                    console.log(`[Quiz Debug] Question ${question._id}:`);
+                    console.log(`  Type: ${question.type}`);
+                    console.log(`  User Answer: "${userAns}" (original: "${userAnswer?.answer}")`);
+                    console.log(`  Correct Answer: "${correctAns}" (original: "${question.correctAnswer}")`);
+
+                    // Verificar se as respostas não estão vazias e são iguais
+                    if (userAns && correctAns) {
+                        isCorrect = userAns === correctAns;
+                    }
+
+                    console.log(`  Is Correct: ${isCorrect}`);
+
                     if (isCorrect) {
                         earnedPoints += question.points;
                         automaticPoints += question.points;

@@ -632,17 +632,44 @@ function OptionsEditor({
     };
 
     const removeOption = (index: number) => {
+        const removedOption = question.options[index];
         const newOptions = question.options.filter((_, i) => i !== index);
-        onUpdate({ options: newOptions });
+
+        // Se a opção removida era a correta, limpar o correctAnswer
+        if (!isMultiple && question.correctAnswer === removedOption) {
+            onUpdate({ options: newOptions, correctAnswer: "" });
+        } else if (isMultiple) {
+            // Remover da lista de respostas corretas se estava lá
+            const newCorrectAnswers = (question.correctAnswers || []).filter(a => a !== removedOption);
+            onUpdate({ options: newOptions, correctAnswers: newCorrectAnswers });
+        } else {
+            onUpdate({ options: newOptions });
+        }
     };
 
     const updateOption = (index: number, value: string) => {
+        const oldValue = question.options[index];
         const newOptions = [...question.options];
         newOptions[index] = value;
-        onUpdate({ options: newOptions });
+
+        // IMPORTANTE: Se a opção editada era a resposta correta, atualizar o correctAnswer também!
+        if (!isMultiple && question.correctAnswer === oldValue) {
+            onUpdate({ options: newOptions, correctAnswer: value });
+        } else if (isMultiple && question.correctAnswers?.includes(oldValue)) {
+            // Para múltipla escolha, atualizar a opção na lista de corretas
+            const newCorrectAnswers = question.correctAnswers.map(a => a === oldValue ? value : a);
+            onUpdate({ options: newOptions, correctAnswers: newCorrectAnswers });
+        } else {
+            onUpdate({ options: newOptions });
+        }
     };
 
     const toggleCorrect = (option: string) => {
+        // Não permitir selecionar opção vazia como correta
+        if (!option.trim()) {
+            return;
+        }
+
         if (isMultiple) {
             const current = question.correctAnswers || [];
             if (current.includes(option)) {
