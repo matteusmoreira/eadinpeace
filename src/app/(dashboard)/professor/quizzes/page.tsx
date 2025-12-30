@@ -343,7 +343,7 @@ export default function ProfessorQuizzesPage() {
                     timeLimit: parseInt(quizForm.timeLimit) * 60, // Convert to seconds
                 });
                 quizId = editingQuiz._id;
-                toast.success("Quiz atualizado com sucesso!");
+                toast.success("Prova atualizada com sucesso!");
             } else {
                 // Create new quiz
                 quizId = await createQuiz({
@@ -376,15 +376,15 @@ export default function ProfessorQuizzesPage() {
                         points: question.points,
                     });
                 }
-                toast.success("Quiz criado com sucesso!");
+                toast.success("Prova criada com sucesso!");
             }
 
             setIsCreating(false);
             setEditingQuiz(null);
             setQuestions([]);
         } catch (error) {
-            console.error("Erro ao salvar quiz:", error);
-            toast.error("Erro ao salvar quiz");
+            console.error("Erro ao salvar prova:", error);
+            toast.error("Erro ao salvar prova");
         } finally {
             setIsSaving(false);
         }
@@ -407,7 +407,7 @@ export default function ProfessorQuizzesPage() {
                         </Button>
                         <div>
                             <h1 className="text-xl font-bold">
-                                {editingQuiz ? "Editar Quiz" : "Novo Quiz"}
+                                {editingQuiz ? "Editar Prova" : "Nova Prova"}
                             </h1>
                             <p className="text-sm text-muted-foreground">
                                 {questions.length} questões adicionadas
@@ -427,7 +427,7 @@ export default function ProfessorQuizzesPage() {
                         ) : (
                             <>
                                 <Save className="h-4 w-4" />
-                                Salvar Quiz
+                                Salvar Prova
                             </>
                         )}
                     </Button>
@@ -442,7 +442,7 @@ export default function ProfessorQuizzesPage() {
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <div className="space-y-2">
-                                    <Label>Título do Quiz</Label>
+                                    <Label>Título da Prova</Label>
                                     <Input
                                         placeholder="Ex: Fundamentos de JavaScript"
                                         value={quizForm.title}
@@ -507,7 +507,7 @@ export default function ProfessorQuizzesPage() {
                                 <div>
                                     <CardTitle className="text-base">Questões</CardTitle>
                                     <CardDescription>
-                                        Adicione as perguntas do quiz
+                                        Adicione as perguntas da prova
                                     </CardDescription>
                                 </div>
                                 <Button onClick={openAddQuestion} className="gap-2">
@@ -521,7 +521,7 @@ export default function ProfessorQuizzesPage() {
                                         <HelpCircle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                                         <h3 className="font-medium mb-2">Nenhuma questão ainda</h3>
                                         <p className="text-sm text-muted-foreground mb-4">
-                                            Adicione a primeira questão do quiz
+                                            Adicione a primeira questão da prova
                                         </p>
                                         <Button onClick={openAddQuestion} variant="outline" className="gap-2">
                                             <Plus className="h-4 w-4" />
@@ -1074,14 +1074,14 @@ export default function ProfessorQuizzesPage() {
             {/* Header */}
             <motion.div variants={item} className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl md:text-3xl font-bold">Avaliações</h1>
+                    <h1 className="text-2xl md:text-3xl font-bold">Provas</h1>
                     <p className="text-muted-foreground">
-                        Crie e gerencie quizzes para seus cursos
+                        Crie e gerencie provas para seus cursos
                     </p>
                 </div>
                 <Button className="gap-2 gradient-bg border-0" onClick={openNewQuiz}>
                     <Plus className="h-4 w-4" />
-                    Criar Quiz
+                    Criar Prova
                 </Button>
             </motion.div>
 
@@ -1090,7 +1090,7 @@ export default function ProfessorQuizzesPage() {
                 <div className="relative max-w-md">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                        placeholder="Buscar quizzes..."
+                        placeholder="Buscar provas..."
                         className="pl-9"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
@@ -1183,13 +1183,13 @@ export default function ProfessorQuizzesPage() {
             {filteredQuizzes.length === 0 && (
                 <motion.div variants={item} className="text-center py-12">
                     <HelpCircle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-medium">Nenhum quiz encontrado</h3>
+                    <h3 className="text-lg font-medium">Nenhuma prova encontrada</h3>
                     <p className="text-muted-foreground mb-4">
-                        Crie seu primeiro quiz para testar seus alunos
+                        Crie sua primeira prova para testar seus alunos
                     </p>
                     <Button className="gap-2" onClick={openNewQuiz}>
                         <Plus className="h-4 w-4" />
-                        Criar Quiz
+                        Criar Prova
                     </Button>
                 </motion.div>
             )}

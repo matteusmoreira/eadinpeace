@@ -38,8 +38,8 @@ export function MultipleChoiceQuestion({
     return (
         <div className="space-y-4">
             <div>
-                <p className="text-gray-900 font-medium mb-1">{question}</p>
-                <p className="text-sm text-gray-600">Selecione todas as alternativas corretas</p>
+                <p className="text-gray-900 dark:text-white font-medium mb-1">{question}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Selecione todas as alternativas corretas</p>
             </div>
             <div className="space-y-2">
                 {options.map((option, index) => {
@@ -55,11 +55,11 @@ export function MultipleChoiceQuestion({
                             disabled={disabled}
                             className={`
                 w-full text-left p-4 rounded-lg border-2 transition-all
-                ${isSelected && !showCorrection ? "border-indigo-500 bg-indigo-50" : "border-gray-200"}
-                ${isCorrect && isSelected ? "border-green-500 bg-green-50" : ""}
-                ${isWrong ? "border-red-500 bg-red-50" : ""}
-                ${isMissed ? "border-yellow-500 bg-yellow-50" : ""}
-                ${!disabled && !showCorrection ? "hover:border-indigo-300 cursor-pointer" : ""}
+                ${isSelected && !showCorrection ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30" : "border-gray-200 dark:border-gray-700"}
+                ${isCorrect && isSelected ? "border-green-500 bg-green-50 dark:bg-green-900/30" : ""}
+                ${isWrong ? "border-red-500 bg-red-50 dark:bg-red-900/30" : ""}
+                ${isMissed ? "border-yellow-500 bg-yellow-50 dark:bg-yellow-900/30" : ""}
+                ${!disabled && !showCorrection ? "hover:border-indigo-300 dark:hover:border-indigo-600 cursor-pointer" : ""}
                 ${disabled ? "cursor-not-allowed opacity-60" : ""}
               `}
                         >
@@ -68,10 +68,10 @@ export function MultipleChoiceQuestion({
                                     <div
                                         className={`
                       w-5 h-5 rounded border-2 flex items-center justify-center
-                      ${isSelected && !showCorrection ? "border-indigo-500 bg-indigo-500" : "border-gray-300"}
+                      ${isSelected && !showCorrection ? "border-indigo-500 bg-indigo-500" : "border-gray-300 dark:border-gray-600"}
                       ${isCorrect && isSelected ? "border-green-500 bg-green-500" : ""}
                       ${isWrong ? "border-red-500 bg-red-500" : ""}
-                      ${isMissed ? "border-yellow-500 bg-yellow-100" : ""}
+                      ${isMissed ? "border-yellow-500 bg-yellow-100 dark:bg-yellow-900/40" : ""}
                     `}
                                     >
                                         {isSelected && !showCorrection && (
@@ -84,17 +84,17 @@ export function MultipleChoiceQuestion({
                                             <X className="w-3 h-3 text-white" />
                                         )}
                                         {isMissed && (
-                                            <Check className="w-3 h-3 text-yellow-600" />
+                                            <Check className="w-3 h-3 text-yellow-600 dark:text-yellow-400" />
                                         )}
                                     </div>
-                                    <span className="text-gray-900">{option}</span>
+                                    <span className="text-gray-900 dark:text-white">{option}</span>
                                 </div>
                                 {showCorrection && (
                                     <>
-                                        {isCorrect && isSelected && <Check className="w-5 h-5 text-green-600" />}
-                                        {isWrong && <X className="w-5 h-5 text-red-600" />}
+                                        {isCorrect && isSelected && <Check className="w-5 h-5 text-green-600 dark:text-green-400" />}
+                                        {isWrong && <X className="w-5 h-5 text-red-600 dark:text-red-400" />}
                                         {isMissed && (
-                                            <span className="text-xs text-yellow-600 font-medium">Não marcada</span>
+                                            <span className="text-xs text-yellow-600 dark:text-yellow-400 font-medium">Não marcada</span>
                                         )}
                                     </>
                                 )}

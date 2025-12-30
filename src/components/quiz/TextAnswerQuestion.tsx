@@ -38,9 +38,9 @@ export function TextAnswerQuestion({
     return (
         <div className="space-y-4">
             <div>
-                <p className="text-gray-900 font-medium mb-1">{question}</p>
+                <p className="text-gray-900 dark:text-white font-medium mb-1">{question}</p>
                 {!showCorrection && (
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
                         Resposta dissertativa (máx: {maxLength} caracteres)
                     </p>
                 )}
@@ -55,14 +55,14 @@ export function TextAnswerQuestion({
                     placeholder={placeholder}
                     rows={6}
                     className={`
-            w-full px-4 py-3 rounded-lg border-2 transition-all resize-none
-            ${showCorrection && isCorrect ? "border-green-500 bg-green-50" : ""}
-            ${showCorrection && !isCorrect && hasAnswer ? "border-orange-500 bg-orange-50" : ""}
-            ${!showCorrection ? "border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200" : ""}
-            ${disabled ? "cursor-not-allowed bg-gray-50" : ""}
+            w-full px-4 py-3 rounded-lg border-2 transition-all resize-none bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500
+            ${showCorrection && isCorrect ? "border-green-500 bg-green-50 dark:bg-green-900/30" : ""}
+            ${showCorrection && !isCorrect && hasAnswer ? "border-orange-500 bg-orange-50 dark:bg-orange-900/30" : ""}
+            ${!showCorrection ? "border-gray-300 dark:border-gray-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:focus:ring-indigo-800" : ""}
+            ${disabled ? "cursor-not-allowed bg-gray-50 dark:bg-gray-900" : ""}
           `}
                 />
-                <div className="absolute bottom-3 right-3 text-xs text-gray-500">
+                <div className="absolute bottom-3 right-3 text-xs text-gray-500 dark:text-gray-400">
                     {answer.length}/{maxLength}
                 </div>
             </div>
@@ -74,33 +74,33 @@ export function TextAnswerQuestion({
                     <div
                         className={`
               p-4 rounded-lg flex items-start gap-3
-              ${hasAnswer ? "bg-orange-50 border border-orange-200" : "bg-gray-50 border border-gray-200"}
+              ${hasAnswer ? "bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800" : "bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700"}
             `}
                     >
                         {hasAnswer ? (
                             <>
-                                <div className="p-1 bg-orange-100 rounded">
-                                    <Check className="w-4 h-4 text-orange-600" />
+                                <div className="p-1 bg-orange-100 dark:bg-orange-900/40 rounded">
+                                    <Check className="w-4 h-4 text-orange-600 dark:text-orange-400" />
                                 </div>
                                 <div className="flex-1">
-                                    <p className="text-sm font-medium text-orange-900">
+                                    <p className="text-sm font-medium text-orange-900 dark:text-orange-200">
                                         Aguardando Correção Manual
                                     </p>
-                                    <p className="text-xs text-orange-700 mt-1">
+                                    <p className="text-xs text-orange-700 dark:text-orange-400 mt-1">
                                         Esta questão será corrigida pelo professor
                                     </p>
                                 </div>
                             </>
                         ) : (
                             <>
-                                <div className="p-1 bg-gray-200 rounded">
-                                    <X className="w-4 h-4 text-gray-600" />
+                                <div className="p-1 bg-gray-200 dark:bg-gray-700 rounded">
+                                    <X className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                                 </div>
                                 <div className="flex-1">
-                                    <p className="text-sm font-medium text-gray-900">
+                                    <p className="text-sm font-medium text-gray-900 dark:text-white">
                                         Não Respondida
                                     </p>
-                                    <p className="text-xs text-gray-600 mt-1">
+                                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                                         Você não forneceu uma resposta para esta questão
                                     </p>
                                 </div>

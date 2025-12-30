@@ -152,8 +152,8 @@ const menuSections: MenuSection[] = [
         title: "Avaliações",
         roles: ["professor"],
         items: [
-            { title: "Quizzes", href: "/professor/quizzes", icon: HelpCircle },
-            { title: "Criar Quiz", href: "/professor/quizzes/create", icon: Play, badge: "Novo" },
+            { title: "Provas", href: "/professor/quizzes", icon: HelpCircle },
+            { title: "Criar Prova", href: "/professor/quizzes/create", icon: Play, badge: "Novo" },
             { title: "Banco de Questões", href: "/professor/question-bank", icon: FileText },
             { title: "Correção de Provas", href: "/professor/quizzes/grading", icon: Shield, badge: "Novo" },
             { title: "Rubricas", href: "/professor/rubrics", icon: Award },
@@ -185,7 +185,7 @@ const menuSections: MenuSection[] = [
         roles: ["student"],
         items: [
             { title: "Meu Progresso", href: "/student/progress", icon: Trophy },
-            { title: "Avaliações", href: "/student/quizzes", icon: HelpCircle },
+            { title: "Provas", href: "/student/quizzes", icon: HelpCircle },
             { title: "Certificados", href: "/student/certificates", icon: Award },
         ],
     },

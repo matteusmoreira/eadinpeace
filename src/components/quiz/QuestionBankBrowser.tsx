@@ -88,7 +88,7 @@ export function QuestionBankBrowser({
                     <div>
                         <h2 className="text-xl font-bold text-gray-900">Banco de Questões</h2>
                         <p className="text-sm text-gray-600">
-                            Selecione as questões para importar para o quiz
+                            Selecione as questões para importar para a prova
                         </p>
                     </div>
                     <button

@@ -131,7 +131,7 @@ export default function CreateQuizPage() {
         }
 
         if (!quizData.title.trim()) {
-            toast.error("Digite o título do quiz");
+            toast.error("Digite o título da prova");
             return;
         }
 
@@ -184,10 +184,10 @@ export default function CreateQuizPage() {
                 });
             }
 
-            toast.success("Quiz criado com sucesso!");
+            toast.success("Prova criada com sucesso!");
             router.push("/professor/quizzes");
         } catch (error) {
-            toast.error("Erro ao criar quiz");
+            toast.error("Erro ao criar prova");
             console.error(error);
         } finally {
             setIsSaving(false);
@@ -228,7 +228,7 @@ export default function CreateQuizPage() {
                                 <ArrowLeft className="w-5 h-5" />
                             </Link>
                             <div>
-                                <h1 className="text-xl font-bold text-gray-900">Criar Novo Quiz</h1>
+                                <h1 className="text-xl font-bold text-gray-900">Criar Nova Prova</h1>
                                 <p className="text-sm text-gray-600">
                                     {questions.length} questões •{" "}
                                     {questions.reduce((acc, q) => acc + q.points, 0)} pontos
@@ -249,7 +249,7 @@ export default function CreateQuizPage() {
                                 className="inline-flex items-center gap-2 px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
                             >
                                 <Save className="w-4 h-4" />
-                                {isSaving ? "Salvando..." : "Salvar Quiz"}
+                                {isSaving ? "Salvando..." : "Salvar Prova"}
                             </button>
                         </div>
                     </div>
@@ -310,7 +310,7 @@ export default function CreateQuizPage() {
                         <div className="bg-white rounded-xl shadow-sm p-6">
                             <h3 className="font-medium text-gray-900 mb-4 flex items-center gap-2">
                                 <BookOpen className="w-5 h-5" />
-                                Informações do Quiz
+                                Informações da Prova
                             </h3>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="col-span-2">
@@ -331,7 +331,7 @@ export default function CreateQuizPage() {
                                         value={quizData.description}
                                         onChange={(e) => setQuizData({ ...quizData, description: e.target.value })}
                                         rows={2}
-                                        placeholder="Descreva o conteúdo do quiz..."
+                                        placeholder="Descreva o conteúdo da prova..."
                                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
                                     />
                                 </div>
@@ -441,7 +441,7 @@ export default function CreateQuizPage() {
                                             />
                                             <div>
                                                 <p className="text-sm font-medium text-gray-900">Feedback de Alunos</p>
-                                                <p className="text-xs text-gray-600">Permitir avaliação do quiz</p>
+                                                <p className="text-xs text-gray-600">Permitir avaliação da prova</p>
                                             </div>
                                         </label>
                                         <div className="p-3 bg-gray-50 rounded-lg">

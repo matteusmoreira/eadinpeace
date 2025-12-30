@@ -162,7 +162,7 @@ export default function ProfessorResultsPage() {
 
         // Courses sheet
         const coursesData = [
-            ["Curso", "Alunos", "Quizzes", "Média", "Taxa de Conclusão", "Pendentes"],
+            ["Curso", "Alunos", "Provas", "Média", "Taxa de Conclusão", "Pendentes"],
             ...courseResults.map(c => [
                 c.title,
                 c.totalStudents,
@@ -177,7 +177,7 @@ export default function ProfessorResultsPage() {
 
         // Quizzes sheet
         const quizzesData = [
-            ["Quiz", "Curso", "Tentativas", "Corrigidos", "Média", "Pendentes"],
+            ["Prova", "Curso", "Tentativas", "Corrigidos", "Média", "Pendentes"],
             ...quizResults.map(q => [
                 q.title,
                 q.courseName,
@@ -188,12 +188,12 @@ export default function ProfessorResultsPage() {
             ]),
         ];
         const wsQuizzes = XLSX.utils.aoa_to_sheet(quizzesData);
-        XLSX.utils.book_append_sheet(wb, wsQuizzes, "Por Quiz");
+        XLSX.utils.book_append_sheet(wb, wsQuizzes, "Por Prova");
 
         // Low performers sheet
         if (lowPerformers && lowPerformers.length > 0) {
             const lowData = [
-                ["Nome", "Email", "Média", "Quizzes", "Status"],
+                ["Nome", "Email", "Média", "Provas", "Status"],
                 ...lowPerformers.map(s => [
                     s.name,
                     s.email,
@@ -436,7 +436,7 @@ export default function ProfessorResultsPage() {
                             <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-flex">
                                 <TabsTrigger value="overview">Visão Geral</TabsTrigger>
                                 <TabsTrigger value="courses">Por Curso</TabsTrigger>
-                                <TabsTrigger value="quizzes">Por Quiz</TabsTrigger>
+                                <TabsTrigger value="quizzes">Por Prova</TabsTrigger>
                                 <TabsTrigger value="alerts">Alertas</TabsTrigger>
                             </TabsList>
 
@@ -588,7 +588,7 @@ export default function ProfessorResultsPage() {
                                                                     </span>
                                                                     <span className="flex items-center gap-1">
                                                                         <FileText className="h-4 w-4" />
-                                                                        {course.totalQuizzes} quizzes
+                                                                        {course.totalQuizzes} provas
                                                                     </span>
                                                                 </div>
                                                             </div>
@@ -628,7 +628,7 @@ export default function ProfessorResultsPage() {
                                 )}
                             </TabsContent>
 
-                            {/* Quizzes Tab */}
+                            {/* Provas Tab */}
                             <TabsContent value="quizzes" className="space-y-4 mt-6">
                                 {quizResults && quizResults.length > 0 ? (
                                     <div className="grid gap-4">
@@ -685,7 +685,7 @@ export default function ProfessorResultsPage() {
                                     <Card>
                                         <CardContent className="py-12 text-center">
                                             <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                                            <p className="text-muted-foreground">Nenhum quiz encontrado</p>
+                                            <p className="text-muted-foreground">Nenhuma prova encontrada</p>
                                         </CardContent>
                                     </Card>
                                 )}
@@ -735,7 +735,7 @@ export default function ProfessorResultsPage() {
                                                                     {student.averageScore}%
                                                                 </p>
                                                                 <p className="text-xs text-muted-foreground">
-                                                                    {student.quizzesTaken} quizzes
+                                                                    {student.quizzesTaken} provas
                                                                 </p>
                                                             </div>
                                                             <Badge variant={student.status === "critical" ? "destructive" : "secondary"}>

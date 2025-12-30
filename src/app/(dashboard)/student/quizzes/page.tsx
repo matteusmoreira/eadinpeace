@@ -48,7 +48,7 @@ export default function StudentQuizzesPage() {
     // Stats for display
     const stats = quizzesData
         ? [
-            { label: "Quizzes Disponíveis", value: String(quizzesData.stats.available), icon: BookOpen, color: "text-primary" },
+            { label: "Provas Disponíveis", value: String(quizzesData.stats.available), icon: BookOpen, color: "text-primary" },
             { label: "Concluídos", value: String(quizzesData.stats.completed), icon: CheckCircle2, color: "text-emerald-500" },
             { label: "Taxa de Aprovação", value: `${quizzesData.stats.approvalRate}%`, icon: Target, color: "text-amber-500" },
             { label: "Melhor Nota", value: `${quizzesData.stats.bestScore}%`, icon: Trophy, color: "text-violet-500" },
@@ -100,9 +100,9 @@ export default function StudentQuizzesPage() {
         >
             {/* Header */}
             <motion.div variants={item}>
-                <h1 className="text-2xl md:text-3xl font-bold">Avaliações</h1>
+                <h1 className="text-2xl md:text-3xl font-bold">Provas</h1>
                 <p className="text-muted-foreground">
-                    Teste seus conhecimentos com quizzes interativos
+                    Teste seus conhecimentos com provas interativas
                 </p>
             </motion.div>
 
@@ -127,7 +127,7 @@ export default function StudentQuizzesPage() {
 
             {/* Quizzes List */}
             <motion.div variants={item} className="space-y-4">
-                <h2 className="text-lg font-semibold">Quizzes Disponíveis</h2>
+                <h2 className="text-lg font-semibold">Provas Disponíveis</h2>
 
                 {quizzes.length === 0 ? (
                     <Card className="p-8">
@@ -136,9 +136,9 @@ export default function StudentQuizzesPage() {
                                 <AlertCircle className="h-8 w-8 text-muted-foreground" />
                             </div>
                             <div>
-                                <h3 className="font-semibold text-lg">Nenhum quiz disponível</h3>
+                                <h3 className="font-semibold text-lg">Nenhuma prova disponível</h3>
                                 <p className="text-muted-foreground text-sm">
-                                    Matricule-se em cursos para ter acesso aos quizzes disponíveis.
+                                    Matricule-se em cursos para ter acesso às provas disponíveis.
                                 </p>
                             </div>
                             <Link href="/student/courses">
@@ -245,7 +245,7 @@ export default function StudentQuizzesPage() {
                                             variant={quiz.status === "pending" ? "default" : "outline"}
                                         >
                                             <Play className="h-4 w-4" />
-                                            {quiz.status === "pending" ? "Iniciar Quiz" : "Refazer Quiz"}
+                                            {quiz.status === "pending" ? "Iniciar Prova" : "Refazer Prova"}
                                         </Button>
                                     </Link>
                                 </CardContent>

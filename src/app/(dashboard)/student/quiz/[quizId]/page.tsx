@@ -198,15 +198,15 @@ export default function QuizPage() {
             setState("finished");
 
             if (submissionResult.requiresManualGrading) {
-                toast.info("Quiz enviado! Algumas questões serão corrigidas pelo professor.");
+                toast.info("Prova enviada! Algumas questões serão corrigidas pelo professor.");
             } else if (submissionResult.passed) {
-                toast.success("Parabéns! Você passou no quiz! 🎉");
+                toast.success("Parabéns! Você passou na prova! 🎉");
             } else {
                 toast.info("Continue estudando e tente novamente!");
             }
         } catch (error) {
             console.error("Error submitting quiz:", error);
-            toast.error("Erro ao enviar quiz");
+            toast.error("Erro ao enviar prova");
             setState("finished");
         } finally {
             setIsSubmitting(false);
@@ -266,13 +266,13 @@ export default function QuizPage() {
                             </div>
 
                             {hasManualGradingQuestions && (
-                                <div className="p-4 rounded-lg bg-orange-50 border border-orange-200 flex items-start gap-3">
-                                    <AlertCircle className="w-5 h-5 text-orange-600 mt-0.5" />
+                                <div className="p-4 rounded-lg bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 flex items-start gap-3">
+                                    <AlertCircle className="w-5 h-5 text-orange-600 dark:text-orange-400 mt-0.5" />
                                     <div>
-                                        <p className="text-sm font-medium text-orange-900">
+                                        <p className="text-sm font-medium text-orange-900 dark:text-orange-200">
                                             Correção Manual
                                         </p>
-                                        <p className="text-xs text-orange-700 mt-1">
+                                        <p className="text-xs text-orange-700 dark:text-orange-400 mt-1">
                                             Algumas questões serão corrigidas pelo professor
                                         </p>
                                     </div>
@@ -291,7 +291,7 @@ export default function QuizPage() {
                                 size="lg"
                                 onClick={startQuiz}
                             >
-                                Iniciar Quiz
+                                Iniciar Prova
                                 <ArrowRight className="h-4 w-4" />
                             </Button>
                         </CardContent>
@@ -322,7 +322,7 @@ export default function QuizPage() {
                                 transition={{ delay: 0.2, type: "spring" }}
                                 className={cn(
                                     "h-20 w-20 mx-auto rounded-full flex items-center justify-center mb-4",
-                                    requiresManual ? "bg-orange-100" : passed ? "bg-emerald-100" : "bg-red-100"
+                                    requiresManual ? "bg-orange-100 dark:bg-orange-900/40" : passed ? "bg-emerald-100 dark:bg-emerald-900/40" : "bg-red-100 dark:bg-red-900/40"
                                 )}
                             >
                                 {requiresManual ? (
@@ -342,9 +342,9 @@ export default function QuizPage() {
                             </CardTitle>
                             <CardDescription>
                                 {requiresManual
-                                    ? "Seu quiz foi enviado e será corrigido pelo professor."
+                                    ? "Seu prova foi enviada e será corrigida pelo professor."
                                     : passed
-                                        ? "Você passou no quiz com sucesso!"
+                                        ? "Você passou na prova com sucesso!"
                                         : "Continue estudando e tente novamente."}
                             </CardDescription>
                         </CardHeader>
@@ -403,14 +403,14 @@ export default function QuizPage() {
                             </div>
 
                             {requiresManual && (
-                                <div className="p-4 rounded-lg bg-orange-50 border border-orange-200">
+                                <div className="p-4 rounded-lg bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800">
                                     <div className="flex items-start gap-3">
-                                        <AlertCircle className="w-5 h-5 text-orange-600 mt-0.5" />
+                                        <AlertCircle className="w-5 h-5 text-orange-600 dark:text-orange-400 mt-0.5" />
                                         <div>
-                                            <p className="text-sm font-medium text-orange-900">
+                                            <p className="text-sm font-medium text-orange-900 dark:text-orange-200">
                                                 Correção em andamento
                                             </p>
-                                            <p className="text-xs text-orange-700 mt-1">
+                                            <p className="text-xs text-orange-700 dark:text-orange-400 mt-1">
                                                 Você será notificado quando a correção for concluída.
                                                 A nota final pode ser diferente após a correção manual.
                                             </p>
@@ -508,8 +508,8 @@ export default function QuizPage() {
                                 currentQuestionIndex === index
                                     ? "bg-indigo-600 text-white"
                                     : hasAnswer
-                                        ? "bg-green-100 text-green-700 border border-green-300"
-                                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                                        ? "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 border border-green-300 dark:border-green-700"
+                                        : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
                             )}
                         >
                             {index + 1}
@@ -538,7 +538,7 @@ export default function QuizPage() {
                                         {currentQuestion.points} pts
                                     </Badge>
                                     {requiresManualGrading(currentQuestion.type) && (
-                                        <Badge className="bg-orange-100 text-orange-700 border-orange-300">
+                                        <Badge className="bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-700">
                                             Correção Manual
                                         </Badge>
                                     )}
@@ -594,7 +594,7 @@ export default function QuizPage() {
                         {isSubmitting ? (
                             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                         ) : null}
-                        Finalizar Quiz
+                        Finalizar Prova
                         <CheckCircle2 className="h-4 w-4 ml-2" />
                     </Button>
                 ) : (

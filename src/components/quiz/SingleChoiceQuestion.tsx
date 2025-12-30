@@ -32,7 +32,7 @@ export function SingleChoiceQuestion({
 
     return (
         <div className="space-y-4">
-            <p className="text-gray-900 font-medium">{question}</p>
+            <p className="text-gray-900 dark:text-white font-medium">{question}</p>
             <div className="space-y-2">
                 {options.map((option, index) => {
                     const isSelected = selected === option;
@@ -46,10 +46,10 @@ export function SingleChoiceQuestion({
                             disabled={disabled}
                             className={`
                 w-full text-left p-4 rounded-lg border-2 transition-all
-                ${isSelected && !showCorrection ? "border-indigo-500 bg-indigo-50" : "border-gray-200"}
-                ${isCorrect ? "border-green-500 bg-green-50" : ""}
-                ${isWrong ? "border-red-500 bg-red-50" : ""}
-                ${!disabled && !showCorrection ? "hover:border-indigo-300 cursor-pointer" : ""}
+                ${isSelected && !showCorrection ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30" : "border-gray-200 dark:border-gray-700"}
+                ${isCorrect ? "border-green-500 bg-green-50 dark:bg-green-900/30" : ""}
+                ${isWrong ? "border-red-500 bg-red-50 dark:bg-red-900/30" : ""}
+                ${!disabled && !showCorrection ? "hover:border-indigo-300 dark:hover:border-indigo-600 cursor-pointer" : ""}
                 ${disabled ? "cursor-not-allowed opacity-60" : ""}
               `}
                         >
@@ -58,7 +58,7 @@ export function SingleChoiceQuestion({
                                     <div
                                         className={`
                       w-5 h-5 rounded-full border-2 flex items-center justify-center
-                      ${isSelected && !showCorrection ? "border-indigo-500 bg-indigo-500" : "border-gray-300"}
+                      ${isSelected && !showCorrection ? "border-indigo-500 bg-indigo-500" : "border-gray-300 dark:border-gray-600"}
                       ${isCorrect ? "border-green-500 bg-green-500" : ""}
                       ${isWrong ? "border-red-500 bg-red-500" : ""}
                     `}
@@ -67,12 +67,12 @@ export function SingleChoiceQuestion({
                                             <div className="w-2 h-2 bg-white rounded-full" />
                                         )}
                                     </div>
-                                    <span className="text-gray-900">{option}</span>
+                                    <span className="text-gray-900 dark:text-white">{option}</span>
                                 </div>
                                 {showCorrection && (
                                     <>
-                                        {isCorrect && <Check className="w-5 h-5 text-green-600" />}
-                                        {isWrong && <X className="w-5 h-5 text-red-600" />}
+                                        {isCorrect && <Check className="w-5 h-5 text-green-600 dark:text-green-400" />}
+                                        {isWrong && <X className="w-5 h-5 text-red-600 dark:text-red-400" />}
                                     </>
                                 )}
                             </div>
