@@ -113,11 +113,14 @@ export default function AdminNewCoursePage() {
     // The organization ID to use - either from user or first org for superadmin
     const effectiveOrgId = convexUser?.organizationId || anyOrganization?._id;
 
-    // Get all users from org to select as instructor
-    const orgUsers = useQuery(api.users.getAll);
+    // Get users from organization to select as instructor
+    // Use getByOrganization which works for both admin and superadmin
+    const orgUsers = useQuery(
+        api.users.getByOrganization,
+        effectiveOrgId ? { organizationId: effectiveOrgId } : "skip"
+    );
     const instructors = orgUsers?.filter(u =>
-        u.organizationId === effectiveOrgId &&
-        (u.role === "professor" || u.role === "admin")
+        u.role === "professor" || u.role === "admin"
     ) || [];
 
     // Get categories for the organization
