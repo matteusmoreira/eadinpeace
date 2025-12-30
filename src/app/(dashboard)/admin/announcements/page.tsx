@@ -203,12 +203,23 @@ export default function AnnouncementsPage() {
 
     const toggleRole = (role: string) => {
         if (role === "all") {
-            setTargetRoles(["all"]);
+            // Se clicar em "Todos", seleciona apenas "Todos" (ou mantém vazio se já estava selecionado)
+            if (targetRoles.includes("all")) {
+                // Desmarcar "Todos" - deixa vazio ou com array vazio
+                setTargetRoles([]);
+            } else {
+                // Marcar "Todos" - remove outros e marca apenas "all"
+                setTargetRoles(["all"]);
+            }
         } else {
+            // Se clicar em um grupo específico, remove "all" automaticamente
             const newRoles = targetRoles.filter(r => r !== "all");
             if (newRoles.includes(role)) {
-                setTargetRoles(newRoles.filter(r => r !== role));
+                // Desmarcar este grupo
+                const filtered = newRoles.filter(r => r !== role);
+                setTargetRoles(filtered);
             } else {
+                // Marcar este grupo
                 setTargetRoles([...newRoles, role]);
             }
         }
@@ -340,7 +351,6 @@ export default function AnnouncementsPage() {
                                                 <Checkbox
                                                     checked={targetRoles.includes("student")}
                                                     onCheckedChange={() => toggleRole("student")}
-                                                    disabled={targetRoles.includes("all")}
                                                 />
                                                 <span className="text-sm">Alunos</span>
                                             </label>
@@ -348,7 +358,6 @@ export default function AnnouncementsPage() {
                                                 <Checkbox
                                                     checked={targetRoles.includes("professor")}
                                                     onCheckedChange={() => toggleRole("professor")}
-                                                    disabled={targetRoles.includes("all")}
                                                 />
                                                 <span className="text-sm">Professores</span>
                                             </label>
@@ -356,7 +365,6 @@ export default function AnnouncementsPage() {
                                                 <Checkbox
                                                     checked={targetRoles.includes("admin")}
                                                     onCheckedChange={() => toggleRole("admin")}
-                                                    disabled={targetRoles.includes("all")}
                                                 />
                                                 <span className="text-sm">Admins</span>
                                             </label>
