@@ -17,9 +17,10 @@ import {
     GraduationCap,
     Building,
 } from "lucide-react";
-import { TEXT_PLACEHOLDERS } from "./types";
+import { TEXT_PLACEHOLDERS, CertificateElement, DEFAULT_TEXT_ELEMENT, DEFAULT_SHAPE_ELEMENT, DEFAULT_IMAGE_ELEMENT } from "./types";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 
 interface ToolbarItem {
     type: string;
@@ -51,8 +52,15 @@ const specialElements: ToolbarItem[] = [
     { type: "signature", icon: <Signature className="h-4 w-4" />, label: "Assinatura" },
 ];
 
-function DraggableItem({ item }: { item: ToolbarItem }) {
+interface DraggableItemProps {
+    item: ToolbarItem;
+    isMobile?: boolean;
+    onClick?: () => void;
+}
+
+function DraggableItem({ item, isMobile, onClick }: DraggableItemProps) {
     const handleDragStart = (e: React.DragEvent) => {
+        if (isMobile) return;
         e.dataTransfer.setData("elementType", item.type);
         if (item.data) {
             Object.entries(item.data).forEach(([key, value]) => {
@@ -63,30 +71,92 @@ function DraggableItem({ item }: { item: ToolbarItem }) {
     };
 
     return (
-        <motion.div
-            draggable
+        <div
+            draggable={!isMobile}
             onDragStart={handleDragStart}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-accent hover:border-primary/50 cursor-grab active:cursor-grabbing transition-colors"
+            onClick={onClick}
+            className={cn(
+                "flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-accent hover:border-primary/50 transition-all duration-200",
+                isMobile ? "cursor-pointer active:scale-[0.98]" : "cursor-grab active:cursor-grabbing hover:scale-[1.02]"
+            )}
         >
-            <div className="h-8 w-8 rounded-md bg-primary/10 flex items-center justify-center text-primary">
+            <div className="h-8 w-8 shrink-0 rounded-md bg-primary/10 flex items-center justify-center text-primary">
                 {item.icon}
             </div>
-            <span className="text-sm font-medium">{item.label}</span>
-        </motion.div>
+            <span className="text-sm font-medium truncate">{item.label}</span>
+        </div>
     );
 }
 
-export function ElementToolbar() {
+interface ElementToolbarProps {
+    isMobile?: boolean;
+    onAddElement?: (element: Partial<CertificateElement>) => void;
+}
+
+export function ElementToolbar({ isMobile, onAddElement }: ElementToolbarProps) {
+    const handleItemClick = (item: ToolbarItem) => {
+        if (!isMobile || !onAddElement) return;
+
+        let newElement: Partial<CertificateElement>;
+
+        switch (item.type) {
+            case "text":
+                newElement = {
+                    ...DEFAULT_TEXT_ELEMENT,
+                    x: 100,
+                    y: 100,
+                    content: item.data?.placeholder || "Texto",
+                };
+                break;
+            case "shape":
+                newElement = {
+                    ...DEFAULT_SHAPE_ELEMENT,
+                    x: 100,
+                    y: 100,
+                    shapeType: (item.data?.shapeType as "rectangle" | "circle" | "line") || "rectangle",
+                };
+                break;
+            case "image":
+                newElement = {
+                    ...DEFAULT_IMAGE_ELEMENT,
+                    x: 100,
+                    y: 100,
+                };
+                break;
+            default:
+                newElement = {
+                    type: item.type as CertificateElement["type"],
+                    x: 100,
+                    y: 100,
+                    width: 100,
+                    height: 100,
+                };
+        }
+
+        onAddElement(newElement);
+    };
+
     return (
-        <div className="w-64 border-r bg-background flex flex-col">
-            <div className="p-4 border-b">
-                <h3 className="font-semibold text-sm">Elementos</h3>
-                <p className="text-xs text-muted-foreground mt-1">
-                    Arraste para o canvas
-                </p>
-            </div>
+        <div className={cn(
+            "bg-background flex flex-col h-full",
+            !isMobile && "w-64 border-r"
+        )}>
+            {!isMobile && (
+                <div className="p-4 border-b">
+                    <h3 className="font-semibold text-sm">Elementos</h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                        Arraste para o canvas
+                    </p>
+                </div>
+            )}
+
+            {isMobile && (
+                <div className="px-4 pt-2 pb-3">
+                    <p className="text-xs text-muted-foreground">
+                        Toque para adicionar ao canvas
+                    </p>
+                </div>
+            )}
 
             <ScrollArea className="flex-1">
                 <div className="p-4 space-y-6">
@@ -97,7 +167,12 @@ export function ElementToolbar() {
                         </h4>
                         <div className="grid gap-2">
                             {textElements.map((item, index) => (
-                                <DraggableItem key={index} item={item} />
+                                <DraggableItem
+                                    key={index}
+                                    item={item}
+                                    isMobile={isMobile}
+                                    onClick={() => handleItemClick(item)}
+                                />
                             ))}
                         </div>
                     </div>
@@ -111,7 +186,12 @@ export function ElementToolbar() {
                         </h4>
                         <div className="grid gap-2">
                             {shapeElements.map((item, index) => (
-                                <DraggableItem key={index} item={item} />
+                                <DraggableItem
+                                    key={index}
+                                    item={item}
+                                    isMobile={isMobile}
+                                    onClick={() => handleItemClick(item)}
+                                />
                             ))}
                         </div>
                     </div>
@@ -125,7 +205,12 @@ export function ElementToolbar() {
                         </h4>
                         <div className="grid gap-2">
                             {specialElements.map((item, index) => (
-                                <DraggableItem key={index} item={item} />
+                                <DraggableItem
+                                    key={index}
+                                    item={item}
+                                    isMobile={isMobile}
+                                    onClick={() => handleItemClick(item)}
+                                />
                             ))}
                         </div>
                     </div>

@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
+import { cn } from "@/lib/utils";
 import {
     Select,
     SelectContent,
@@ -27,6 +28,7 @@ interface PropertiesPanelProps {
     onUpdate: (updates: Partial<CertificateElement>) => void;
     backgroundColor: string;
     onBackgroundColorChange: (color: string) => void;
+    isMobile?: boolean;
 }
 
 export function PropertiesPanel({
@@ -34,10 +36,14 @@ export function PropertiesPanel({
     onUpdate,
     backgroundColor,
     onBackgroundColorChange,
+    isMobile,
 }: PropertiesPanelProps) {
     if (!selectedElement) {
         return (
-            <div className="w-72 border-l bg-background flex flex-col">
+            <div className={cn(
+                "bg-background flex flex-col h-full",
+                !isMobile && "w-72 border-l"
+            )}>
                 <div className="p-4 border-b">
                     <h3 className="font-semibold text-sm">Propriedades</h3>
                 </div>
@@ -73,7 +79,10 @@ export function PropertiesPanel({
     }
 
     return (
-        <div className="w-72 border-l bg-background flex flex-col">
+        <div className={cn(
+            "bg-background flex flex-col h-full",
+            !isMobile && "w-72 border-l"
+        )}>
             <div className="p-4 border-b">
                 <h3 className="font-semibold text-sm">Propriedades</h3>
                 <p className="text-xs text-muted-foreground mt-1 capitalize">
