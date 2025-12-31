@@ -84,8 +84,16 @@ export const getById = query({
 export const getBySlug = query({
     args: { slug: v.string() },
     handler: async (ctx, args) => {
+        // Verificar autenticação primeiro
+        let auth;
         try {
-            const auth = await requireAuth(ctx);
+            auth = await requireAuth(ctx);
+        } catch (authError) {
+            // Se não estiver autenticado, retorna null silenciosamente
+            return null;
+        }
+
+        try {
             const course = await ctx.db
                 .query("courses")
                 .withIndex("by_slug", (q) => q.eq("slug", args.slug))
@@ -108,17 +116,28 @@ export const getBySlug = query({
 export const getWithContentBySlug = query({
     args: { slug: v.string() },
     handler: async (ctx, args) => {
+        // Verificar autenticação primeiro
+        let auth;
         try {
-            const auth = await requireAuth(ctx);
+            auth = await requireAuth(ctx);
+        } catch (authError) {
+            // Se não estiver autenticado, retorna null silenciosamente
+            console.log("getWithContentBySlug: Usuário não autenticado");
+            return null;
+        }
+
+        try {
             const course = await ctx.db
                 .query("courses")
                 .withIndex("by_slug", (q) => q.eq("slug", args.slug))
                 .first();
 
             if (!course) {
+                console.log("getWithContentBySlug: Curso não encontrado com slug:", args.slug);
                 return null;
             }
             if (auth.user.role !== "superadmin" && auth.user.organizationId !== course.organizationId) {
+                console.log("getWithContentBySlug: Acesso negado - organizações diferentes");
                 return null;
             }
 
@@ -149,6 +168,7 @@ export const getWithContentBySlug = query({
                 modules: modulesWithLessons.sort((a, b) => a.order - b.order),
             };
         } catch (error) {
+            console.error("getWithContentBySlug: Erro ao buscar curso:", error);
             return null;
         }
     },
@@ -242,8 +262,16 @@ export const getPublishedByOrganization = query({
 export const getWithContent = query({
     args: { courseId: v.id("courses") },
     handler: async (ctx, args) => {
+        // Verificar autenticação primeiro
+        let auth;
         try {
-            const auth = await requireAuth(ctx);
+            auth = await requireAuth(ctx);
+        } catch (authError) {
+            // Se não estiver autenticado, retorna null silenciosamente
+            return null;
+        }
+
+        try {
             const course = await ctx.db.get(args.courseId);
             if (!course) {
                 return null;
@@ -279,6 +307,7 @@ export const getWithContent = query({
                 modules: modulesWithLessons.sort((a, b) => a.order - b.order),
             };
         } catch (error) {
+            console.error("getWithContent: Erro ao buscar curso:", error);
             return null;
         }
     },
