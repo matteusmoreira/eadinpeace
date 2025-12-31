@@ -279,7 +279,7 @@ export default function AdminCoursesPage() {
                                                         Editar
                                                     </DropdownMenuItem>
                                                 </Link>
-                                                <Link href={`/student/courses/${course._id}`} target="_blank">
+                                                <Link href={`/student/courses/${course.slug}`}>
                                                     <DropdownMenuItem className="gap-2">
                                                         <Eye className="h-4 w-4" />
                                                         Visualizar
@@ -371,7 +371,7 @@ export default function AdminCoursesPage() {
                                                         Editar
                                                     </DropdownMenuItem>
                                                 </Link>
-                                                <Link href={`/student/courses/${course._id}`} target="_blank">
+                                                <Link href={`/student/courses/${course.slug}`}>
                                                     <DropdownMenuItem className="gap-2">
                                                         <Eye className="h-4 w-4" />
                                                         Visualizar

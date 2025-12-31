@@ -49,12 +49,13 @@ export default function AdminDashboardPage() {
         organizationId ? { organizationId } : "skip"
     );
 
-    const allUsers = useQuery(api.users.getAll);
+    // Get users by organization directly (works for admin)
+    const orgUsers = useQuery(
+        api.users.getByOrganization,
+        organizationId ? { organizationId } : "skip"
+    );
 
-    // Filter users by organization
-    const orgUsers = allUsers?.filter(u => u.organizationId === organizationId) || [];
-
-    const isLoading = userLoading || courses === undefined || allUsers === undefined;
+    const isLoading = userLoading || courses === undefined || orgUsers === undefined;
 
     const [now, setNow] = useState<number | null>(null);
     useEffect(() => {
@@ -62,15 +63,15 @@ export default function AdminDashboardPage() {
     }, []);
 
     // Calculate stats
-    const totalUsers = orgUsers.length;
-    const professors = orgUsers.filter(u => u.role === "professor").length;
-    const students = orgUsers.filter(u => u.role === "student").length;
+    const totalUsers = (orgUsers || []).length;
+    const professors = (orgUsers || []).filter(u => u.role === "professor").length;
+    const students = (orgUsers || []).filter(u => u.role === "student").length;
     const totalCourses = courses?.length || 0;
     const publishedCourses = courses?.filter(c => c.isPublished).length || 0;
     const totalEnrollments = courses?.reduce((acc, c) => acc + (c.enrollmentCount || 0), 0) || 0;
 
     // Recent users (last 5)
-    const recentUsers = [...orgUsers]
+    const recentUsers = [...(orgUsers || [])]
         .sort((a, b) => b.createdAt - a.createdAt)
         .slice(0, 5);
 

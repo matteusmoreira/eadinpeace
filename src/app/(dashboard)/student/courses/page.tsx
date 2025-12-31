@@ -261,7 +261,7 @@ export default function StudentCoursesPage() {
                                         </div>
 
                                         {enrolled ? (
-                                            <Link href={`/student/courses/${course._id}`}>
+                                            <Link href={`/student/courses/${course.slug}`}>
                                                 <Button className="gap-2">
                                                     <Play className="h-4 w-4" />
                                                     Continuar

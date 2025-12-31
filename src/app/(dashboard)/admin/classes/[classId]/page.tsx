@@ -78,6 +78,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { toast } from "sonner";
 import { Id } from "@convex/_generated/dataModel";
+import { useUser } from "@clerk/nextjs";
 
 const container = {
     hidden: { opacity: 0 },
@@ -107,6 +108,7 @@ export default function AdminClassDetailPage() {
     const params = useParams();
     const router = useRouter();
     const classId = params.classId as Id<"classes">;
+    const { user } = useUser();
 
     const [activeTab, setActiveTab] = useState("students");
     const [addStudentDialog, setAddStudentDialog] = useState(false);
@@ -125,13 +127,31 @@ export default function AdminClassDetailPage() {
         validityDays: "30" as "7" | "30" | "null",
     });
 
+    // Get current user from Convex
+    const currentUser = useQuery(
+        api.users.getByClerkId,
+        user?.id ? { clerkId: user.id } : "skip"
+    );
+
     // Queries
     const classDetails = useQuery(api.classes.getById, { classId });
     const enrollments = useQuery(api.classes.getEnrollments, { classId });
     const stats = useQuery(api.classes.getStats, { classId });
 
-    // Get users for adding students
-    const allUsers = useQuery(api.users.getAll);
+    // Get users for adding students - use getAll for superadmin, getByOrganization for admin
+    const allUsersFromGetAll = useQuery(
+        api.users.getAll,
+        currentUser?.role === "superadmin" ? {} : "skip"
+    );
+    const orgUsers = useQuery(
+        api.users.getByOrganization,
+        currentUser?.role !== "superadmin" && currentUser?.organizationId
+            ? { organizationId: currentUser.organizationId }
+            : "skip"
+    );
+
+    // Merge users based on role
+    const allUsers = currentUser?.role === "superadmin" ? allUsersFromGetAll : orgUsers;
 
     // Mutations
     const updateClass = useMutation(api.classes.update);

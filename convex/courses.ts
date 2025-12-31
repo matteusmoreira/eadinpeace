@@ -80,6 +80,80 @@ export const getById = query({
     },
 });
 
+// Get course by slug (for friendly URLs)
+export const getBySlug = query({
+    args: { slug: v.string() },
+    handler: async (ctx, args) => {
+        try {
+            const auth = await requireAuth(ctx);
+            const course = await ctx.db
+                .query("courses")
+                .withIndex("by_slug", (q) => q.eq("slug", args.slug))
+                .first();
+
+            if (!course) return null;
+
+            if (auth.user.role !== "superadmin" && auth.user.organizationId !== course.organizationId) {
+                return null;
+            }
+
+            return course;
+        } catch (error) {
+            return null;
+        }
+    },
+});
+
+// Get course by slug with modules and lessons (for friendly URLs)
+export const getWithContentBySlug = query({
+    args: { slug: v.string() },
+    handler: async (ctx, args) => {
+        try {
+            const auth = await requireAuth(ctx);
+            const course = await ctx.db
+                .query("courses")
+                .withIndex("by_slug", (q) => q.eq("slug", args.slug))
+                .first();
+
+            if (!course) {
+                return null;
+            }
+            if (auth.user.role !== "superadmin" && auth.user.organizationId !== course.organizationId) {
+                return null;
+            }
+
+            const modules = await ctx.db
+                .query("modules")
+                .withIndex("by_course", (q) => q.eq("courseId", course._id))
+                .collect();
+
+            const modulesWithLessons = await Promise.all(
+                modules.map(async (courseModule) => {
+                    const lessons = await ctx.db
+                        .query("lessons")
+                        .withIndex("by_module", (q) => q.eq("moduleId", courseModule._id))
+                        .collect();
+                    return {
+                        ...courseModule,
+                        lessons: lessons.sort((a, b) => a.order - b.order),
+                    };
+                })
+            );
+
+            // Get instructor info
+            const instructor = await ctx.db.get(course.instructorId);
+
+            return {
+                ...course,
+                instructor,
+                modules: modulesWithLessons.sort((a, b) => a.order - b.order),
+            };
+        } catch (error) {
+            return null;
+        }
+    },
+});
+
 // Get all courses for an organization
 export const getByOrganization = query({
     args: { organizationId: v.id("organizations") },

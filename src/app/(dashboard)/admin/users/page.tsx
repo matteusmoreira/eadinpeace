@@ -77,18 +77,18 @@ export default function AdminUsersPage() {
     const [roleFilter, setRoleFilter] = useState<string>("all");
     const [deleteId, setDeleteId] = useState<Id<"users"> | null>(null);
 
-    // Get all users
-    const allUsers = useQuery(api.users.getAll);
+    // Get users by organization directly (works for both admin and superadmin)
+    const orgUsers = useQuery(
+        api.users.getByOrganization,
+        organizationId ? { organizationId } : "skip"
+    );
 
     const deleteUser = useMutation(api.users.remove);
 
-    // Filter to organization users
-    const orgUsers = allUsers?.filter(u => u.organizationId === organizationId) || [];
-
-    const isLoading = userLoading || allUsers === undefined;
+    const isLoading = userLoading || orgUsers === undefined;
 
     // Apply filters
-    const filteredUsers = orgUsers.filter((u) => {
+    const filteredUsers = (orgUsers || []).filter((u) => {
         const matchSearch = search === "" ||
             u.firstName?.toLowerCase().includes(search.toLowerCase()) ||
             u.lastName?.toLowerCase().includes(search.toLowerCase()) ||
@@ -100,9 +100,9 @@ export default function AdminUsersPage() {
     });
 
     // Stats
-    const totalUsers = orgUsers.length;
-    const totalProfessors = orgUsers.filter(u => u.role === "professor").length;
-    const totalStudents = orgUsers.filter(u => u.role === "student").length;
+    const totalUsers = (orgUsers || []).length;
+    const totalProfessors = (orgUsers || []).filter(u => u.role === "professor").length;
+    const totalStudents = (orgUsers || []).filter(u => u.role === "student").length;
 
     const handleDelete = async () => {
         if (!deleteId) return;

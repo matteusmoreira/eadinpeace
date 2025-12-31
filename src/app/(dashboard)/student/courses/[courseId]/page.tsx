@@ -50,8 +50,11 @@ import { useContentProtection } from "@/hooks/useContentProtection";
 export default function CoursePlayerPage() {
     const params = useParams();
     const router = useRouter();
-    const courseId = params.courseId as Id<"courses">;
+    const courseIdOrSlug = params.courseId as string;
     const { user } = useUser();
+
+    // Detect if it's an ID (no hyphens, alphanumeric) or a slug (contains hyphens)
+    const isSlug = courseIdOrSlug.includes("-");
 
     const [currentLessonId, setCurrentLessonId] = useState<Id<"lessons"> | null>(null);
     const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -62,13 +65,22 @@ export default function CoursePlayerPage() {
         user?.id ? { clerkId: user.id } : "skip"
     );
 
-    // Get course with content
-    const course = useQuery(api.courses.getWithContent, { courseId });
+    // Get course with content - try by ID or by slug based on URL format
+    const courseById = useQuery(
+        api.courses.getWithContent,
+        !isSlug ? { courseId: courseIdOrSlug as Id<"courses"> } : "skip"
+    );
+    const courseBySlug = useQuery(
+        api.courses.getWithContentBySlug,
+        isSlug ? { slug: courseIdOrSlug } : "skip"
+    );
+    const course = courseById ?? courseBySlug;
+    const courseId = course?._id;
 
     // Get user's progress
     const progress = useQuery(
         api.enrollments.getCourseProgress,
-        convexUser?._id ? { userId: convexUser._id, courseId } : "skip"
+        convexUser?._id && courseId ? { userId: convexUser._id, courseId } : "skip"
     );
 
     // Get quiz for current lesson if it's an exam
@@ -119,7 +131,7 @@ export default function CoursePlayerPage() {
     };
 
     const handleCompleteLesson = async () => {
-        if (!currentLesson || !convexUser) return;
+        if (!currentLesson || !convexUser || !courseId) return;
 
         try {
             await updateProgress({
@@ -450,7 +462,34 @@ export default function CoursePlayerPage() {
                                                                 isActive ? "text-primary-foreground" : "text-emerald-500"
                                                             )} />
                                                         ) : (
-                                                            <Circle className="h-4 w-4 shrink-0" />
+                                                            // Ícone personalizado baseado no tipo da lição
+                                                            lesson.type === "exam" ? (
+                                                                <ClipboardList className={cn(
+                                                                    "h-4 w-4 shrink-0",
+                                                                    isActive ? "text-primary-foreground" : "text-amber-500"
+                                                                )} />
+                                                            ) : lesson.type === "assignment" ? (
+                                                                <FileText className={cn(
+                                                                    "h-4 w-4 shrink-0",
+                                                                    isActive ? "text-primary-foreground" : "text-blue-500"
+                                                                )} />
+                                                            ) : lesson.type === "pdf" ? (
+                                                                <FileText className={cn(
+                                                                    "h-4 w-4 shrink-0",
+                                                                    isActive ? "text-primary-foreground" : "text-red-500"
+                                                                )} />
+                                                            ) : lesson.type === "text" ? (
+                                                                <BookOpen className={cn(
+                                                                    "h-4 w-4 shrink-0",
+                                                                    isActive ? "text-primary-foreground" : "text-purple-500"
+                                                                )} />
+                                                            ) : (
+                                                                // Vídeo ou tipo padrão
+                                                                <Play className={cn(
+                                                                    "h-4 w-4 shrink-0",
+                                                                    isActive ? "text-primary-foreground" : "text-primary"
+                                                                )} />
+                                                            )
                                                         )}
                                                         <div className="flex-1 min-w-0">
                                                             <p className="line-clamp-1">{lesson.title}</p>
