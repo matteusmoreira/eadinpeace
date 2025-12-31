@@ -21,25 +21,12 @@ export default function DashboardLayout({
     const pathname = usePathname();
     const [mobileOpen, setMobileOpen] = useState(false);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-    const [loadingTimeout, setLoadingTimeout] = useState(false);
 
     // Usa hook otimizado com cache
     const { user: convexUser, isLoading: userLoading } = useCurrentUser();
 
     // Default to student if not loaded yet
     const userRole: UserRole = (convexUser?.role as UserRole) || "student";
-
-    // Timeout de segurança para evitar loading infinito (10 segundos)
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            if (userLoading) {
-                console.warn("[DashboardLayout] Timeout de carregamento do usuário - continuando com role padrão");
-                setLoadingTimeout(true);
-            }
-        }, 10000);
-
-        return () => clearTimeout(timer);
-    }, [userLoading]);
 
     useEffect(() => {
         if (isLoaded && !isSignedIn) {
@@ -51,16 +38,15 @@ export default function DashboardLayout({
     useEffect(() => {
         // Wait for queries to load
         if (!isLoaded || !clerkUser) return;
-        if (userLoading && !loadingTimeout) return; // Still loading
+        if (userLoading) return; // Still loading
 
         // If user exists in Clerk but not in Convex, redirect to setup
         if (convexUser === null && pathname !== "/setup") {
             redirect("/setup");
         }
-    }, [isLoaded, clerkUser, convexUser, userLoading, pathname, loadingTimeout]);
+    }, [isLoaded, clerkUser, convexUser, userLoading, pathname]);
 
-    // Mostra loading enquanto Clerk ou Convex ainda estão carregando (com timeout)
-    if (!isLoaded || (userLoading && !loadingTimeout)) {
+    if (!isLoaded) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-background">
                 <div className="flex flex-col items-center gap-4">
@@ -84,7 +70,6 @@ export default function DashboardLayout({
                         <div className="h-2 w-2 rounded-full bg-primary animate-bounce [animation-delay:150ms]" />
                         <div className="h-2 w-2 rounded-full bg-primary animate-bounce [animation-delay:300ms]" />
                     </div>
-                    <p className="text-sm text-muted-foreground">Carregando...</p>
                 </div>
             </div>
         );

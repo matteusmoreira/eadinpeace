@@ -61,13 +61,10 @@ export function useCurrentUser() {
         ? selectedOrgId
         : (user?.organizationId as Id<"organizations"> | undefined);
 
-    // isLoading é true APENAS quando:
+    // isLoading é true quando:
     // 1. Clerk ainda não carregou (isLoaded === false)
-    // 2. Clerk carregou, existe clerkUser, mas Convex ainda não retornou (query pendente)
-    // Se clerkUser não existir e isLoaded = true, usuário não está logado - não é loading
-    // Se convexUser === null, query retornou mas usuário não encontrado - não é loading
-    const isQueryPending = clerkUser && convexUser === undefined && cachedUser === null;
-    const isLoading = !isLoaded || isQueryPending;
+    // 2. A query do Convex está pendente (convexUser === undefined) E não há cache
+    const isLoading = !isLoaded || (convexUser === undefined && cachedUser === null);
 
     return {
         user,
