@@ -46,7 +46,8 @@ export default function DashboardLayout({
         }
     }, [isLoaded, clerkUser, convexUser, userLoading, pathname]);
 
-    if (!isLoaded) {
+    // Mostra loading enquanto Clerk ou Convex ainda estão carregando
+    if (!isLoaded || userLoading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-background">
                 <div className="flex flex-col items-center gap-4">
@@ -70,6 +71,7 @@ export default function DashboardLayout({
                         <div className="h-2 w-2 rounded-full bg-primary animate-bounce [animation-delay:150ms]" />
                         <div className="h-2 w-2 rounded-full bg-primary animate-bounce [animation-delay:300ms]" />
                     </div>
+                    <p className="text-sm text-muted-foreground">Carregando...</p>
                 </div>
             </div>
         );
