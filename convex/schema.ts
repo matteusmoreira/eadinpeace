@@ -1033,4 +1033,62 @@ export default defineSchema({
         updatedBy: v.optional(v.id("users")),
     })
         .index("by_key", ["key"]),
+
+    // ================================
+    // CERTIFICATE TEMPLATES (Drag and Drop Builder)
+    // ================================
+
+    certificateTemplates: defineTable({
+        organizationId: v.id("organizations"),
+        name: v.string(),
+        description: v.optional(v.string()),
+        isDefault: v.boolean(),
+        // Canvas settings
+        width: v.number(), // 1056px padrão (A4 landscape)
+        height: v.number(), // 816px padrão
+        backgroundColor: v.string(),
+        backgroundImage: v.optional(v.string()),
+        // Elementos do certificado
+        elements: v.array(v.object({
+            id: v.string(),
+            type: v.union(
+                v.literal("text"),
+                v.literal("image"),
+                v.literal("shape"),
+                v.literal("qrcode"),
+                v.literal("signature")
+            ),
+            // Posição e dimensão
+            x: v.number(),
+            y: v.number(),
+            width: v.number(),
+            height: v.number(),
+            rotation: v.optional(v.number()),
+            // Para texto
+            content: v.optional(v.string()), // Placeholders: {{studentName}}, {{courseName}}, etc.
+            fontSize: v.optional(v.number()),
+            fontFamily: v.optional(v.string()),
+            fontWeight: v.optional(v.string()),
+            textAlign: v.optional(v.string()),
+            color: v.optional(v.string()),
+            // Para imagens/shapes
+            src: v.optional(v.string()),
+            fill: v.optional(v.string()),
+            stroke: v.optional(v.string()),
+            strokeWidth: v.optional(v.number()),
+            borderRadius: v.optional(v.number()),
+            opacity: v.optional(v.number()),
+            // Para shapes
+            shapeType: v.optional(v.union(
+                v.literal("rectangle"),
+                v.literal("circle"),
+                v.literal("line")
+            )),
+        })),
+        createdBy: v.id("users"),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_organization", ["organizationId"])
+        .index("by_default", ["organizationId", "isDefault"]),
 });

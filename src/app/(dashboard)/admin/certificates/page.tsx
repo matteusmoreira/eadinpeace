@@ -119,6 +119,12 @@ export default function AdminCertificatesPage() {
                         Gerencie os certificados emitidos pela organização
                     </p>
                 </div>
+                <Button asChild variant="outline" className="gap-2">
+                    <a href="/admin/certificates/templates">
+                        <FileText className="h-4 w-4" />
+                        Modelos de Certificado
+                    </a>
+                </Button>
             </motion.div>
 
             {/* Stats */}
