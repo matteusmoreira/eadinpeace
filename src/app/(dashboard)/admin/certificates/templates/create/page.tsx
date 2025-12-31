@@ -7,7 +7,10 @@ import { api } from "@convex/_generated/api";
 import { useUser } from "@clerk/nextjs";
 import { CertificateBuilder } from "@/components/certificate-builder";
 import { CertificateElement } from "@/components/certificate-builder/types";
-import { Loader2 } from "lucide-react";
+import { Loader2, ArrowLeft, FileText } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import Link from "next/link";
 
 export default function CreateTemplatePage() {
     const { user } = useUser();
@@ -57,6 +60,35 @@ export default function CreateTemplatePage() {
             </div>
         );
     }
+
+    // Show message if user has no organization
+    if (!currentUser.organizationId) {
+        return (
+            <div className="container max-w-4xl py-8 space-y-6">
+                <div className="flex items-center gap-4">
+                    <Button variant="ghost" size="icon" asChild>
+                        <Link href="/admin/certificates/templates">
+                            <ArrowLeft className="h-4 w-4" />
+                        </Link>
+                    </Button>
+                    <div>
+                        <h1 className="text-2xl md:text-3xl font-bold">Criar Modelo de Certificado</h1>
+                    </div>
+                </div>
+
+                <Card className="border-dashed">
+                    <CardContent className="py-12 text-center">
+                        <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                        <h3 className="text-lg font-medium mb-2">Organização não encontrada</h3>
+                        <p className="text-muted-foreground">
+                            Você precisa estar vinculado a uma organização para criar modelos de certificado.
+                        </p>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
+
 
     // Default elements for a new template
     const defaultElements: CertificateElement[] = [

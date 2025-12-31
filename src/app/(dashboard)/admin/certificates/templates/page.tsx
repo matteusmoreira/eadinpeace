@@ -66,11 +66,14 @@ export default function CertificateTemplatesPage() {
         user?.id ? { clerkId: user.id } : "skip"
     );
 
-    // Get templates
+    // Check if user has an organization
+    const hasOrganization = currentUser?.organizationId !== undefined && currentUser?.organizationId !== null;
+
+    // Get templates - only if user has an organization
     const templates = useQuery(
         api.certificateTemplates.getByOrganization,
-        currentUser?.organizationId
-            ? { organizationId: currentUser.organizationId }
+        hasOrganization
+            ? { organizationId: currentUser.organizationId! }
             : "skip"
     );
 
@@ -109,7 +112,43 @@ export default function CertificateTemplatesPage() {
         }
     };
 
-    const isLoading = templates === undefined;
+    const isLoading = currentUser === undefined || (hasOrganization && templates === undefined);
+
+    // Show message if superadmin without organization
+    if (currentUser && !hasOrganization) {
+        return (
+            <motion.div
+                variants={container}
+                initial="hidden"
+                animate="show"
+                className="space-y-6"
+            >
+                <motion.div variants={item} className="flex items-center gap-4">
+                    <Button variant="ghost" size="icon" asChild>
+                        <Link href="/admin/certificates">
+                            <ArrowLeft className="h-4 w-4" />
+                        </Link>
+                    </Button>
+                    <div>
+                        <h1 className="text-2xl md:text-3xl font-bold">Modelos de Certificado</h1>
+                        <p className="text-muted-foreground">
+                            Crie e gerencie modelos personalizados de certificado
+                        </p>
+                    </div>
+                </motion.div>
+
+                <Card className="border-dashed">
+                    <CardContent className="py-12 text-center">
+                        <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                        <h3 className="text-lg font-medium mb-2">Organização não encontrada</h3>
+                        <p className="text-muted-foreground">
+                            Você precisa estar vinculado a uma organização para gerenciar modelos de certificado.
+                        </p>
+                    </CardContent>
+                </Card>
+            </motion.div>
+        );
+    }
 
     return (
         <motion.div
