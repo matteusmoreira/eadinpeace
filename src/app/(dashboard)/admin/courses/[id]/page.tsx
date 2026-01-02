@@ -457,6 +457,29 @@ export default function AdminCourseEditPage() {
                 </div>
                 <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2">
+                        <Label htmlFor="public" className="text-sm">Público</Label>
+                        <Switch
+                            id="public"
+                            checked={course.isPublic || false}
+                            onCheckedChange={async () => {
+                                if (!course) return;
+                                setIsLoading(true);
+                                try {
+                                    await updateCourse({
+                                        courseId,
+                                        isPublic: !course.isPublic,
+                                    });
+                                    toast.success(course.isPublic ? "Curso agora é privado" : "Curso agora é público!");
+                                } catch (error: any) {
+                                    toast.error(error.message || "Erro ao atualizar curso");
+                                } finally {
+                                    setIsLoading(false);
+                                }
+                            }}
+                            disabled={isLoading}
+                        />
+                    </div>
+                    <div className="flex items-center gap-2">
                         <Label htmlFor="publish">Publicar</Label>
                         <Switch
                             id="publish"

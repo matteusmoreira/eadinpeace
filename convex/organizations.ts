@@ -103,7 +103,37 @@ export const getBySlug = query({
     },
 });
 
-// Get organization by Clerk org ID
+// Get organization by slug (PUBLIC - sem autenticação)
+export const getPublicBySlug = query({
+    args: { slug: v.string() },
+    handler: async (ctx, args) => {
+        try {
+            const org = await ctx.db
+                .query("organizations")
+                .withIndex("by_slug", (q) => q.eq("slug", args.slug))
+                .first();
+
+            // Retorna apenas se a organização existir e estiver ativa
+            if (!org || !org.isActive) return null;
+
+            // Retorna dados públicos (sem informações sensíveis)
+            return {
+                _id: org._id,
+                name: org.name,
+                slug: org.slug,
+                logo: org.logo,
+                primaryColor: org.primaryColor,
+                secondaryColor: org.secondaryColor,
+                theme: org.theme,
+            };
+        } catch (error) {
+            console.error("[organizations:getPublicBySlug] Erro:", error);
+            return null;
+        }
+    },
+});
+
+
 export const getByClerkOrgId = query({
     args: { clerkOrgId: v.string() },
     handler: async (ctx, args) => {

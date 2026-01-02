@@ -59,8 +59,212 @@ export const getAll = query({
     },
 });
 
+// ===============================================
+// PUBLIC QUERIES - Não requerem autenticação
+// ===============================================
 
-// Get course by ID
+// Get all public courses (sem autenticação)
+export const getPublicCourses = query({
+    args: {},
+    handler: async (ctx) => {
+        try {
+            // Buscar cursos públicos e publicados
+            const courses = await ctx.db
+                .query("courses")
+                .withIndex("by_public", (q) => q.eq("isPublic", true))
+                .collect();
+
+            // Filtrar apenas os publicados
+            const publishedCourses = courses.filter(c => c.isPublished === true);
+
+            // Enriquecer com dados do instrutor e organização
+            const enrichedCourses = await Promise.all(
+                publishedCourses.map(async (course) => {
+                    const instructor = await ctx.db.get(course.instructorId);
+                    const organization = await ctx.db.get(course.organizationId);
+
+                    // Contar aulas
+                    const lessons = await ctx.db
+                        .query("lessons")
+                        .withIndex("by_course", (q) => q.eq("courseId", course._id))
+                        .collect();
+
+                    // Contar matrículas
+                    const enrollments = await ctx.db
+                        .query("enrollments")
+                        .withIndex("by_course", (q) => q.eq("courseId", course._id))
+                        .collect();
+
+                    return {
+                        ...course,
+                        instructor: instructor ? {
+                            firstName: instructor.firstName,
+                            lastName: instructor.lastName,
+                            imageUrl: instructor.imageUrl,
+                        } : null,
+                        organization: organization ? { name: organization.name, logo: organization.logo } : null,
+                        lessonCount: lessons.filter(l => l.isPublished).length,
+                        enrollmentCount: enrollments.length,
+                    };
+                })
+            );
+
+            return enrichedCourses;
+        } catch (error) {
+            console.error("getPublicCourses error:", error);
+            return [];
+        }
+    },
+});
+
+// Get all published courses for an organization (PUBLIC - sem autenticação)
+// Retorna cursos publicados de uma organização específica
+// Cursos públicos: qualquer um pode ver o conteúdo
+// Cursos privados: aparecem na lista mas redirecionam para checkout/login
+export const getPublicCoursesByOrganization = query({
+    args: { organizationSlug: v.string() },
+    handler: async (ctx, args) => {
+        try {
+            // Buscar organização pelo slug
+            const org = await ctx.db
+                .query("organizations")
+                .withIndex("by_slug", (q) => q.eq("slug", args.organizationSlug))
+                .first();
+
+            if (!org || !org.isActive) {
+                return [];
+            }
+
+            // Buscar cursos publicados dessa organização
+            const courses = await ctx.db
+                .query("courses")
+                .withIndex("by_organization", (q) => q.eq("organizationId", org._id))
+                .collect();
+
+            // Filtrar apenas os publicados
+            const publishedCourses = courses.filter(c => c.isPublished === true);
+
+            // Enriquecer com dados do instrutor
+            const enrichedCourses = await Promise.all(
+                publishedCourses.map(async (course) => {
+                    const instructor = await ctx.db.get(course.instructorId);
+
+                    // Contar aulas
+                    const lessons = await ctx.db
+                        .query("lessons")
+                        .withIndex("by_course", (q) => q.eq("courseId", course._id))
+                        .collect();
+
+                    // Contar matrículas
+                    const enrollments = await ctx.db
+                        .query("enrollments")
+                        .withIndex("by_course", (q) => q.eq("courseId", course._id))
+                        .collect();
+
+                    return {
+                        ...course,
+                        instructor: instructor ? {
+                            firstName: instructor.firstName,
+                            lastName: instructor.lastName,
+                            imageUrl: instructor.imageUrl,
+                        } : null,
+                        lessonCount: lessons.filter(l => l.isPublished).length,
+                        enrollmentCount: enrollments.length,
+                    };
+                })
+            );
+
+            return enrichedCourses;
+        } catch (error) {
+            console.error("getPublicCoursesByOrganization error:", error);
+            return [];
+        }
+    },
+});
+
+// Get public course by slug with content (sem autenticação)
+export const getPublicCourseBySlug = query({
+    args: { slug: v.string() },
+    handler: async (ctx, args) => {
+        try {
+            const course = await ctx.db
+                .query("courses")
+                .withIndex("by_slug", (q) => q.eq("slug", args.slug))
+                .first();
+
+            // Curso deve existir, estar publicado E ser público
+            if (!course || !course.isPublished || !course.isPublic) {
+                return null;
+            }
+
+            // Buscar módulos publicados
+            const modules = await ctx.db
+                .query("modules")
+                .withIndex("by_course", (q) => q.eq("courseId", course._id))
+                .collect();
+
+            const modulesWithLessons = await Promise.all(
+                modules
+                    .filter(m => m.isPublished)
+                    .map(async (mod) => {
+                        const lessons = await ctx.db
+                            .query("lessons")
+                            .withIndex("by_module", (q) => q.eq("moduleId", mod._id))
+                            .collect();
+
+                        // Para visitantes não autenticados, mostrar todas as aulas
+                        // mas marcar quais são gratuitas (isFree) para acesso ao conteúdo
+                        const publishedLessons = lessons
+                            .filter(l => l.isPublished)
+                            .sort((a, b) => a.order - b.order)
+                            .map(lesson => ({
+                                ...lesson,
+                                // Ocultar conteúdo de vídeo/texto se não for gratuita
+                                videoUrl: lesson.isFree ? lesson.videoUrl : undefined,
+                                textContent: lesson.isFree ? lesson.textContent : undefined,
+                                fileUrl: lesson.isFree ? lesson.fileUrl : undefined,
+                            }));
+
+                        return {
+                            ...mod,
+                            lessons: publishedLessons,
+                        };
+                    })
+            );
+
+            const instructor = await ctx.db.get(course.instructorId);
+            const organization = await ctx.db.get(course.organizationId);
+
+            // Contar matrículas
+            const enrollments = await ctx.db
+                .query("enrollments")
+                .withIndex("by_course", (q) => q.eq("courseId", course._id))
+                .collect();
+
+            return {
+                ...course,
+                instructor: instructor ? {
+                    _id: instructor._id,
+                    firstName: instructor.firstName,
+                    lastName: instructor.lastName,
+                    imageUrl: instructor.imageUrl,
+                } : null,
+                organization: organization ? {
+                    name: organization.name,
+                    logo: organization.logo,
+                    slug: organization.slug,
+                } : null,
+                modules: modulesWithLessons.sort((a, b) => a.order - b.order),
+                enrollmentCount: enrollments.length,
+            };
+        } catch (error) {
+            console.error("getPublicCourseBySlug error:", error);
+            return null;
+        }
+    },
+});
+
+
 export const getById = query({
     args: { courseId: v.id("courses") },
     handler: async (ctx, args) => {
@@ -440,6 +644,7 @@ export const update = mutation({
         category: v.optional(v.string()),
         level: v.optional(v.union(v.literal("beginner"), v.literal("intermediate"), v.literal("advanced"))),
         isPublished: v.optional(v.boolean()),
+        isPublic: v.optional(v.boolean()),
         isFeatured: v.optional(v.boolean()),
         price: v.optional(v.number()),
     },

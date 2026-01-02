@@ -64,6 +64,7 @@ export default defineSchema({
         level: v.union(v.literal("beginner"), v.literal("intermediate"), v.literal("advanced")),
         duration: v.number(), // in minutes
         isPublished: v.boolean(),
+        isPublic: v.optional(v.boolean()), // Curso acessível sem login
         isFeatured: v.boolean(),
         price: v.optional(v.number()),
         createdAt: v.number(),
@@ -72,7 +73,8 @@ export default defineSchema({
         .index("by_organization", ["organizationId"])
         .index("by_instructor", ["instructorId"])
         .index("by_slug", ["slug"])
-        .index("by_category", ["category"]),
+        .index("by_category", ["category"])
+        .index("by_public", ["isPublic"]),
 
     // Course Categories (per organization)
     courseCategories: defineTable({
