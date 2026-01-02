@@ -84,16 +84,22 @@ export const getById = query({
 export const getBySlug = query({
     args: { slug: v.string() },
     handler: async (ctx, args) => {
-        // Verificar autenticação primeiro
-        let auth;
         try {
-            auth = await requireAuth(ctx);
-        } catch (authError) {
-            // Se não estiver autenticado, retorna null silenciosamente
-            return null;
-        }
+            // Verificar autenticação primeiro
+            const identity = await ctx.auth.getUserIdentity();
+            if (!identity) {
+                return null;
+            }
 
-        try {
+            const user = await ctx.db
+                .query("users")
+                .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+                .first();
+
+            if (!user || user.isActive === false) {
+                return null;
+            }
+
             const course = await ctx.db
                 .query("courses")
                 .withIndex("by_slug", (q) => q.eq("slug", args.slug))
@@ -101,7 +107,7 @@ export const getBySlug = query({
 
             if (!course) return null;
 
-            if (auth.user.role !== "superadmin" && auth.user.organizationId !== course.organizationId) {
+            if (user.role !== "superadmin" && user.organizationId !== course.organizationId) {
                 return null;
             }
 
@@ -116,17 +122,29 @@ export const getBySlug = query({
 export const getWithContentBySlug = query({
     args: { slug: v.string() },
     handler: async (ctx, args) => {
-        // Verificar autenticação primeiro
-        let auth;
         try {
-            auth = await requireAuth(ctx);
-        } catch (authError) {
-            // Se não estiver autenticado, retorna null silenciosamente
-            console.log("getWithContentBySlug: Usuário não autenticado");
-            return null;
-        }
+            // Verificar autenticação primeiro
+            const identity = await ctx.auth.getUserIdentity();
+            if (!identity) {
+                console.log("getWithContentBySlug: Usuário não autenticado");
+                return null;
+            }
 
-        try {
+            const user = await ctx.db
+                .query("users")
+                .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+                .first();
+
+            if (!user) {
+                console.log("getWithContentBySlug: Usuário não encontrado no sistema");
+                return null;
+            }
+
+            if (user.isActive === false) {
+                console.log("getWithContentBySlug: Usuário inativo");
+                return null;
+            }
+
             const course = await ctx.db
                 .query("courses")
                 .withIndex("by_slug", (q) => q.eq("slug", args.slug))
@@ -136,7 +154,8 @@ export const getWithContentBySlug = query({
                 console.log("getWithContentBySlug: Curso não encontrado com slug:", args.slug);
                 return null;
             }
-            if (auth.user.role !== "superadmin" && auth.user.organizationId !== course.organizationId) {
+
+            if (user.role !== "superadmin" && user.organizationId !== course.organizationId) {
                 console.log("getWithContentBySlug: Acesso negado - organizações diferentes");
                 return null;
             }
@@ -262,21 +281,31 @@ export const getPublishedByOrganization = query({
 export const getWithContent = query({
     args: { courseId: v.id("courses") },
     handler: async (ctx, args) => {
-        // Verificar autenticação primeiro
-        let auth;
         try {
-            auth = await requireAuth(ctx);
-        } catch (authError) {
-            // Se não estiver autenticado, retorna null silenciosamente
-            return null;
-        }
+            // Verificar autenticação primeiro
+            const identity = await ctx.auth.getUserIdentity();
+            if (!identity) {
+                return null;
+            }
 
-        try {
+            const user = await ctx.db
+                .query("users")
+                .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+                .first();
+
+            if (!user) {
+                return null;
+            }
+
+            if (user.isActive === false) {
+                return null;
+            }
+
             const course = await ctx.db.get(args.courseId);
             if (!course) {
                 return null;
             }
-            if (auth.user.role !== "superadmin" && auth.user.organizationId !== course.organizationId) {
+            if (user.role !== "superadmin" && user.organizationId !== course.organizationId) {
                 return null;
             }
 
