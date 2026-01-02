@@ -20,8 +20,10 @@ import {
     Users,
     User,
     Plus,
+    Trash2,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation } from "convex/react";
@@ -87,6 +89,9 @@ export default function ProfessorMessagesPage() {
     const sendMessageMutation = useMutation(api.social.sendMessage);
     const markAsReadMutation = useMutation(api.social.markMessagesAsRead);
     const getOrCreateConversation = useMutation(api.social.getOrCreateConversation);
+    const deleteMessageMutation = useMutation(api.social.deleteMessage);
+    const deleteConversationMutation = useMutation(api.social.deleteConversation);
+
 
     // Filter students
     const filteredStudents = students?.filter(
@@ -370,7 +375,30 @@ export default function ProfessorMessagesPage() {
                                             </p>
                                             <p className="text-sm text-muted-foreground">Aluno</p>
                                         </div>
+                                        {/* Botão de excluir conversa */}
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={async () => {
+                                                if (confirm("Deseja realmente excluir esta conversa e todas as mensagens?")) {
+                                                    try {
+                                                        await deleteConversationMutation({
+                                                            conversationId: selectedConversation,
+                                                            userId: convexUser!._id,
+                                                        });
+                                                        setSelectedConversation(null);
+                                                    } catch (error) {
+                                                        console.error("Erro ao excluir conversa:", error);
+                                                    }
+                                                }
+                                            }}
+                                            className="text-muted-foreground hover:text-destructive"
+                                            title="Excluir conversa"
+                                        >
+                                            <Trash2 className="h-5 w-5" />
+                                        </Button>
                                     </div>
+
 
                                     {/* Mensagens */}
                                     <ScrollArea className="flex-1 p-4">
@@ -386,10 +414,31 @@ export default function ProfessorMessagesPage() {
                                                         <div
                                                             key={msg._id}
                                                             className={cn(
-                                                                "flex",
+                                                                "flex group",
                                                                 isMine ? "justify-end" : "justify-start"
                                                             )}
                                                         >
+                                                            {/* Botão de deletar - aparece ao passar o mouse em mensagens próprias */}
+                                                            {isMine && (
+                                                                <button
+                                                                    onClick={async () => {
+                                                                        if (confirm("Deseja realmente excluir esta mensagem?")) {
+                                                                            try {
+                                                                                await deleteMessageMutation({
+                                                                                    messageId: msg._id,
+                                                                                    userId: convexUser._id,
+                                                                                });
+                                                                            } catch (error) {
+                                                                                console.error("Erro ao excluir mensagem:", error);
+                                                                            }
+                                                                        }
+                                                                    }}
+                                                                    className="opacity-0 group-hover:opacity-100 p-1 mr-2 text-muted-foreground hover:text-destructive transition-all self-center"
+                                                                    title="Excluir mensagem"
+                                                                >
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                </button>
+                                                            )}
                                                             <div
                                                                 className={cn(
                                                                     "max-w-[80%] rounded-2xl px-4 py-2",
@@ -419,6 +468,7 @@ export default function ProfessorMessagesPage() {
                                                         </div>
                                                     );
                                                 })}
+
                                                 <div ref={messagesEndRef} />
                                             </div>
                                         )}

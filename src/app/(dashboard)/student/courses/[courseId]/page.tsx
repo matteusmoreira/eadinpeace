@@ -34,7 +34,7 @@ import {
     Trophy,
     AlertCircle,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
@@ -45,6 +45,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { ProtectedYouTubePlayer } from "@/components/ProtectedYouTubePlayer";
 import { useContentProtection } from "@/hooks/useContentProtection";
+import { LessonCompletedCelebration } from "@/components/lesson-completed-celebration";
 
 
 export default function CoursePlayerPage() {
@@ -58,6 +59,8 @@ export default function CoursePlayerPage() {
 
     const [currentLessonId, setCurrentLessonId] = useState<Id<"lessons"> | null>(null);
     const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [showCelebration, setShowCelebration] = useState(false);
+    const [completedLessonTitle, setCompletedLessonTitle] = useState("");
 
     // Get Convex user
     const convexUser = useQuery(
@@ -145,16 +148,19 @@ export default function CoursePlayerPage() {
             // Update study streak
             await updateStreak({ userId: convexUser._id });
 
-            toast.success("Aula concluída!");
-
-            // Auto-advance to next lesson
-            if (nextLesson) {
-                setCurrentLessonId(nextLesson._id);
-            }
+            // Mostrar celebração em vez de apenas toast
+            setCompletedLessonTitle(currentLesson.title);
+            setShowCelebration(true);
         } catch (error) {
             toast.error("Erro ao marcar aula como concluída");
         }
     };
+
+    const handleGoToNextLesson = useCallback(() => {
+        if (nextLesson) {
+            setCurrentLessonId(nextLesson._id);
+        }
+    }, [nextLesson]);
 
     const courseProgress = progress?.progress || 0;
     const isComplete = courseProgress === 100;
@@ -529,6 +535,16 @@ export default function CoursePlayerPage() {
                     )}
                 </div>
             </div>
+
+            {/* Modal de celebração quando aula é concluída */}
+            <LessonCompletedCelebration
+                isOpen={showCelebration}
+                onClose={() => setShowCelebration(false)}
+                lessonTitle={completedLessonTitle}
+                nextLessonTitle={nextLesson?.title}
+                onNextLesson={handleGoToNextLesson}
+                courseProgress={courseProgress}
+            />
         </div>
     );
 }

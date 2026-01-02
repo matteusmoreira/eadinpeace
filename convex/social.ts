@@ -1005,7 +1005,85 @@ export const markMessagesAsRead = mutation({
     },
 });
 
-// Contagem total de mensagens não lidas
+// Deletar uma mensagem (apenas o remetente pode deletar)
+export const deleteMessage = mutation({
+    args: {
+        messageId: v.id("directMessages"),
+        userId: v.id("users"),
+    },
+    handler: async (ctx, args) => {
+        const message = await ctx.db.get(args.messageId);
+        if (!message) {
+            throw new Error("Mensagem não encontrada");
+        }
+
+        // Apenas o remetente pode deletar a mensagem
+        if (message.senderId !== args.userId) {
+            throw new Error("Apenas o remetente pode deletar esta mensagem");
+        }
+
+        // Deletar a mensagem
+        await ctx.db.delete(args.messageId);
+
+        // Atualizar a prévia da última mensagem na conversa se necessário
+        const conversation = await ctx.db.get(message.conversationId);
+        if (conversation) {
+            // Buscar a última mensagem restante
+            const lastMessage = await ctx.db
+                .query("directMessages")
+                .withIndex("by_conversation_created", (q) =>
+                    q.eq("conversationId", message.conversationId)
+                )
+                .order("desc")
+                .first();
+
+            if (lastMessage) {
+                await ctx.db.patch(message.conversationId, {
+                    lastMessageAt: lastMessage.createdAt,
+                    lastMessagePreview: lastMessage.content.substring(0, 100),
+                    lastMessageSenderId: lastMessage.senderId,
+                });
+            }
+        }
+
+        return { success: true };
+    },
+});
+
+// Deletar uma conversa inteira (qualquer participante pode deletar)
+export const deleteConversation = mutation({
+    args: {
+        conversationId: v.id("conversations"),
+        userId: v.id("users"),
+    },
+    handler: async (ctx, args) => {
+        const conversation = await ctx.db.get(args.conversationId);
+        if (!conversation) {
+            throw new Error("Conversa não encontrada");
+        }
+
+        // Verificar se o usuário faz parte da conversa
+        if (!conversation.participantIds.includes(args.userId)) {
+            throw new Error("Você não faz parte desta conversa");
+        }
+
+        // Deletar todas as mensagens da conversa
+        const messages = await ctx.db
+            .query("directMessages")
+            .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
+            .collect();
+
+        for (const msg of messages) {
+            await ctx.db.delete(msg._id);
+        }
+
+        // Deletar a conversa
+        await ctx.db.delete(args.conversationId);
+
+        return { success: true, deletedMessagesCount: messages.length };
+    },
+});
+
 export const getUnreadCount = query({
     args: {
         userId: v.id("users"),

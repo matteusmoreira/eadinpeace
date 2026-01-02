@@ -15,6 +15,7 @@ import {
     BookOpen,
     ChevronDown,
     ChevronUp,
+    Database,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -23,6 +24,8 @@ import {
     getQuestionTypeLabel,
     requiresManualGrading,
 } from "@/components/quiz/QuestionRenderer";
+import { QuestionBankBrowser } from "@/components/quiz/QuestionBankBrowser";
+
 
 // Tipos locais
 interface LocalQuestion {
@@ -52,11 +55,20 @@ export default function CreateQuizPage() {
         currentUser ? {} : "skip"
     );
 
+    // Buscar questões do banco de questões
+    const questionBank = useQuery(
+        api.questionBank.search,
+        currentUser?.organizationId
+            ? { organizationId: currentUser.organizationId }
+            : "skip"
+    );
+
     const createQuiz = useMutation(api.quizzes.create);
     const publishQuiz = useMutation(api.quizzes.publish);
     const createQuestion = useMutation(api.quizzes.addQuestion);
 
     // Estado do Quiz
+
     const [quizData, setQuizData] = useState({
         title: "",
         description: "",
@@ -79,6 +91,8 @@ export default function CreateQuizPage() {
     const [selectedQuestionIndex, setSelectedQuestionIndex] = useState<number | null>(null);
     const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [showQuestionBank, setShowQuestionBank] = useState(false);
+
 
     // Criar nova questão
     const addQuestion = (type: QuestionType) => {
@@ -125,6 +139,30 @@ export default function CreateQuizPage() {
         setQuestions(newQuestions);
         setSelectedQuestionIndex(newIndex);
     };
+
+    // Importar questões do banco
+    const importFromBank = (bankQuestions: any[]) => {
+        const importedQuestions: LocalQuestion[] = bankQuestions.map((bq, idx) => ({
+            id: `imported-${Date.now()}-${idx}`,
+            type: bq.type as QuestionType,
+            question: bq.question,
+            options: bq.options || [],
+            correctAnswer: bq.correctAnswer || "",
+            correctAnswers: bq.correctAnswers || [],
+            matchPairs: bq.matchPairs || [],
+            correctOrder: bq.correctOrder || [],
+            blankAnswers: bq.blankAnswers || [],
+            mediaUrl: bq.mediaUrl || "",
+            mediaType: bq.mediaType || "video",
+            points: bq.defaultPoints || 10,
+            explanation: bq.explanation || "",
+        }));
+
+        setQuestions([...questions, ...importedQuestions]);
+        setShowQuestionBank(false);
+        toast.success(`${importedQuestions.length} questão(ões) importada(s)!`);
+    };
+
 
     // Salvar Quiz
     const handleSave = async () => {
@@ -183,9 +221,17 @@ export default function CreateQuizPage() {
                     question: q.question,
                     options: q.options.length > 0 ? q.options.filter((o) => o.trim()) : undefined,
                     correctAnswer: q.correctAnswer || undefined,
+                    correctAnswers: q.correctAnswers && q.correctAnswers.length > 0 ? q.correctAnswers : undefined,
+                    matchPairs: q.matchPairs && q.matchPairs.length > 0 ? q.matchPairs.filter(p => p.prompt.trim() && p.answer.trim()) : undefined,
+                    correctOrder: q.correctOrder && q.correctOrder.length > 0 ? q.correctOrder.filter(o => o.trim()) : undefined,
+                    blankAnswers: q.blankAnswers && q.blankAnswers.length > 0 ? q.blankAnswers : undefined,
+                    mediaUrl: q.mediaUrl || undefined,
+                    mediaType: q.mediaType || undefined,
+                    explanation: q.explanation || undefined,
                     points: q.points,
                 });
             }
+
 
             toast.success("Prova criada com sucesso!");
             router.push("/professor/quizzes");
@@ -303,9 +349,18 @@ export default function CreateQuizPage() {
                                         </button>
                                     ))}
                                 </div>
+                                {/* Importar do Banco de Questões */}
+                                <button
+                                    onClick={() => setShowQuestionBank(true)}
+                                    className="w-full mt-3 inline-flex items-center justify-center gap-2 px-4 py-2 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors text-sm font-medium"
+                                >
+                                    <Database className="w-4 h-4" />
+                                    Importar do Banco
+                                </button>
                             </div>
                         </div>
                     </div>
+
 
                     {/* Main - Editor */}
                     <div className="col-span-9 space-y-6">
@@ -494,9 +549,153 @@ export default function CreateQuizPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Modal do Banco de Questões */}
+            {showQuestionBank && (
+                <QuestionBankModal
+                    questions={questionBank || []}
+                    onImport={importFromBank}
+                    onClose={() => setShowQuestionBank(false)}
+                />
+            )}
         </div>
     );
 }
+
+// Modal para selecionar questões do banco
+function QuestionBankModal({
+    questions,
+    onImport,
+    onClose,
+}: {
+    questions: any[];
+    onImport: (selected: any[]) => void;
+    onClose: () => void;
+}) {
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    const [search, setSearch] = useState("");
+
+    const filteredQuestions = questions.filter(q =>
+        q.question.toLowerCase().includes(search.toLowerCase())
+    );
+
+    const toggleSelect = (id: string) => {
+        setSelectedIds(prev =>
+            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+        );
+    };
+
+    const handleImport = () => {
+        const selected = questions.filter(q => selectedIds.includes(q._id));
+        onImport(selected);
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[80vh] flex flex-col">
+                {/* Header */}
+                <div className="p-6 border-b dark:border-gray-700 flex items-center justify-between">
+                    <div>
+                        <h2 className="text-xl font-bold text-gray-900 dark:text-white">Banco de Questões</h2>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                            Selecione as questões para importar para a prova
+                        </p>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                    >
+                        ✕
+                    </button>
+                </div>
+
+                {/* Search */}
+                <div className="p-4 border-b dark:border-gray-700">
+                    <input
+                        type="text"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Buscar questões..."
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                    />
+                </div>
+
+                {/* Questions List */}
+                <div className="flex-1 overflow-y-auto p-4">
+                    {filteredQuestions.length === 0 ? (
+                        <div className="text-center py-12">
+                            <Database className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                            <p className="text-gray-600 dark:text-gray-400">Nenhuma questão encontrada</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            {filteredQuestions.map((q) => {
+                                const isSelected = selectedIds.includes(q._id);
+
+                                return (
+                                    <div
+                                        key={q._id}
+                                        onClick={() => toggleSelect(q._id)}
+                                        className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${isSelected
+                                                ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30"
+                                                : "border-gray-200 dark:border-gray-700 hover:border-indigo-200"
+                                            }`}
+                                    >
+                                        <div className="flex items-start gap-3">
+                                            <div
+                                                className={`w-6 h-6 rounded-full flex items-center justify-center border-2 mt-1 ${isSelected
+                                                        ? "bg-indigo-600 border-indigo-600 text-white"
+                                                        : "border-gray-300 dark:border-gray-600"
+                                                    }`}
+                                            >
+                                                {isSelected && <span>✓</span>}
+                                            </div>
+                                            <div className="flex-1">
+                                                <p className="text-gray-900 dark:text-white font-medium mb-2">{q.question}</p>
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded text-xs">
+                                                        {getQuestionTypeLabel(q.type as QuestionType)}
+                                                    </span>
+                                                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                                                        {q.defaultPoints} pts
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+
+                {/* Footer */}
+                <div className="p-4 border-t dark:border-gray-700 flex items-center justify-between bg-gray-50 dark:bg-gray-800">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                        {selectedIds.length} questão(ões) selecionada(s)
+                    </p>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={onClose}
+                            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                        >
+                            Cancelar
+                        </button>
+                        <button
+                            onClick={handleImport}
+                            disabled={selectedIds.length === 0}
+                            className="inline-flex items-center gap-2 px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            <Plus className="w-4 h-4" />
+                            Importar Selecionadas
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 
 // Componente para editar questão
 function QuestionEditor({

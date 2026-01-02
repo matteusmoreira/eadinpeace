@@ -36,6 +36,7 @@ import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { useUser } from "@clerk/nextjs";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Id } from "@convex/_generated/dataModel";
 
@@ -247,9 +248,11 @@ export default function ProfessorStudentsPage() {
                                                 </Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
-                                                <DropdownMenuItem className="gap-2">
-                                                    <Eye className="h-4 w-4" />
-                                                    Ver progresso
+                                                <DropdownMenuItem asChild>
+                                                    <Link href={`/professor/students/${enrollment.userId}/course/${enrollment.courseId}`} className="gap-2 flex items-center cursor-pointer">
+                                                        <Eye className="h-4 w-4" />
+                                                        Ver progresso
+                                                    </Link>
                                                 </DropdownMenuItem>
                                                 <DropdownMenuItem className="gap-2">
                                                     <Mail className="h-4 w-4" />
@@ -333,9 +336,11 @@ export default function ProfessorStudentsPage() {
                                                     </Button>
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end">
-                                                    <DropdownMenuItem className="gap-2">
-                                                        <Eye className="h-4 w-4" />
-                                                        Ver progresso
+                                                    <DropdownMenuItem asChild>
+                                                        <Link href={`/professor/students/${enrollment.userId}/course/${enrollment.courseId}`} className="gap-2 flex items-center cursor-pointer">
+                                                            <Eye className="h-4 w-4" />
+                                                            Ver progresso
+                                                        </Link>
                                                     </DropdownMenuItem>
                                                     <DropdownMenuItem className="gap-2">
                                                         <Mail className="h-4 w-4" />

@@ -226,26 +226,41 @@ export default function EditQuizPage() {
                     // Remover questão
                     await removeQuestion({ questionId: q._id });
                 } else if (q.isNew) {
-                    // Adicionar nova questão
+                    // Adicionar nova questão - incluir todos os campos de resposta
                     await addQuestion({
                         quizId: quizId as any,
                         type: q.type,
                         question: q.question,
                         options: q.options.filter((o) => o.trim()).length > 0 ? q.options.filter((o) => o.trim()) : undefined,
                         correctAnswer: q.correctAnswer || undefined,
+                        correctAnswers: q.correctAnswers && q.correctAnswers.length > 0 ? q.correctAnswers : undefined,
+                        matchPairs: q.matchPairs && q.matchPairs.length > 0 ? q.matchPairs.filter(p => p.prompt.trim() && p.answer.trim()) : undefined,
+                        correctOrder: q.correctOrder && q.correctOrder.length > 0 ? q.correctOrder.filter(o => o.trim()) : undefined,
+                        blankAnswers: q.blankAnswers && q.blankAnswers.length > 0 ? q.blankAnswers : undefined,
+                        mediaUrl: q.mediaUrl || undefined,
+                        mediaType: q.mediaType || undefined,
+                        explanation: q.explanation || undefined,
                         points: q.points,
                     });
                 } else if (q._id) {
-                    // Atualizar questão existente
+                    // Atualizar questão existente - incluir todos os campos de resposta
                     await updateQuestion({
                         questionId: q._id,
                         question: q.question,
                         options: q.options.filter((o) => o.trim()).length > 0 ? q.options.filter((o) => o.trim()) : undefined,
                         correctAnswer: q.correctAnswer || undefined,
+                        correctAnswers: q.correctAnswers && q.correctAnswers.length > 0 ? q.correctAnswers : undefined,
+                        matchPairs: q.matchPairs && q.matchPairs.length > 0 ? q.matchPairs.filter(p => p.prompt.trim() && p.answer.trim()) : undefined,
+                        correctOrder: q.correctOrder && q.correctOrder.length > 0 ? q.correctOrder.filter(o => o.trim()) : undefined,
+                        blankAnswers: q.blankAnswers && q.blankAnswers.length > 0 ? q.blankAnswers : undefined,
+                        mediaUrl: q.mediaUrl || undefined,
+                        mediaType: q.mediaType || undefined,
+                        explanation: q.explanation || undefined,
                         points: q.points,
                     });
                 }
             }
+
 
             toast.success("Prova atualizada com sucesso!");
             router.push("/professor/quizzes");

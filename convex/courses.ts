@@ -590,6 +590,7 @@ export const create = mutation({
         category: v.string(),
         level: v.union(v.literal("beginner"), v.literal("intermediate"), v.literal("advanced")),
         price: v.optional(v.number()),
+        certificateTemplateId: v.optional(v.id("certificateTemplates")),
     },
     handler: async (ctx, args) => {
         try {
@@ -639,14 +640,17 @@ export const update = mutation({
     args: {
         courseId: v.id("courses"),
         title: v.optional(v.string()),
+        slug: v.optional(v.string()),
         description: v.optional(v.string()),
         thumbnail: v.optional(v.string()),
         category: v.optional(v.string()),
         level: v.optional(v.union(v.literal("beginner"), v.literal("intermediate"), v.literal("advanced"))),
+        instructorId: v.optional(v.id("users")),
         isPublished: v.optional(v.boolean()),
         isPublic: v.optional(v.boolean()),
         isFeatured: v.optional(v.boolean()),
         price: v.optional(v.number()),
+        certificateTemplateId: v.optional(v.id("certificateTemplates")),
     },
     handler: async (ctx, args) => {
         try {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import ReactPlayer from "react-player";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,7 @@ import { useUser } from "@clerk/nextjs";
 import { toast } from "sonner";
 import { BunnyPlayer } from "@/components/bunny-player";
 import { useContentProtection } from "@/hooks/useContentProtection";
+import { LessonCompletedCelebration } from "@/components/lesson-completed-celebration";
 
 
 // Cast ReactPlayer to any to avoid type errors
@@ -206,6 +207,8 @@ export default function CoursePlayerPage() {
     const [videoProgress, setVideoProgress] = useState(0);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isMarkingComplete, setIsMarkingComplete] = useState(false);
+    const [showCelebration, setShowCelebration] = useState(false);
+    const [completedLessonTitle, setCompletedLessonTitle] = useState("");
     const playerRef = useRef<any>(null);
 
     // Aplicar proteção de conteúdo na página
@@ -285,7 +288,9 @@ export default function CoursePlayerPage() {
                     isCompleted: true,
                 });
                 await updateStreak({ userId: convexUser._id });
-                toast.success("Aula concluída! 🎉");
+                // Mostrar celebração em vez de apenas toast
+                setCompletedLessonTitle(currentLesson.title);
+                setShowCelebration(true);
             } catch (error) {
                 console.error("Error updating progress:", error);
             }
@@ -305,7 +310,9 @@ export default function CoursePlayerPage() {
                 isCompleted: true,
             });
             await updateStreak({ userId: convexUser._id });
-            toast.success("Aula marcada como concluída! 🎉");
+            // Mostrar celebração em vez de apenas toast
+            setCompletedLessonTitle(currentLesson.title);
+            setShowCelebration(true);
         } catch (error) {
             toast.error("Erro ao marcar aula como concluída");
         } finally {
@@ -318,6 +325,12 @@ export default function CoursePlayerPage() {
         setVideoProgress(0);
         setMobileMenuOpen(false);
     };
+
+    const handleGoToNextLesson = useCallback(() => {
+        if (nextLesson) {
+            handleSelectLesson(nextLesson._id);
+        }
+    }, [nextLesson]);
 
     // Check if course is complete
     const isCourseComplete = progress === 100;
@@ -486,6 +499,16 @@ export default function CoursePlayerPage() {
                     </Button>
                 </div>
             </div>
+
+            {/* Modal de celebração quando aula é concluída */}
+            <LessonCompletedCelebration
+                isOpen={showCelebration}
+                onClose={() => setShowCelebration(false)}
+                lessonTitle={completedLessonTitle}
+                nextLessonTitle={nextLesson?.title}
+                onNextLesson={handleGoToNextLesson}
+                courseProgress={progress}
+            />
         </div>
     );
 }

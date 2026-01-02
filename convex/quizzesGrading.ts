@@ -290,7 +290,8 @@ export const getPendingGrading = query({
         courseId: v.optional(v.id("courses")),
     },
     handler: async (ctx, args) => {
-        let quizzes = [];
+        let quizzes: any[] = [];
+        const courseIds = new Set<string>();
 
         if (args.courseId) {
             quizzes = await ctx.db
@@ -298,16 +299,38 @@ export const getPendingGrading = query({
                 .withIndex("by_course", (q) => q.eq("courseId", args.courseId!))
                 .collect();
         } else if (args.instructorId) {
-            // Buscar cursos do instrutor
-            const courses = await ctx.db
+            // 1. Buscar cursos onde o professor é o instrutor principal
+            const ownCourses = await ctx.db
                 .query("courses")
                 .withIndex("by_instructor", (q) => q.eq("instructorId", args.instructorId!))
                 .collect();
 
-            for (const course of courses) {
+            for (const course of ownCourses) {
+                courseIds.add(course._id);
+            }
+
+            // 2. Buscar turmas onde o professor é instrutor (classInstructors)
+            const classInstructorRecords = await ctx.db
+                .query("classInstructors")
+                .withIndex("by_user", (q) => q.eq("userId", args.instructorId!))
+                .collect();
+
+            // Buscar os cursos associados às turmas
+            for (const record of classInstructorRecords) {
+                // Verificar se tem permissão para corrigir
+                if (record.permissions?.canGrade) {
+                    const classData = await ctx.db.get(record.classId);
+                    if (classData) {
+                        courseIds.add(classData.courseId);
+                    }
+                }
+            }
+
+            // 3. Buscar quizzes de todos os cursos encontrados
+            for (const courseId of courseIds) {
                 const courseQuizzes = await ctx.db
                     .query("quizzes")
-                    .withIndex("by_course", (q) => q.eq("courseId", course._id))
+                    .withIndex("by_course", (q) => q.eq("courseId", courseId as any))
                     .collect();
                 quizzes.push(...courseQuizzes);
             }
@@ -344,6 +367,7 @@ export const getPendingGrading = query({
         return pendingAttempts.sort((a, b) => a.completedAt - b.completedAt);
     },
 });
+
 
 // Adicionar feedback do aluno sobre a prova
 export const addStudentFeedback = mutation({

@@ -96,6 +96,7 @@ export default function AdminNewCoursePage() {
         category: "",
         level: "beginner" as "beginner" | "intermediate" | "advanced",
         instructorId: "",
+        certificateTemplateId: "",
     });
 
     // Get Convex user to get organizationId
@@ -126,6 +127,12 @@ export default function AdminNewCoursePage() {
     // Get categories for the organization
     const categories = useQuery(
         api.categories.getByOrganization,
+        effectiveOrgId ? { organizationId: effectiveOrgId } : "skip"
+    );
+
+    // Get certificate templates
+    const certificateTemplates = useQuery(
+        api.certificateTemplates.getByOrganization,
         effectiveOrgId ? { organizationId: effectiveOrgId } : "skip"
     );
 
@@ -318,7 +325,9 @@ export default function AdminNewCoursePage() {
                 category: formData.category,
                 level: formData.level,
                 organizationId: effectiveOrgId,
+                organizationId: effectiveOrgId,
                 instructorId: formData.instructorId as any,
+                certificateTemplateId: formData.certificateTemplateId as Id<"certificateTemplates"> || undefined,
             });
 
             // Upload thumbnail if exists
@@ -607,7 +616,7 @@ export default function AdminNewCoursePage() {
                                             <SelectValue placeholder="Selecione uma categoria" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {categories?.filter(c => c.isActive).map((cat) => (
+                                            {categories?.map((cat) => (
                                                 <SelectItem key={cat._id} value={cat.name}>
                                                     <div className="flex items-center gap-2">
                                                         <div
@@ -649,45 +658,30 @@ export default function AdminNewCoursePage() {
                                         </SelectContent>
                                     </Select>
                                 </div>
-                            </div>
 
-                            {/* Level Selection */}
-                            <div className="space-y-3">
-                                <Label>Nível de Dificuldade</Label>
-                                <div className="grid gap-3 md:grid-cols-3">
-                                    {levels.map((level) => (
-                                        <div
-                                            key={level.value}
-                                            className={cn(
-                                                "relative p-4 rounded-lg border-2 cursor-pointer transition-all",
-                                                formData.level === level.value
-                                                    ? "border-primary bg-primary/5"
-                                                    : "border-muted hover:border-muted-foreground/50"
-                                            )}
-                                            onClick={() =>
-                                                setFormData((prev) => ({
-                                                    ...prev,
-                                                    level: level.value as typeof formData.level,
-                                                }))
-                                            }
-                                        >
-                                            <div className="text-center">
-                                                <BarChart3 className={cn(
-                                                    "h-6 w-6 mx-auto mb-2",
-                                                    level.value === "beginner" && "text-emerald-500",
-                                                    level.value === "intermediate" && "text-amber-500",
-                                                    level.value === "advanced" && "text-red-500"
-                                                )} />
-                                                <div className="font-medium">{level.label}</div>
-                                                <div className="text-xs text-muted-foreground mt-1">
-                                                    {level.description}
-                                                </div>
-                                            </div>
-                                            {formData.level === level.value && (
-                                                <div className="absolute top-2 right-2 h-3 w-3 rounded-full bg-primary" />
-                                            )}
-                                        </div>
-                                    ))}
+                                <div className="space-y-2 md:col-span-2">
+                                    <Label>Modelo de Certificado</Label>
+                                    <Select
+                                        value={formData.certificateTemplateId}
+                                        onValueChange={(value) =>
+                                            setFormData((prev) => ({ ...prev, certificateTemplateId: value }))
+                                        }
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Selecione um modelo (Opcional)" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="none">Nenhum (ou Padrão)</SelectItem>
+                                            {certificateTemplates?.map((template) => (
+                                                <SelectItem key={template._id} value={template._id}>
+                                                    {template.name} {template.isDefault ? "(Padrão)" : ""}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <p className="text-xs text-muted-foreground">
+                                        Escolha qual certificado será gerado ao concluir este curso.
+                                    </p>
                                 </div>
                             </div>
                         </CardContent>
@@ -721,7 +715,6 @@ export default function AdminNewCoursePage() {
                 </motion.div>
             </form>
 
-            {/* Delete Category Dialog */}
             <AlertDialog open={!!deleteCategoryId} onOpenChange={() => setDeleteCategoryId(null)}>
                 <AlertDialogContent>
                     <AlertDialogHeader>

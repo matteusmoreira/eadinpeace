@@ -67,6 +67,7 @@ export default defineSchema({
         isPublic: v.optional(v.boolean()), // Curso acessível sem login
         isFeatured: v.boolean(),
         price: v.optional(v.number()),
+        certificateTemplateId: v.optional(v.id("certificateTemplates")),
         createdAt: v.number(),
         updatedAt: v.number(),
     })

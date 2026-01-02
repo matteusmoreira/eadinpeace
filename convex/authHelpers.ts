@@ -129,7 +129,7 @@ export async function requireOwnerOrAdmin(
 }
 
 /**
- * Verifica se o usuário pode modificar um curso (instrutor do curso ou admin).
+ * Verifica se o usuário pode modificar um curso (instrutor do curso, admin, ou professor de turma com permissão).
  */
 export async function requireCourseAccess(
     ctx: QueryCtx | MutationCtx,
@@ -157,9 +157,33 @@ export async function requireCourseAccess(
         return { ...auth, course };
     }
 
-    // Professores precisam ser o instrutor do curso
-    if (auth.user.role === "professor" && course.instructorId !== auth.user._id) {
-        throw new Error("Acesso negado: você não é o instrutor deste curso");
+    // Professores: verificar se é o instrutor principal do curso
+    if (auth.user.role === "professor") {
+        // Se for o instrutor principal do curso, tem acesso
+        if (course.instructorId === auth.user._id) {
+            return { ...auth, course };
+        }
+
+        // Verificar se o professor é um instrutor de alguma turma deste curso com permissão de editar conteúdo
+        const classesForCourse = await ctx.db
+            .query("classes")
+            .withIndex("by_course", (q) => q.eq("courseId", courseId))
+            .collect();
+
+        for (const classItem of classesForCourse) {
+            const instructorAssignment = await ctx.db
+                .query("classInstructors")
+                .withIndex("by_class_user", (q) =>
+                    q.eq("classId", classItem._id).eq("userId", auth.user._id)
+                )
+                .first();
+
+            if (instructorAssignment && instructorAssignment.permissions.canEditContent) {
+                return { ...auth, course };
+            }
+        }
+
+        throw new Error("Acesso negado: você não é o instrutor deste curso e não tem permissão de edição em nenhuma turma");
     }
 
     return { ...auth, course };

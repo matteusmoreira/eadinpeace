@@ -46,8 +46,9 @@ import {
     GraduationCap,
     Upload,
     Calendar,
+    Settings,
 } from "lucide-react";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
@@ -56,6 +57,8 @@ import { Id } from "@convex/_generated/dataModel";
 import { toast } from "sonner";
 import { BunnyVideoUpload } from "@/components/bunny-video-upload";
 import { cn } from "@/lib/utils";
+
+import { useUser } from "@clerk/nextjs";
 
 const container = {
     hidden: { opacity: 0 },
@@ -81,6 +84,7 @@ const lessonTypeLabels: Record<LessonType, { label: string; icon: typeof Video; 
 };
 
 export default function AdminCourseEditPage() {
+    const { user } = useUser();
     const params = useParams();
     const router = useRouter();
     const courseId = params.id as Id<"courses">;
@@ -117,8 +121,68 @@ export default function AdminCourseEditPage() {
         isFree: false,
     });
 
+    // Settings Form State
+    const [settingsFormData, setSettingsFormData] = useState({
+        title: "",
+        slug: "",
+        description: "",
+        category: "",
+        instructorId: "",
+        certificateTemplateId: "none",
+    });
+
     // Queries
     const course = useQuery(api.courses.getWithContent, { courseId });
+
+    // Get Convex user to get organizationId
+    const convexUser = useQuery(
+        api.users.getByClerkId,
+        user?.id ? { clerkId: user.id } : "skip"
+    );
+
+    // For superadmins, also check for any organization
+    const anyOrganization = useQuery(
+        api.users.getOrCreateUserOrganization,
+        user?.id ? { clerkId: user.id } : "skip"
+    );
+
+    // The organization ID to use
+    const effectiveOrgId = convexUser?.organizationId || anyOrganization?._id;
+
+    // Get users from organization to select as instructor
+    const orgUsers = useQuery(
+        api.users.getByOrganization,
+        effectiveOrgId ? { organizationId: effectiveOrgId } : "skip"
+    );
+    const instructors = orgUsers?.filter(u =>
+        u.role === "professor" || u.role === "admin"
+    ) || [];
+
+    // Get categories for the organization
+    const categories = useQuery(
+        api.categories.getByOrganization,
+        effectiveOrgId ? { organizationId: effectiveOrgId } : "skip"
+    );
+
+    // Get certificate templates
+    const certificateTemplates = useQuery(
+        api.certificateTemplates.getByOrganization,
+        effectiveOrgId ? { organizationId: effectiveOrgId } : "skip"
+    );
+
+    // Sync form data with course data
+    useEffect(() => {
+        if (course) {
+            setSettingsFormData({
+                title: course.title || "",
+                slug: course.slug || "",
+                description: course.description || "",
+                category: course.category || "",
+                instructorId: course.instructorId ? String(course.instructorId) : "",
+                certificateTemplateId: course.certificateTemplateId ? String(course.certificateTemplateId) : "none",
+            });
+        }
+    }, [course]);
 
     // Mutations
     const updateCourse = useMutation(api.courses.update);
@@ -128,6 +192,27 @@ export default function AdminCourseEditPage() {
     const deleteLessonMutation = useMutation(api.courses.deleteLesson);
     const generateUploadUrl = useMutation(api.files.generateUploadUrl);
     const createQuiz = useMutation(api.quizzes.create);
+
+    const handleUpdateSettings = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsLoading(true);
+        try {
+            await updateCourse({
+                courseId,
+                title: settingsFormData.title,
+                slug: settingsFormData.slug,
+                description: settingsFormData.description,
+                category: settingsFormData.category,
+                instructorId: settingsFormData.instructorId as Id<"users">,
+                certificateTemplateId: settingsFormData.certificateTemplateId === "none" ? undefined : settingsFormData.certificateTemplateId as Id<"certificateTemplates">,
+            });
+            toast.success("Configurações do curso atualizadas!");
+        } catch (error: any) {
+            toast.error(error.message || "Erro ao atualizar curso");
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     const handlePublishToggle = async () => {
         if (!course) return;
@@ -492,183 +577,301 @@ export default function AdminCourseEditPage() {
             </motion.div>
 
             {/* Course Content */}
-            <motion.div variants={item} className="space-y-4">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between">
-                        <div>
-                            <CardTitle className="flex items-center gap-2">
-                                <FolderOpen className="h-5 w-5" />
-                                Conteúdo do Curso
-                            </CardTitle>
-                            <CardDescription>
-                                Organize os módulos e aulas do curso
-                            </CardDescription>
-                        </div>
-                        <Dialog open={moduleDialogOpen} onOpenChange={setModuleDialogOpen}>
-                            <DialogTrigger asChild>
-                                <Button className="gap-2">
-                                    <Plus className="h-4 w-4" />
-                                    Novo Módulo
-                                </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                                <DialogHeader>
-                                    <DialogTitle>Criar Novo Módulo</DialogTitle>
-                                    <DialogDescription>
-                                        Módulos organizam as aulas em seções temáticas
-                                    </DialogDescription>
-                                </DialogHeader>
-                                <div className="space-y-4 py-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="moduleTitle">Título do Módulo *</Label>
-                                        <Input
-                                            id="moduleTitle"
-                                            placeholder="Ex: Introdução"
-                                            value={newModuleTitle}
-                                            onChange={(e) => setNewModuleTitle(e.target.value)}
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="moduleDescription">Descrição (opcional)</Label>
-                                        <Textarea
-                                            id="moduleDescription"
-                                            placeholder="Breve descrição do módulo..."
-                                            value={newModuleDescription}
-                                            onChange={(e) => setNewModuleDescription(e.target.value)}
-                                        />
-                                    </div>
+            {/* Tabs */}
+            <Tabs defaultValue="content" className="w-full">
+                <TabsList className="grid w-full grid-cols-2 lg:w-[400px]">
+                    <TabsTrigger value="content" className="gap-2">
+                        <FolderOpen className="h-4 w-4" />
+                        Conteúdo
+                    </TabsTrigger>
+                    <TabsTrigger value="settings" className="gap-2">
+                        <Settings className="h-4 w-4" />
+                        Configurações
+                    </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="content" className="space-y-4 mt-6">
+                    <motion.div variants={item}>
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between">
+                                <div>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <FolderOpen className="h-5 w-5" />
+                                        Conteúdo do Curso
+                                    </CardTitle>
+                                    <CardDescription>
+                                        Organize os módulos e aulas do curso
+                                    </CardDescription>
                                 </div>
-                                <DialogFooter>
-                                    <Button variant="outline" onClick={() => setModuleDialogOpen(false)}>
-                                        Cancelar
-                                    </Button>
-                                    <Button onClick={handleCreateModule} disabled={isLoading}>
-                                        {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                                        Criar Módulo
-                                    </Button>
-                                </DialogFooter>
-                            </DialogContent>
-                        </Dialog>
-                    </CardHeader>
-                    <CardContent>
-                        {course.modules?.length === 0 ? (
-                            <div className="text-center py-12">
-                                <FolderOpen className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-                                <h3 className="text-lg font-medium mb-2">Nenhum módulo ainda</h3>
-                                <p className="text-muted-foreground mb-4">
-                                    Comece criando o primeiro módulo do curso
-                                </p>
-                                <Button onClick={() => setModuleDialogOpen(true)}>
-                                    <Plus className="h-4 w-4 mr-2" />
-                                    Criar Primeiro Módulo
-                                </Button>
-                            </div>
-                        ) : (
-                            <div className="space-y-4">
-                                {course.modules?.map((module, moduleIndex) => (
-                                    <div key={module._id} className="border rounded-lg">
-                                        <div className="flex items-center gap-3 p-4 bg-muted/50">
-                                            <GripVertical className="h-5 w-5 text-muted-foreground cursor-grab" />
-                                            <div className="flex-1">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="font-medium">
-                                                        Módulo {moduleIndex + 1}: {module.title}
-                                                    </span>
-                                                    <Badge variant="outline">
-                                                        {module.lessons?.length || 0} aulas
-                                                    </Badge>
-                                                    {!module.isPublished && (
-                                                        <Badge variant="secondary">Rascunho</Badge>
-                                                    )}
+                                <Dialog open={moduleDialogOpen} onOpenChange={setModuleDialogOpen}>
+                                    <DialogTrigger asChild>
+                                        <Button className="gap-2">
+                                            <Plus className="h-4 w-4" />
+                                            Novo Módulo
+                                        </Button>
+                                    </DialogTrigger>
+                                    <DialogContent>
+                                        <DialogHeader>
+                                            <DialogTitle>Criar Novo Módulo</DialogTitle>
+                                            <DialogDescription>
+                                                Módulos organizam as aulas em seções temáticas
+                                            </DialogDescription>
+                                        </DialogHeader>
+                                        <div className="space-y-4 py-4">
+                                            <div className="space-y-2">
+                                                <Label htmlFor="moduleTitle">Título do Módulo *</Label>
+                                                <Input
+                                                    id="moduleTitle"
+                                                    placeholder="Ex: Introdução"
+                                                    value={newModuleTitle}
+                                                    onChange={(e) => setNewModuleTitle(e.target.value)}
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor="moduleDescription">Descrição (opcional)</Label>
+                                                <Textarea
+                                                    id="moduleDescription"
+                                                    placeholder="Breve descrição do módulo..."
+                                                    value={newModuleDescription}
+                                                    onChange={(e) => setNewModuleDescription(e.target.value)}
+                                                />
+                                            </div>
+                                        </div>
+                                        <DialogFooter>
+                                            <Button variant="outline" onClick={() => setModuleDialogOpen(false)}>
+                                                Cancelar
+                                            </Button>
+                                            <Button onClick={handleCreateModule} disabled={isLoading}>
+                                                {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                                                Criar Módulo
+                                            </Button>
+                                        </DialogFooter>
+                                    </DialogContent>
+                                </Dialog>
+                            </CardHeader>
+                            <CardContent>
+                                {course.modules?.length === 0 ? (
+                                    <div className="text-center py-12">
+                                        <FolderOpen className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+                                        <h3 className="text-lg font-medium mb-2">Nenhum módulo ainda</h3>
+                                        <p className="text-muted-foreground mb-4">
+                                            Comece criando o primeiro módulo do curso
+                                        </p>
+                                        <Button onClick={() => setModuleDialogOpen(true)}>
+                                            <Plus className="h-4 w-4 mr-2" />
+                                            Criar Primeiro Módulo
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        {course.modules?.map((module, moduleIndex) => (
+                                            <div key={module._id} className="border rounded-lg">
+                                                <div className="flex items-center gap-3 p-4 bg-muted/50">
+                                                    <GripVertical className="h-5 w-5 text-muted-foreground cursor-grab" />
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-medium">
+                                                                Módulo {moduleIndex + 1}: {module.title}
+                                                            </span>
+                                                            <Badge variant="outline">
+                                                                {module.lessons?.length || 0} aulas
+                                                            </Badge>
+                                                            {!module.isPublished && (
+                                                                <Badge variant="secondary">Rascunho</Badge>
+                                                            )}
+                                                        </div>
+                                                        {module.description && (
+                                                            <p className="text-sm text-muted-foreground mt-1">
+                                                                {module.description}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            setSelectedModuleId(module._id);
+                                                            resetLessonForm();
+                                                            setLessonDialogOpen(true);
+                                                        }}
+                                                    >
+                                                        <Plus className="h-4 w-4 mr-1" />
+                                                        Aula
+                                                    </Button>
                                                 </div>
-                                                {module.description && (
-                                                    <p className="text-sm text-muted-foreground mt-1">
-                                                        {module.description}
-                                                    </p>
+
+                                                {/* Lessons */}
+                                                {module.lessons && module.lessons.length > 0 && (
+                                                    <div className="divide-y">
+                                                        {module.lessons.map((lesson, lessonIndex) => (
+                                                            <div
+                                                                key={lesson._id}
+                                                                className="flex items-center gap-3 p-3 pl-12 hover:bg-muted/30"
+                                                            >
+                                                                <div className="flex items-center justify-center h-8 w-8 rounded-full bg-muted text-sm font-medium">
+                                                                    {lessonIndex + 1}
+                                                                </div>
+                                                                {getLessonIcon((lesson as any).type || "video")}
+                                                                <div className="flex-1">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span>{lesson.title}</span>
+                                                                        <Badge variant="outline" className="text-xs">
+                                                                            {lessonTypeLabels[(lesson as any).type as LessonType]?.label || "Vídeo"}
+                                                                        </Badge>
+                                                                        {lesson.isFree && (
+                                                                            <Badge variant="outline" className="text-xs">
+                                                                                Grátis
+                                                                            </Badge>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                                    <Clock className="h-4 w-4" />
+                                                                    {formatDuration(lesson.duration)}
+                                                                </div>
+                                                                {lesson.isPublished ? (
+                                                                    <Eye className="h-4 w-4 text-emerald-500" />
+                                                                ) : (
+                                                                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                                                                )}
+                                                                <div className="flex items-center gap-1">
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="h-8 w-8"
+                                                                        onClick={() => handleEditLesson(lesson)}
+                                                                        title="Editar aula"
+                                                                    >
+                                                                        <Edit className="h-4 w-4" />
+                                                                    </Button>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="h-8 w-8 text-destructive hover:text-destructive"
+                                                                        onClick={() => {
+                                                                            setSelectedLessonId(lesson._id);
+                                                                            setDeleteLessonDialogOpen(true);
+                                                                        }}
+                                                                        title="Excluir aula"
+                                                                    >
+                                                                        <Trash2 className="h-4 w-4" />
+                                                                    </Button>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
                                                 )}
                                             </div>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => {
-                                                    setSelectedModuleId(module._id);
-                                                    resetLessonForm();
-                                                    setLessonDialogOpen(true);
-                                                }}
-                                            >
-                                                <Plus className="h-4 w-4 mr-1" />
-                                                Aula
-                                            </Button>
-                                        </div>
-
-                                        {/* Lessons */}
-                                        {module.lessons && module.lessons.length > 0 && (
-                                            <div className="divide-y">
-                                                {module.lessons.map((lesson, lessonIndex) => (
-                                                    <div
-                                                        key={lesson._id}
-                                                        className="flex items-center gap-3 p-3 pl-12 hover:bg-muted/30"
-                                                    >
-                                                        <div className="flex items-center justify-center h-8 w-8 rounded-full bg-muted text-sm font-medium">
-                                                            {lessonIndex + 1}
-                                                        </div>
-                                                        {getLessonIcon((lesson as any).type || "video")}
-                                                        <div className="flex-1">
-                                                            <div className="flex items-center gap-2">
-                                                                <span>{lesson.title}</span>
-                                                                <Badge variant="outline" className="text-xs">
-                                                                    {lessonTypeLabels[(lesson as any).type as LessonType]?.label || "Vídeo"}
-                                                                </Badge>
-                                                                {lesson.isFree && (
-                                                                    <Badge variant="outline" className="text-xs">
-                                                                        Grátis
-                                                                    </Badge>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                                            <Clock className="h-4 w-4" />
-                                                            {formatDuration(lesson.duration)}
-                                                        </div>
-                                                        {lesson.isPublished ? (
-                                                            <Eye className="h-4 w-4 text-emerald-500" />
-                                                        ) : (
-                                                            <EyeOff className="h-4 w-4 text-muted-foreground" />
-                                                        )}
-                                                        <div className="flex items-center gap-1">
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-8 w-8"
-                                                                onClick={() => handleEditLesson(lesson)}
-                                                                title="Editar aula"
-                                                            >
-                                                                <Edit className="h-4 w-4" />
-                                                            </Button>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-8 w-8 text-destructive hover:text-destructive"
-                                                                onClick={() => {
-                                                                    setSelectedLessonId(lesson._id);
-                                                                    setDeleteLessonDialogOpen(true);
-                                                                }}
-                                                                title="Excluir aula"
-                                                            >
-                                                                <Trash2 className="h-4 w-4" />
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
+                                        ))}
                                     </div>
-                                ))}
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-            </motion.div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </motion.div>
+                </TabsContent>
+
+                <TabsContent value="settings" className="space-y-4 mt-6">
+                    <motion.div variants={item}>
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Settings className="h-5 w-5" />
+                                    Configurações do Curso
+                                </CardTitle>
+                                <CardDescription>
+                                    Gerencie as informações principais do curso
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <form onSubmit={handleUpdateSettings} className="space-y-6">
+                                    <div className="space-y-2">
+                                        <Label>Título *</Label>
+                                        <Input
+                                            value={settingsFormData.title}
+                                            onChange={(e) => setSettingsFormData({ ...settingsFormData, title: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Slug URL *</Label>
+                                        <Input
+                                            value={settingsFormData.slug}
+                                            onChange={(e) => setSettingsFormData({ ...settingsFormData, slug: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Descrição</Label>
+                                        <Textarea
+                                            value={settingsFormData.description}
+                                            onChange={(e) => setSettingsFormData({ ...settingsFormData, description: e.target.value })}
+                                            rows={4}
+                                        />
+                                    </div>
+                                    <div className="grid gap-4 md:grid-cols-2">
+                                        <div className="space-y-2">
+                                            <Label>Categoria *</Label>
+                                            <Select
+                                                value={settingsFormData.category}
+                                                onValueChange={(value) => setSettingsFormData({ ...settingsFormData, category: value })}
+                                            >
+                                                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                                <SelectContent>
+                                                    {categories?.map((c) => (
+                                                        <SelectItem key={c._id} value={c.name}>{c.name}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Instrutor *</Label>
+                                            <Select
+                                                value={settingsFormData.instructorId}
+                                                onValueChange={(value) => setSettingsFormData({ ...settingsFormData, instructorId: value })}
+                                            >
+                                                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                                <SelectContent>
+                                                    {instructors.map((i) => (
+                                                        <SelectItem key={i._id} value={i._id as string}>
+                                                            {`${i.firstName || ''} ${i.lastName || ''}`.trim() || i.email}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="space-y-2 md:col-span-2">
+                                            <Label>Modelo de Certificado</Label>
+                                            <Select
+                                                value={settingsFormData.certificateTemplateId}
+                                                onValueChange={(value) => setSettingsFormData({ ...settingsFormData, certificateTemplateId: value })}
+                                            >
+                                                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="none">Nenhum (ou Padrão)</SelectItem>
+                                                    {certificateTemplates?.map((t) => (
+                                                        <SelectItem key={t._id} value={t._id}>
+                                                            {t.name} {t.isDefault ? "(Padrão)" : ""}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <p className="text-xs text-muted-foreground">
+                                                Escolha qual certificado será gerado ao concluir este curso.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex justify-end">
+                                        <Button type="submit" disabled={isLoading} className="gap-2 gradient-bg border-0">
+                                            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                                            Salvar Alterações
+                                        </Button>
+                                    </div>
+                                </form>
+                            </CardContent>
+                        </Card>
+                    </motion.div>
+                </TabsContent>
+            </Tabs>
 
             {/* Lesson Dialog */}
             <Dialog open={lessonDialogOpen} onOpenChange={(open) => {

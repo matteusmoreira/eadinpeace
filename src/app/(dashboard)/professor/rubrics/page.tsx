@@ -130,10 +130,16 @@ export default function RubricsPage() {
         try {
             await removeRubric({ rubricId: rubricId as any });
             toast.success("Rubrica excluída!");
-        } catch (error) {
-            toast.error("Erro ao excluir rubrica");
+        } catch (error: any) {
+            // Exibir mensagem específica se for rubrica padrão
+            if (error?.message?.includes("padrão")) {
+                toast.error("Não é possível excluir a rubrica padrão. Defina outra rubrica como padrão antes.");
+            } else {
+                toast.error("Erro ao excluir rubrica");
+            }
         }
     };
+
 
     const handleSetDefault = async (rubricId: string) => {
         try {

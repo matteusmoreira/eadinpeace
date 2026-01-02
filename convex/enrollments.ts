@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query, internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { requireAuth, requireOwnerOrAdmin } from "./authHelpers";
+import { requireAuth, requireOwnerOrAdmin, requireRole } from "./authHelpers";
 
 // Point values for different actions
 const POINT_VALUES = {
@@ -509,3 +509,132 @@ export const getStreak = query({
         }
     },
 });
+
+// Obter detalhes de progresso do aluno em um curso (para professor/admin)
+export const getStudentCourseDetails = query({
+    args: {
+        userId: v.id("users"),
+        courseId: v.id("courses"),
+    },
+    handler: async (ctx, args) => {
+        const auth = await requireRole(ctx, ["superadmin", "admin", "professor"]);
+
+        const course = await ctx.db.get(args.courseId);
+        if (!course) return null;
+
+        // Validar permissões
+        if (auth.user.role === "admin" && auth.user.organizationId !== course.organizationId) {
+            throw new Error("Acesso negado");
+        }
+        if (auth.user.role === "professor") {
+            // Verificar se é instrutor do curso
+            if (course.instructorId !== auth.user._id) {
+                throw new Error("Acesso negado: Você não é o instrutor deste curso");
+            }
+        }
+
+        const student = await ctx.db.get(args.userId);
+        if (!student) return null;
+
+        const enrollment = await ctx.db
+            .query("enrollments")
+            .withIndex("by_user_course", (q) => q.eq("userId", args.userId).eq("courseId", args.courseId))
+            .first();
+
+        // Módulos e Aulas
+        const modules = await ctx.db.query("modules").withIndex("by_course", q => q.eq("courseId", args.courseId)).collect();
+        const lessons = await ctx.db.query("lessons").withIndex("by_course", q => q.eq("courseId", args.courseId)).collect();
+
+        // Progresso das aulas
+        const lessonProgress = await ctx.db.query("lessonProgress")
+            .withIndex("by_user", q => q.eq("userId", args.userId))
+            .collect();
+        const courseLessonProgress = lessonProgress.filter(p => p.courseId === args.courseId);
+
+        // Quiz Attempts
+        const quizAttempts = await ctx.db.query("quizAttempts")
+            .withIndex("by_user", q => q.eq("userId", args.userId))
+            .collect();
+
+        const quizzes = await ctx.db.query("quizzes").withIndex("by_course", q => q.eq("courseId", args.courseId)).collect();
+        const quizIds = new Set(quizzes.map(q => q._id));
+        const courseQuizAttempts = quizAttempts.filter(a => quizIds.has(a.quizId));
+
+        // Montar estrutura
+        const moduleDetails = modules.map(mod => {
+            const modLessons = lessons.filter(l => l.moduleId === mod._id);
+            const detailedLessons = modLessons.map(lesson => {
+                const prog = courseLessonProgress.find(p => p.lessonId === lesson._id);
+
+                let score = undefined;
+                let attempt = undefined;
+
+                if (lesson.type === 'exam') {
+                    const quiz = quizzes.find(q => q.lessonId === lesson._id);
+                    if (quiz) {
+                        const attempts = courseQuizAttempts.filter(a => a.quizId === quiz._id);
+                        if (attempts.length > 0) {
+                            attempt = attempts.sort((a, b) => b.score - a.score)[0]; // Maior nota
+                            score = attempt.score;
+                        }
+                    }
+                }
+
+                return {
+                    ...lesson,
+                    isCompleted: prog?.isCompleted || false,
+                    lastAccessedAt: prog?.lastWatchedAt,
+                    score,
+                    attemptId: attempt?._id
+                };
+            });
+
+            const completedCount = detailedLessons.filter(l => l.isCompleted).length;
+
+            return {
+                ...mod,
+                lessons: detailedLessons,
+                completedLessons: completedCount,
+                totalLessons: modLessons.length,
+                progressPercent: modLessons.length > 0 ? Math.round((completedCount / modLessons.length) * 100) : 0
+            };
+        });
+
+        const overallCompleted = courseLessonProgress.filter(p => p.isCompleted).length;
+        const totalLessons = lessons.length;
+        const progressPercent = totalLessons > 0 ? Math.round((overallCompleted / totalLessons) * 100) : 0;
+
+        // Calcular média de notas
+        let totalScore = 0;
+        let scoredCount = 0;
+
+        moduleDetails.forEach(m => {
+            m.lessons.forEach(l => {
+                if (l.score !== undefined) {
+                    totalScore += l.score;
+                    scoredCount++;
+                }
+            });
+        });
+
+        const averageScore = scoredCount > 0 ? Math.round(totalScore / scoredCount) : null;
+
+        return {
+            student: {
+                _id: student._id,
+                firstName: student.firstName,
+                lastName: student.lastName,
+                email: student.email,
+                imageUrl: student.imageUrl,
+            },
+            enrollment,
+            modules: moduleDetails,
+            overallProgress: progressPercent,
+            completedLessons: overallCompleted,
+            totalLessons,
+            averageScore,
+            lastActivity: courseLessonProgress.length > 0 ? Math.max(...courseLessonProgress.map(p => p.lastWatchedAt)) : null
+        };
+    }
+});
+

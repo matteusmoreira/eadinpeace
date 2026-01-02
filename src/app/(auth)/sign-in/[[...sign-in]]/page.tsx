@@ -11,6 +11,7 @@ export default function SignInPage() {
 
             <div className="relative z-10">
                 <SignIn
+                    forceRedirectUrl="/dashboard"
                     appearance={{
                         elements: {
                             rootBox: "mx-auto",
