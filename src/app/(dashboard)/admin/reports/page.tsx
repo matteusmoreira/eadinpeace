@@ -43,6 +43,7 @@ const item = {
 export default function ReportsPage() {
     const { user } = useUser();
     const [selectedCourse, setSelectedCourse] = useState<string>("");
+    const [selectedUser, setSelectedUser] = useState<string>("");
 
     const convexUser = useQuery(
         api.users.getByClerkId,
@@ -67,6 +68,19 @@ export default function ReportsPage() {
     const courseReport = useQuery(
         api.reports.getCourseProgressReport,
         selectedCourse ? { courseId: selectedCourse as any } : "skip"
+    );
+
+    // Buscar usuários da organização (alunos)
+    const allUsers = useQuery(
+        api.users.getByOrganization,
+        organizationId ? { organizationId } : "skip"
+    );
+    const students = allUsers?.filter(u => u.role === "student") || [];
+
+    // Buscar relatório do usuário selecionado
+    const userReport = useQuery(
+        api.reports.getUserActivityReport,
+        selectedUser ? { userId: selectedUser as any } : "skip"
     );
 
     const isLoading = orgReport === undefined || courses === undefined;
@@ -466,15 +480,116 @@ export default function ReportsPage() {
                         <motion.div variants={item}>
                             <Card>
                                 <CardHeader>
-                                    <CardTitle>Relatório por Usuário</CardTitle>
-                                    <CardDescription>Análise individual de desempenho (em breve)</CardDescription>
+                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                        <div>
+                                            <CardTitle>Relatório por Usuário</CardTitle>
+                                            <CardDescription>Selecione um aluno para ver seu desempenho detalhado</CardDescription>
+                                        </div>
+                                        <div className="w-full md:w-[300px]">
+                                            <Select value={selectedUser} onValueChange={setSelectedUser}>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Selecione um aluno" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {students.map(student => (
+                                                        <SelectItem key={student._id} value={student._id}>
+                                                            {student.firstName} {student.lastName}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
                                 </CardHeader>
                                 <CardContent>
-                                    <div className="text-center py-12 text-muted-foreground">
-                                        <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                                        <p className="text-lg font-medium">Em Desenvolvimento</p>
-                                        <p className="text-sm">Esta funcionalidade estará disponível em breve</p>
-                                    </div>
+                                    {!selectedUser ? (
+                                        <div className="text-center py-12 text-muted-foreground">
+                                            <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                                            <p className="text-lg font-medium">Selecione um aluno</p>
+                                            <p className="text-sm">Escolha um aluno acima para visualizar seu relatório detalhado</p>
+                                        </div>
+                                    ) : userReport === undefined ? (
+                                        <div className="flex items-center justify-center py-12">
+                                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                        </div>
+                                    ) : userReport === null ? (
+                                        <div className="text-center py-12 text-muted-foreground">
+                                            <p>Dados não disponíveis para este usuário.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-6">
+                                            {/* User Info */}
+                                            <div className="flex items-center gap-4 p-4 rounded-lg bg-muted/50">
+                                                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                                                    <Users className="h-6 w-6 text-primary" />
+                                                </div>
+                                                <div>
+                                                    <p className="font-semibold text-lg">{userReport.user.name}</p>
+                                                    <p className="text-sm text-muted-foreground">{userReport.user.email}</p>
+                                                </div>
+                                            </div>
+
+                                            {/* Stats Grid */}
+                                            <div className="grid gap-4 md:grid-cols-4">
+                                                <div className="p-4 rounded-lg bg-primary/10 border border-primary/20">
+                                                    <p className="text-sm text-muted-foreground">Cursos</p>
+                                                    <p className="text-2xl font-bold">{userReport.summary.totalCourses}</p>
+                                                </div>
+                                                <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                                                    <p className="text-sm text-muted-foreground">Concluídos</p>
+                                                    <p className="text-2xl font-bold text-emerald-500">{userReport.summary.completedCourses}</p>
+                                                </div>
+                                                <div className="p-4 rounded-lg bg-violet-500/10 border border-violet-500/20">
+                                                    <p className="text-sm text-muted-foreground">Certificados</p>
+                                                    <p className="text-2xl font-bold text-violet-500">{userReport.summary.totalCertificates}</p>
+                                                </div>
+                                                <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                                                    <p className="text-sm text-muted-foreground">Tempo de Estudo</p>
+                                                    <p className="text-2xl font-bold text-amber-500">{userReport.summary.totalTimeFormatted}</p>
+                                                </div>
+                                            </div>
+
+                                            {/* Courses List */}
+                                            {userReport.enrollments && userReport.enrollments.length > 0 && (
+                                                <div className="space-y-3">
+                                                    <h4 className="font-semibold">Cursos do Aluno</h4>
+                                                    <div className="rounded-lg border overflow-hidden">
+                                                        <table className="w-full">
+                                                            <thead>
+                                                                <tr className="bg-muted/50">
+                                                                    <th className="text-left p-3 font-medium">Curso</th>
+                                                                    <th className="text-left p-3 font-medium">Progresso</th>
+                                                                    <th className="text-left p-3 font-medium">Status</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody className="divide-y">
+                                                                {userReport.enrollments.map((enrollment: any) => (
+                                                                    <tr key={enrollment.courseId} className="hover:bg-muted/30">
+                                                                        <td className="p-3 font-medium">{enrollment.courseTitle}</td>
+                                                                        <td className="p-3">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <Progress value={enrollment.progress} className="w-20 h-2" />
+                                                                                <span className="text-sm">{enrollment.progress}%</span>
+                                                                            </div>
+                                                                        </td>
+                                                                        <td className="p-3">
+                                                                            {enrollment.completedAt ? (
+                                                                                <Badge className="bg-emerald-500">Concluído</Badge>
+                                                                            ) : enrollment.progress > 0 ? (
+                                                                                <Badge variant="secondary">Em Progresso</Badge>
+                                                                            ) : (
+                                                                                <Badge variant="outline">Não Iniciado</Badge>
+                                                                            )}
+                                                                        </td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </CardContent>
                             </Card>
                         </motion.div>

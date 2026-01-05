@@ -18,10 +18,13 @@ import {
     Play,
     Star,
     ArrowRight,
-    Search
+    Search,
+    Grid3X3,
+    List
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 const levelLabels = {
     beginner: "Iniciante",
@@ -38,6 +41,7 @@ const levelColors = {
 export default function PublicCoursesPage() {
     const courses = useQuery(api.courses.getPublicCourses);
     const [searchTerm, setSearchTerm] = useState("");
+    const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
     const filteredCourses = courses?.filter(course =>
         course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -102,6 +106,24 @@ export default function PublicCoursesPage() {
                                 className="pl-12 h-14 text-lg rounded-2xl border-2 focus:border-primary"
                             />
                         </div>
+
+                        {/* View Toggle */}
+                        <div className="flex justify-center mt-4">
+                            <ToggleGroup
+                                type="single"
+                                value={viewMode}
+                                onValueChange={(value) => value && setViewMode(value as "grid" | "list")}
+                            >
+                                <ToggleGroupItem value="grid" aria-label="Visualização em grade" className="gap-2">
+                                    <Grid3X3 className="h-4 w-4" />
+                                    Grade
+                                </ToggleGroupItem>
+                                <ToggleGroupItem value="list" aria-label="Visualização em lista" className="gap-2">
+                                    <List className="h-4 w-4" />
+                                    Lista
+                                </ToggleGroupItem>
+                            </ToggleGroup>
+                        </div>
                     </motion.div>
                 </div>
             </section>
@@ -140,106 +162,144 @@ export default function PublicCoursesPage() {
                             <p className="text-muted-foreground mb-6">
                                 {filteredCourses?.length} {filteredCourses?.length === 1 ? "curso encontrado" : "cursos encontrados"}
                             </p>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : "flex flex-col gap-4"}>
                                 {filteredCourses?.map((course, index) => (
                                     <motion.div
                                         key={course._id}
                                         initial={{ opacity: 0, y: 20 }}
                                         animate={{ opacity: 1, y: 0 }}
-                                        transition={{ duration: 0.3, delay: index * 0.1 }}
+                                        transition={{ duration: 0.3, delay: index * 0.05 }}
                                     >
                                         <Link href={`/courses/${course.slug}`}>
-                                            <Card className="group overflow-hidden hover:shadow-xl transition-all duration-300 border-2 hover:border-primary/50 h-full flex flex-col">
-                                                {/* Thumbnail */}
-                                                <div className="relative h-48 bg-gradient-to-br from-primary/20 to-primary/5 overflow-hidden">
-                                                    {course.thumbnail ? (
-                                                        <Image
-                                                            src={course.thumbnail}
-                                                            alt={course.title}
-                                                            fill
-                                                            className="object-cover group-hover:scale-105 transition-transform duration-300"
-                                                        />
-                                                    ) : (
-                                                        <div className="absolute inset-0 flex items-center justify-center">
-                                                            <BookOpen className="h-16 w-16 text-primary/30" />
-                                                        </div>
-                                                    )}
-                                                    {/* Play overlay */}
-                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                        <div className="h-16 w-16 rounded-full bg-white/90 flex items-center justify-center">
-                                                            <Play className="h-8 w-8 text-primary fill-primary ml-1" />
-                                                        </div>
-                                                    </div>
-                                                    {/* Level badge */}
-                                                    <Badge
-                                                        className={`absolute top-3 left-3 ${levelColors[course.level]} border-0 text-white`}
-                                                    >
-                                                        {levelLabels[course.level]}
-                                                    </Badge>
-                                                </div>
-
-                                                <CardHeader className="flex-1">
-                                                    <div className="flex items-start justify-between gap-2">
-                                                        <Badge variant="outline" className="text-xs">
-                                                            {course.category}
-                                                        </Badge>
-                                                        {course.price ? (
-                                                            <span className="text-lg font-bold text-primary">
-                                                                R$ {course.price.toFixed(2)}
-                                                            </span>
+                                            {viewMode === "grid" ? (
+                                                <Card className="group overflow-hidden hover:shadow-xl transition-all duration-300 border-2 hover:border-primary/50 h-full flex flex-col">
+                                                    <div className="relative h-48 bg-gradient-to-br from-primary/20 to-primary/5 overflow-hidden">
+                                                        {course.thumbnail ? (
+                                                            <Image
+                                                                src={course.thumbnail}
+                                                                alt={course.title}
+                                                                fill
+                                                                className="object-cover group-hover:scale-105 transition-transform duration-300"
+                                                            />
                                                         ) : (
-                                                            <Badge className="bg-emerald-500 border-0">Grátis</Badge>
+                                                            <div className="absolute inset-0 flex items-center justify-center">
+                                                                <BookOpen className="h-16 w-16 text-primary/30" />
+                                                            </div>
                                                         )}
+                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                            <div className="h-16 w-16 rounded-full bg-white/90 flex items-center justify-center">
+                                                                <Play className="h-8 w-8 text-primary fill-primary ml-1" />
+                                                            </div>
+                                                        </div>
+                                                        <Badge className={`absolute top-3 left-3 ${levelColors[course.level]} border-0 text-white`}>
+                                                            {levelLabels[course.level]}
+                                                        </Badge>
                                                     </div>
-                                                    <CardTitle className="line-clamp-2 group-hover:text-primary transition-colors">
-                                                        {course.title}
-                                                    </CardTitle>
-                                                    <CardDescription className="line-clamp-2">
-                                                        {course.description}
-                                                    </CardDescription>
-                                                </CardHeader>
-
-                                                <CardContent className="pt-0">
-                                                    {/* Instructor */}
-                                                    {course.instructor && (
-                                                        <div className="flex items-center gap-2 mb-4">
-                                                            <Avatar className="h-8 w-8">
-                                                                <AvatarImage src={course.instructor.imageUrl} />
-                                                                <AvatarFallback className="text-xs">
-                                                                    {course.instructor.firstName?.[0]}
-                                                                    {course.instructor.lastName?.[0]}
-                                                                </AvatarFallback>
-                                                            </Avatar>
-                                                            <span className="text-sm text-muted-foreground">
-                                                                {course.instructor.firstName} {course.instructor.lastName}
-                                                            </span>
+                                                    <CardHeader className="flex-1">
+                                                        <div className="flex items-start justify-between gap-2">
+                                                            <Badge variant="outline" className="text-xs">{course.category}</Badge>
+                                                            {course.price ? (
+                                                                <span className="text-lg font-bold text-primary">R$ {course.price.toFixed(2)}</span>
+                                                            ) : (
+                                                                <Badge className="bg-emerald-500 border-0">Grátis</Badge>
+                                                            )}
                                                         </div>
-                                                    )}
-
-                                                    {/* Stats */}
-                                                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                                        <div className="flex items-center gap-1">
-                                                            <Clock className="h-4 w-4" />
-                                                            <span>{formatDuration(course.duration)}</span>
+                                                        <CardTitle className="line-clamp-2 group-hover:text-primary transition-colors">{course.title}</CardTitle>
+                                                        <CardDescription className="line-clamp-2">{course.description}</CardDescription>
+                                                    </CardHeader>
+                                                    <CardContent className="pt-0">
+                                                        {course.instructor && (
+                                                            <div className="flex items-center gap-2 mb-4">
+                                                                <Avatar className="h-8 w-8">
+                                                                    <AvatarImage src={course.instructor.imageUrl} />
+                                                                    <AvatarFallback className="text-xs">
+                                                                        {course.instructor.firstName?.[0]}{course.instructor.lastName?.[0]}
+                                                                    </AvatarFallback>
+                                                                </Avatar>
+                                                                <span className="text-sm text-muted-foreground">
+                                                                    {course.instructor.firstName} {course.instructor.lastName}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                                            <div className="flex items-center gap-1">
+                                                                <Clock className="h-4 w-4" />
+                                                                <span>{formatDuration(course.duration)}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-1">
+                                                                <BookOpen className="h-4 w-4" />
+                                                                <span>{course.lessonCount} aulas</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-1">
+                                                                <Users className="h-4 w-4" />
+                                                                <span>{course.enrollmentCount}</span>
+                                                            </div>
                                                         </div>
-                                                        <div className="flex items-center gap-1">
-                                                            <BookOpen className="h-4 w-4" />
-                                                            <span>{course.lessonCount} aulas</span>
+                                                    </CardContent>
+                                                    <CardFooter className="pt-0">
+                                                        <Button className="w-full gap-2 group-hover:gradient-bg group-hover:border-0 transition-all">
+                                                            Ver Curso
+                                                            <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                                                        </Button>
+                                                    </CardFooter>
+                                                </Card>
+                                            ) : (
+                                                <Card className="group hover:shadow-lg transition-all duration-300 border hover:border-primary/50">
+                                                    <div className="flex flex-col md:flex-row">
+                                                        <div className="relative w-full md:w-48 h-40 md:h-auto bg-gradient-to-br from-primary/20 to-primary/5 overflow-hidden flex-shrink-0">
+                                                            {course.thumbnail ? (
+                                                                <Image
+                                                                    src={course.thumbnail}
+                                                                    alt={course.title}
+                                                                    fill
+                                                                    className="object-cover"
+                                                                />
+                                                            ) : (
+                                                                <div className="absolute inset-0 flex items-center justify-center">
+                                                                    <BookOpen className="h-10 w-10 text-primary/30" />
+                                                                </div>
+                                                            )}
+                                                            <Badge className={`absolute top-2 left-2 ${levelColors[course.level]} border-0 text-white text-xs`}>
+                                                                {levelLabels[course.level]}
+                                                            </Badge>
                                                         </div>
-                                                        <div className="flex items-center gap-1">
-                                                            <Users className="h-4 w-4" />
-                                                            <span>{course.enrollmentCount}</span>
+                                                        <div className="flex-1 p-4 flex flex-col justify-between">
+                                                            <div>
+                                                                <div className="flex items-center gap-2 mb-2">
+                                                                    <Badge variant="outline" className="text-xs">{course.category}</Badge>
+                                                                    {course.price ? (
+                                                                        <span className="text-sm font-bold text-primary">R$ {course.price.toFixed(2)}</span>
+                                                                    ) : (
+                                                                        <Badge className="bg-emerald-500 border-0 text-xs">Grátis</Badge>
+                                                                    )}
+                                                                </div>
+                                                                <h3 className="font-semibold text-lg group-hover:text-primary transition-colors mb-1">{course.title}</h3>
+                                                                <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{course.description}</p>
+                                                            </div>
+                                                            <div className="flex items-center justify-between">
+                                                                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                                                    <div className="flex items-center gap-1">
+                                                                        <Clock className="h-3 w-3" />
+                                                                        <span>{formatDuration(course.duration)}</span>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-1">
+                                                                        <BookOpen className="h-3 w-3" />
+                                                                        <span>{course.lessonCount} aulas</span>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-1">
+                                                                        <Users className="h-3 w-3" />
+                                                                        <span>{course.enrollmentCount}</span>
+                                                                    </div>
+                                                                </div>
+                                                                <Button size="sm" className="gap-1 group-hover:gradient-bg group-hover:border-0">
+                                                                    Ver
+                                                                    <ArrowRight className="h-3 w-3" />
+                                                                </Button>
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                </CardContent>
-
-                                                <CardFooter className="pt-0">
-                                                    <Button className="w-full gap-2 group-hover:gradient-bg group-hover:border-0 transition-all">
-                                                        Ver Curso
-                                                        <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                                                    </Button>
-                                                </CardFooter>
-                                            </Card>
+                                                </Card>
+                                            )}
                                         </Link>
                                     </motion.div>
                                 ))}

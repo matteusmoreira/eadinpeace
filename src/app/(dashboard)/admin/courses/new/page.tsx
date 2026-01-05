@@ -70,12 +70,6 @@ const item = {
     show: { opacity: 1, y: 0 },
 };
 
-const levels = [
-    { value: "beginner", label: "Iniciante", description: "Para quem está começando" },
-    { value: "intermediate", label: "Intermediário", description: "Para quem já tem conhecimentos básicos" },
-    { value: "advanced", label: "Avançado", description: "Para quem busca aprofundamento" },
-];
-
 export default function AdminNewCoursePage() {
     const router = useRouter();
     const { user } = useUser();
@@ -94,7 +88,6 @@ export default function AdminNewCoursePage() {
         slug: "",
         description: "",
         category: "",
-        level: "beginner" as "beginner" | "intermediate" | "advanced",
         instructorId: "",
         certificateTemplateId: "",
     });
@@ -323,8 +316,6 @@ export default function AdminNewCoursePage() {
                 description: formData.description,
                 thumbnail: undefined, // Will be updated after upload
                 category: formData.category,
-                level: formData.level,
-                organizationId: effectiveOrgId,
                 organizationId: effectiveOrgId,
                 instructorId: formData.instructorId as any,
                 certificateTemplateId: formData.certificateTemplateId as Id<"certificateTemplates"> || undefined,
@@ -490,7 +481,7 @@ export default function AdminNewCoursePage() {
                                 <div>
                                     <CardTitle className="flex items-center gap-2">
                                         <Tag className="h-5 w-5" />
-                                        Categoria e Nível
+                                        Categoria
                                     </CardTitle>
                                     <CardDescription>
                                         Classifique o curso para facilitar a busca

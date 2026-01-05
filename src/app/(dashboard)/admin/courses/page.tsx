@@ -40,6 +40,7 @@ import {
     Play,
     Loader2,
     GraduationCap,
+    ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
@@ -139,12 +140,20 @@ export default function AdminCoursesPage() {
                     <h1 className="text-2xl md:text-3xl font-bold">Cursos</h1>
                     <p className="text-muted-foreground">Gerencie os cursos da organização</p>
                 </div>
-                <Link href="/admin/courses/new">
-                    <Button className="gap-2 gradient-bg border-0">
-                        <Plus className="h-4 w-4" />
-                        Novo Curso
-                    </Button>
-                </Link>
+                <div className="flex items-center gap-2">
+                    <Link href="/courses" target="_blank">
+                        <Button variant="outline" className="gap-2">
+                            <ExternalLink className="h-4 w-4" />
+                            Ver Página Pública
+                        </Button>
+                    </Link>
+                    <Link href="/admin/courses/new">
+                        <Button className="gap-2 gradient-bg border-0">
+                            <Plus className="h-4 w-4" />
+                            Novo Curso
+                        </Button>
+                    </Link>
+                </div>
             </motion.div>
 
             {/* Stats */}

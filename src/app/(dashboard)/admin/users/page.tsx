@@ -276,9 +276,11 @@ export default function AdminUsersPage() {
                                                 </Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
-                                                <DropdownMenuItem className="gap-2">
-                                                    <Edit className="h-4 w-4" />
-                                                    Editar
+                                                <DropdownMenuItem asChild className="gap-2">
+                                                    <Link href={`/admin/users/${u._id}/edit`}>
+                                                        <Edit className="h-4 w-4" />
+                                                        Editar
+                                                    </Link>
                                                 </DropdownMenuItem>
                                                 <DropdownMenuItem className="gap-2">
                                                     <Mail className="h-4 w-4" />

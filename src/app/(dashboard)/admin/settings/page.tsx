@@ -170,6 +170,25 @@ export default function BunnySettingsPage() {
         );
     }
 
+    // Only superadmins can access video settings
+    if (user?.role !== "superadmin") {
+        return (
+            <div className="container max-w-4xl mx-auto py-8 px-4">
+                <Card className="border-2">
+                    <CardContent className="pt-6">
+                        <div className="flex flex-col items-center justify-center py-12 text-center">
+                            <Shield className="h-12 w-12 text-muted-foreground mb-4" />
+                            <h2 className="text-xl font-semibold mb-2">Acesso Restrito</h2>
+                            <p className="text-muted-foreground">
+                                As configurações de vídeo estão disponíveis apenas para superadministradores.
+                            </p>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
+
     return (
         <div className="container max-w-4xl mx-auto py-8 px-4">
             <motion.div

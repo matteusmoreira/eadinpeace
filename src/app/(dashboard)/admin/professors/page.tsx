@@ -48,6 +48,7 @@ import { cn } from "@/lib/utils";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { useUser } from "@clerk/nextjs";
+import { toast } from "sonner";
 
 const container = {
     hidden: { opacity: 0 },
@@ -118,8 +119,10 @@ export default function AdminProfessorsPage() {
             await removeUser({ userId: selectedProfessor._id });
             setDeleteDialogOpen(false);
             setSelectedProfessor(null);
+            toast.success("Professor excluído com sucesso!");
         } catch (error) {
             console.error("Error deleting professor:", error);
+            toast.error("Erro ao excluir professor");
         } finally {
             setIsDeleting(false);
         }

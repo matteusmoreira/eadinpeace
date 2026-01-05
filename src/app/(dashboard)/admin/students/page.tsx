@@ -37,13 +37,17 @@ import {
     MoreVertical,
     Edit,
     Trash2,
-    Mail,
+    MessageSquare,
     BookOpen,
     Trophy,
     Loader2,
     Eye,
     GraduationCap,
+    Send,
 } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
 import { useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -68,8 +72,12 @@ export default function AdminStudentsPage() {
     const { user } = useUser();
     const [searchQuery, setSearchQuery] = useState("");
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [messageDialogOpen, setMessageDialogOpen] = useState(false);
     const [selectedStudent, setSelectedStudent] = useState<any>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isSendingMessage, setIsSendingMessage] = useState(false);
+    const [messageTitle, setMessageTitle] = useState("");
+    const [messageContent, setMessageContent] = useState("");
 
     // Get current user to find their organization
     const currentUser = useQuery(
@@ -92,6 +100,7 @@ export default function AdminStudentsPage() {
     );
 
     const removeUser = useMutation(api.users.remove);
+    const sendNotification = useMutation(api.notifications.create);
 
     // Filter only students
     const students = (allUsers || []).filter(u => u.role === "student");
@@ -105,6 +114,38 @@ export default function AdminStudentsPage() {
     const handleDelete = (student: any) => {
         setSelectedStudent(student);
         setDeleteDialogOpen(true);
+    };
+
+    const handleSendMessage = (student: any) => {
+        setSelectedStudent(student);
+        setMessageTitle("");
+        setMessageContent("");
+        setMessageDialogOpen(true);
+    };
+
+    const confirmSendMessage = async () => {
+        if (!selectedStudent || !messageTitle.trim() || !messageContent.trim()) {
+            toast.error("Preencha o título e a mensagem");
+            return;
+        }
+
+        setIsSendingMessage(true);
+        try {
+            await sendNotification({
+                userId: selectedStudent._id,
+                type: "announcement",
+                title: messageTitle.trim(),
+                message: messageContent.trim(),
+            });
+            toast.success(`Mensagem enviada para ${selectedStudent.firstName}!`);
+            setMessageDialogOpen(false);
+            setSelectedStudent(null);
+        } catch (error) {
+            console.error("Error sending message:", error);
+            toast.error("Erro ao enviar mensagem");
+        } finally {
+            setIsSendingMessage(false);
+        }
     };
 
     const confirmDelete = async () => {
@@ -277,9 +318,9 @@ export default function AdminStudentsPage() {
                                                     Editar
                                                 </Link>
                                             </DropdownMenuItem>
-                                            <DropdownMenuItem>
-                                                <Mail className="h-4 w-4 mr-2" />
-                                                Enviar Email
+                                            <DropdownMenuItem onClick={() => handleSendMessage(student)}>
+                                                <MessageSquare className="h-4 w-4 mr-2" />
+                                                Enviar Mensagem
                                             </DropdownMenuItem>
                                             <DropdownMenuSeparator />
                                             <DropdownMenuItem
@@ -386,9 +427,9 @@ export default function AdminStudentsPage() {
                                                                 Editar
                                                             </Link>
                                                         </DropdownMenuItem>
-                                                        <DropdownMenuItem>
-                                                            <Mail className="h-4 w-4 mr-2" />
-                                                            Enviar Email
+                                                        <DropdownMenuItem onClick={() => handleSendMessage(student)}>
+                                                            <MessageSquare className="h-4 w-4 mr-2" />
+                                                            Enviar Mensagem
                                                         </DropdownMenuItem>
                                                         <DropdownMenuSeparator />
                                                         <DropdownMenuItem
@@ -445,6 +486,57 @@ export default function AdminStudentsPage() {
                                 </>
                             ) : (
                                 "Excluir"
+                            )}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Message Dialog */}
+            <Dialog open={messageDialogOpen} onOpenChange={setMessageDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Enviar Mensagem</DialogTitle>
+                        <DialogDescription>
+                            Enviar mensagem para <strong>{selectedStudent?.firstName} {selectedStudent?.lastName}</strong>
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="messageTitle">Título</Label>
+                            <Input
+                                id="messageTitle"
+                                placeholder="Assunto da mensagem"
+                                value={messageTitle}
+                                onChange={(e) => setMessageTitle(e.target.value)}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="messageContent">Mensagem</Label>
+                            <Textarea
+                                id="messageContent"
+                                placeholder="Digite sua mensagem..."
+                                rows={4}
+                                value={messageContent}
+                                onChange={(e) => setMessageContent(e.target.value)}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setMessageDialogOpen(false)} disabled={isSendingMessage}>
+                            Cancelar
+                        </Button>
+                        <Button onClick={confirmSendMessage} disabled={isSendingMessage} className="gap-2">
+                            {isSendingMessage ? (
+                                <>
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    Enviando...
+                                </>
+                            ) : (
+                                <>
+                                    <Send className="h-4 w-4" />
+                                    Enviar
+                                </>
                             )}
                         </Button>
                     </DialogFooter>

@@ -17,6 +17,7 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -39,12 +40,14 @@ import {
     BookOpen,
     Calendar,
     CheckCircle,
+    Trash2,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { useUser } from "@clerk/nextjs";
+import { toast } from "sonner";
 
 const container = {
     hidden: { opacity: 0 },
@@ -63,6 +66,8 @@ export default function AdminCertificatesPage() {
     const { user } = useUser();
     const [searchQuery, setSearchQuery] = useState("");
     const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
     const [selectedCertificate, setSelectedCertificate] = useState<any>(null);
 
     // Get current user to find their organization
@@ -97,9 +102,33 @@ export default function AdminCertificatesPage() {
         return searchStr.includes(searchQuery.toLowerCase());
     });
 
+    const removeCertificate = useMutation(api.certificates.remove);
+
     const handlePreview = (cert: any) => {
         setSelectedCertificate(cert);
         setPreviewDialogOpen(true);
+    };
+
+    const handleDelete = (cert: any) => {
+        setSelectedCertificate(cert);
+        setDeleteDialogOpen(true);
+    };
+
+    const confirmDelete = async () => {
+        if (!selectedCertificate) return;
+
+        setIsDeleting(true);
+        try {
+            await removeCertificate({ certificateId: selectedCertificate._id });
+            toast.success("Certificado excluído com sucesso!");
+            setDeleteDialogOpen(false);
+            setSelectedCertificate(null);
+        } catch (error: any) {
+            console.error("Error deleting certificate:", error);
+            toast.error(error.message || "Erro ao excluir certificado");
+        } finally {
+            setIsDeleting(false);
+        }
     };
 
     const isLoading = certificates === undefined;
@@ -313,6 +342,14 @@ export default function AdminCertificatesPage() {
                                                                 <Download className="h-4 w-4 mr-2" />
                                                                 Download PDF
                                                             </DropdownMenuItem>
+                                                            <DropdownMenuSeparator />
+                                                            <DropdownMenuItem
+                                                                className="text-destructive focus:text-destructive"
+                                                                onClick={() => handleDelete(cert)}
+                                                            >
+                                                                <Trash2 className="h-4 w-4 mr-2" />
+                                                                Excluir
+                                                            </DropdownMenuItem>
                                                         </DropdownMenuContent>
                                                     </DropdownMenu>
                                                 </TableCell>
@@ -362,6 +399,34 @@ export default function AdminCertificatesPage() {
                         <Button className="gap-2">
                             <Download className="h-4 w-4" />
                             Download PDF
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Delete Confirmation Dialog */}
+            <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Excluir Certificado</DialogTitle>
+                        <DialogDescription>
+                            Tem certeza que deseja excluir o certificado de <strong>{selectedCertificate?.userName}</strong> para o curso <strong>{selectedCertificate?.courseName}</strong>?
+                            Esta ação não pode ser desfeita.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} disabled={isDeleting}>
+                            Cancelar
+                        </Button>
+                        <Button variant="destructive" onClick={confirmDelete} disabled={isDeleting}>
+                            {isDeleting ? (
+                                <>
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    Excluindo...
+                                </>
+                            ) : (
+                                "Excluir"
+                            )}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

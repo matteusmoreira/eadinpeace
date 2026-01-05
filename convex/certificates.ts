@@ -353,3 +353,50 @@ export const getGlobalStats = query({
         }
     },
 });
+
+// Delete certificate (admin/professor only)
+export const remove = mutation({
+    args: { certificateId: v.id("certificates") },
+    handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
+        // Buscar o certificado
+        const certificate = await ctx.db.get(args.certificateId);
+        if (!certificate) {
+            throw new Error("Certificado não encontrado");
+        }
+
+        // Buscar o curso para verificar a organização
+        const course = await ctx.db.get(certificate.courseId);
+        if (!course) {
+            throw new Error("Curso associado não encontrado");
+        }
+
+        // Buscar o usuário autenticado
+        const user = await ctx.db
+            .query("users")
+            .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+            .first();
+
+        if (!user) {
+            throw new Error("Usuário não encontrado");
+        }
+
+        // Verificar se é admin ou professor da organização
+        const isAdminOrProfessor = user.role === "admin" || user.role === "professor" || user.role === "superadmin";
+        const sameOrg = user.organizationId === course.organizationId;
+
+        if (!isAdminOrProfessor || (!sameOrg && user.role !== "superadmin")) {
+            throw new Error("Sem permissão para excluir este certificado");
+        }
+
+        // Excluir o certificado
+        await ctx.db.delete(args.certificateId);
+
+        return { success: true };
+    },
+});
