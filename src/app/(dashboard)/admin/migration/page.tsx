@@ -47,7 +47,7 @@ export default function MigrationPage() {
                             Esta migração vai gerar um <strong>slug</strong> único para cada usuário que ainda não tem.
                         </p>
                         <p className="text-sm text-muted-foreground mt-2">
-                            Exemplo: O usuário "Matteus Bochimpani" terá a URL <code>/aluno/matteus-bochimpani</code>
+                            Exemplo: O usuário &quot;Matteus Bochimpani&quot; terá a URL <code>/aluno/matteus-bochimpani</code>
                         </p>
                     </div>
 

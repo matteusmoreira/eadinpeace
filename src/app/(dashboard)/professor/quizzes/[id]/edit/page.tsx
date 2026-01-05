@@ -21,6 +21,13 @@ import {
 import Link from "next/link";
 import { toast } from "sonner";
 import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import {
     QuestionType,
     getQuestionTypeLabel,
     requiresManualGrading,
@@ -208,7 +215,6 @@ export default function EditQuizPage() {
                 title: quizData.title,
                 description: quizData.description,
                 timeLimit: quizData.duration,
-                passingScore: quizData.passingScore,
                 passingScore: quizData.passingScore,
                 maxAttempts: quizData.maxAttempts,
                 lessonId: quizData.lessonId || undefined,
@@ -458,7 +464,7 @@ export default function EditQuizPage() {
                                         </SelectContent>
                                     </Select>
                                     <p className="text-xs text-muted-foreground">
-                                        Vincule esta prova a uma aula do tipo "Prova" para que ela apareça na sequência do curso.
+                                        Vincule esta prova a uma aula do tipo &quot;Prova&quot; para que ela apareça na sequência do curso.
                                     </p>
                                 </div>
                                 <div className="grid grid-cols-4 gap-3 col-span-2">

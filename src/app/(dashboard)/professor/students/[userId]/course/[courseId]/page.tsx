@@ -56,8 +56,9 @@ export default function StudentCourseProgressPage() {
 
     // Queries
     const progressData = useQuery(api.enrollments.getStudentCourseDetails, { userId, courseId });
+    const course = useQuery(api.courses.getById, { courseId });
 
-    if (progressData === undefined) {
+    if (progressData === undefined || course === undefined) {
         return (
             <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -65,7 +66,7 @@ export default function StudentCourseProgressPage() {
         );
     }
 
-    if (progressData === null) {
+    if (progressData === null || course === null) {
         return (
             <div className="text-center py-12">
                 <h2 className="text-xl font-bold mb-2">Dados não encontrados</h2>
@@ -94,8 +95,8 @@ export default function StudentCourseProgressPage() {
     };
 
     const user = progressData.student;
-    const course = progressData.course;
     const modules = progressData.modules || [];
+    const enrollment = progressData.enrollment;
 
     return (
         <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
@@ -133,8 +134,8 @@ export default function StudentCourseProgressPage() {
                                     </h2>
                                     <p className="text-muted-foreground">{user.email}</p>
                                     <div className="flex gap-2 mt-2">
-                                        <Badge variant={progressData.enrollment.completedAt ? "default" : "secondary"}>
-                                            {progressData.enrollment.completedAt ? "Concluído" : "Em andamento"}
+                                        <Badge variant={enrollment?.completedAt ? "default" : "secondary"}>
+                                            {enrollment?.completedAt ? "Concluído" : "Em andamento"}
                                         </Badge>
                                     </div>
                                 </div>

@@ -34,7 +34,7 @@ import {
     Trophy,
     AlertCircle,
 } from "lucide-react";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
@@ -156,11 +156,11 @@ export default function CoursePlayerPage() {
         }
     };
 
-    const handleGoToNextLesson = useCallback(() => {
+    const handleGoToNextLesson = () => {
         if (nextLesson) {
             setCurrentLessonId(nextLesson._id);
         }
-    }, [nextLesson]);
+    };
 
     const courseProgress = progress?.progress || 0;
     const isComplete = courseProgress === 100;

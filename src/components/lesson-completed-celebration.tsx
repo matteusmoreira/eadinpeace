@@ -14,20 +14,44 @@ interface LessonCompletedCelebrationProps {
     courseProgress?: number;
 }
 
+type ParticleData = {
+    id: number;
+    delay: number;
+    x: number;
+    color: string;
+    driftX: number;
+    rotate: number;
+    duration: number;
+};
+
 // Componente de partícula para o efeito de confete
-const Particle = ({ delay, x, color }: { delay: number; x: number; color: string }) => (
+const Particle = ({
+    delay,
+    x,
+    color,
+    driftX,
+    rotate,
+    duration,
+}: {
+    delay: number;
+    x: number;
+    color: string;
+    driftX: number;
+    rotate: number;
+    duration: number;
+}) => (
     <motion.div
         className="absolute"
         initial={{ y: -20, x, opacity: 1, scale: 1 }}
         animate={{
             y: 400,
-            x: x + (Math.random() - 0.5) * 100,
+            x: x + driftX,
             opacity: 0,
             scale: 0.5,
-            rotate: Math.random() * 720 - 360,
+            rotate,
         }}
         transition={{
-            duration: 2 + Math.random(),
+            duration,
             delay,
             ease: "easeOut",
         }}
@@ -69,10 +93,31 @@ export function LessonCompletedCelebration({
     courseProgress = 0,
 }: LessonCompletedCelebrationProps) {
     const [showConfetti, setShowConfetti] = useState(false);
+    const [particles, setParticles] = useState<ParticleData[]>([]);
 
     useEffect(() => {
         if (isOpen) {
             setShowConfetti(true);
+            const confettiColors = [
+                "#10b981",
+                "#3b82f6",
+                "#8b5cf6",
+                "#f59e0b",
+                "#ec4899",
+                "#06b6d4",
+            ];
+            const viewportWidth = typeof window !== "undefined" ? window.innerWidth : 0;
+            setParticles(
+                Array.from({ length: 50 }, (_, i) => ({
+                    id: i,
+                    delay: Math.random() * 0.5,
+                    x: Math.random() * viewportWidth,
+                    color: confettiColors[Math.floor(Math.random() * confettiColors.length)],
+                    driftX: (Math.random() - 0.5) * 100,
+                    rotate: Math.random() * 720 - 360,
+                    duration: 2 + Math.random(),
+                }))
+            );
             // Auto-close após 4 segundos se não houver próxima aula
             if (!nextLessonTitle) {
                 const timer = setTimeout(() => {
@@ -82,24 +127,9 @@ export function LessonCompletedCelebration({
             }
         } else {
             setShowConfetti(false);
+            setParticles([]);
         }
     }, [isOpen, nextLessonTitle, onClose]);
-
-    const confettiColors = [
-        "#10b981", // emerald-500
-        "#3b82f6", // blue-500
-        "#8b5cf6", // violet-500
-        "#f59e0b", // amber-500
-        "#ec4899", // pink-500
-        "#06b6d4", // cyan-500
-    ];
-
-    const particles = Array.from({ length: 50 }, (_, i) => ({
-        id: i,
-        delay: Math.random() * 0.5,
-        x: Math.random() * window.innerWidth,
-        color: confettiColors[Math.floor(Math.random() * confettiColors.length)],
-    }));
 
     const stars = [
         { delay: 0.2, size: 24, x: 15, y: 20 },
@@ -137,6 +167,9 @@ export function LessonCompletedCelebration({
                                     delay={particle.delay}
                                     x={particle.x}
                                     color={particle.color}
+                                    driftX={particle.driftX}
+                                    rotate={particle.rotate}
+                                    duration={particle.duration}
                                 />
                             ))}
                         </div>

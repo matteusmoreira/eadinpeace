@@ -316,6 +316,7 @@ export default function AdminNewCoursePage() {
                 description: formData.description,
                 thumbnail: undefined, // Will be updated after upload
                 category: formData.category,
+                level: "beginner",
                 organizationId: effectiveOrgId,
                 instructorId: formData.instructorId as any,
                 certificateTemplateId: formData.certificateTemplateId as Id<"certificateTemplates"> || undefined,

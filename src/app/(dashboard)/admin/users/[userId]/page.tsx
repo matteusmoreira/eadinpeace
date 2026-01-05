@@ -27,6 +27,7 @@ import {
     XCircle,
 } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
 const container = {
     hidden: { opacity: 0 },
@@ -59,6 +60,11 @@ export default function UserProfilePage() {
     const params = useParams();
     const router = useRouter();
     const userId = params.userId as Id<"users">;
+
+    const [now, setNow] = useState<number | null>(null);
+    useEffect(() => {
+        setNow(Date.now());
+    }, []);
 
     // Get user data
     const user = useQuery(api.users.getById, { userId });
@@ -108,7 +114,8 @@ export default function UserProfilePage() {
 
     const getLastLogin = (timestamp?: number) => {
         if (!timestamp) return "Nunca";
-        const diff = Date.now() - timestamp;
+        if (now === null) return "—";
+        const diff = now - timestamp;
         const hours = Math.floor(diff / (1000 * 60 * 60));
         if (hours < 1) return "Há poucos minutos";
         if (hours < 24) return `Há ${hours}h`;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import ReactPlayer from "react-player";
 import { Button } from "@/components/ui/button";
@@ -326,11 +326,11 @@ export default function CoursePlayerPage() {
         setMobileMenuOpen(false);
     };
 
-    const handleGoToNextLesson = useCallback(() => {
+    const handleGoToNextLesson = () => {
         if (nextLesson) {
             handleSelectLesson(nextLesson._id);
         }
-    }, [nextLesson]);
+    };
 
     // Check if course is complete
     const isCourseComplete = progress === 100;
