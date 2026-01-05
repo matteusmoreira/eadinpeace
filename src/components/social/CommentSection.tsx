@@ -10,6 +10,8 @@ import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { Id } from "@convex/_generated/dataModel";
 import Link from "next/link";
+import { useQuery } from "convex/react";
+import { api } from "@convex/_generated/api";
 
 interface Author {
     _id: Id<"users">;
@@ -31,7 +33,6 @@ interface Comment {
 
 interface CommentSectionProps {
     postId: Id<"socialPosts">;
-    comments: Comment[];
     currentUserId: Id<"users">;
     onAddComment: (content: string, parentId?: Id<"postComments">) => Promise<void>;
     onLikeComment: (commentId: Id<"postComments">) => Promise<void>;
@@ -41,7 +42,6 @@ interface CommentSectionProps {
 
 export function CommentSection({
     postId,
-    comments,
     currentUserId,
     onAddComment,
     onLikeComment,
@@ -51,6 +51,9 @@ export function CommentSection({
     const [newComment, setNewComment] = useState("");
     const [replyingTo, setReplyingTo] = useState<Id<"postComments"> | null>(null);
     const [replyContent, setReplyContent] = useState("");
+
+    const commentsData = useQuery(api.social.getComments, { postId, userId: currentUserId });
+    const comments = commentsData || [];
 
     const handleSubmitComment = async () => {
         if (!newComment.trim()) return;

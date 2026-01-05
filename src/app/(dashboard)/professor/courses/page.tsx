@@ -275,7 +275,7 @@ export default function ProfessorCoursesPage() {
                                 </div>
 
                                 <div className="flex gap-2 pt-2">
-                                    <Link href={`/professor/courses/${course._id}`} className="flex-1">
+                                    <Link href={`/professor/courses/${course._id}/edit`} className="flex-1">
                                         <Button variant="outline" size="sm" className="w-full">
                                             <Edit className="h-3.5 w-3.5 mr-1" />
                                             Gerenciar

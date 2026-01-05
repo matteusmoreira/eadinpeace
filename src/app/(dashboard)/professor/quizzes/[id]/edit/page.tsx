@@ -62,6 +62,7 @@ export default function EditQuizPage() {
         api.courses.getAll,
         currentUser ? {} : "skip"
     );
+    const courseWithContent = useQuery(api.courses.getWithContent, quiz?.courseId ? { courseId: quiz.courseId } : "skip");
 
     const updateQuiz = useMutation(api.quizzes.update);
     const publishQuiz = useMutation(api.quizzes.publish);
@@ -83,6 +84,7 @@ export default function EditQuizPage() {
         randomizeOptions: false,
         allowStudentFeedback: false,
         weight: 1,
+        lessonId: "" as Id<"lessons"> | "",
     });
 
     // Estado das Questões
@@ -108,6 +110,7 @@ export default function EditQuizPage() {
                 randomizeOptions: quiz.randomizeOptions || false,
                 allowStudentFeedback: quiz.allowStudentFeedback || false,
                 weight: quiz.weight || 1,
+                lessonId: quiz.lessonId || "",
             });
 
             setQuestions(
@@ -206,7 +209,9 @@ export default function EditQuizPage() {
                 description: quizData.description,
                 timeLimit: quizData.duration,
                 passingScore: quizData.passingScore,
+                passingScore: quizData.passingScore,
                 maxAttempts: quizData.maxAttempts,
+                lessonId: quizData.lessonId || undefined,
             });
 
             // Atualizar status de publicação
@@ -247,15 +252,17 @@ export default function EditQuizPage() {
                     await updateQuestion({
                         questionId: q._id,
                         question: q.question,
-                        options: q.options.filter((o) => o.trim()).length > 0 ? q.options.filter((o) => o.trim()) : undefined,
-                        correctAnswer: q.correctAnswer || undefined,
-                        correctAnswers: q.correctAnswers && q.correctAnswers.length > 0 ? q.correctAnswers : undefined,
-                        matchPairs: q.matchPairs && q.matchPairs.length > 0 ? q.matchPairs.filter(p => p.prompt.trim() && p.answer.trim()) : undefined,
-                        correctOrder: q.correctOrder && q.correctOrder.length > 0 ? q.correctOrder.filter(o => o.trim()) : undefined,
-                        blankAnswers: q.blankAnswers && q.blankAnswers.length > 0 ? q.blankAnswers : undefined,
-                        mediaUrl: q.mediaUrl || undefined,
-                        mediaType: q.mediaType || undefined,
-                        explanation: q.explanation || undefined,
+                        // Opções: filtrar vazias apenas se não for sortable/match (onde options podem ter outro significado, mas geralmente options são strings)
+                        // Para single/multiple choice, options vazias não devem ser salvas.
+                        options: q.options,
+                        correctAnswer: q.correctAnswer,
+                        correctAnswers: q.correctAnswers,
+                        matchPairs: q.matchPairs,
+                        correctOrder: q.correctOrder,
+                        blankAnswers: q.blankAnswers,
+                        mediaUrl: q.mediaUrl,
+                        mediaType: q.mediaType,
+                        explanation: q.explanation,
                         points: q.points,
                     });
                 }
@@ -424,6 +431,35 @@ export default function EditQuizPage() {
                                         rows={2}
                                         className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
                                     />
+                                </div>
+                                <div className="col-span-2 space-y-2">
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Vincular à Aula (Opcional)</label>
+                                    <Select
+                                        value={quizData.lessonId}
+                                        onValueChange={(value) => setQuizData({ ...quizData, lessonId: value as Id<"lessons"> })}
+                                    >
+                                        <SelectTrigger className="w-full bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white">
+                                            <SelectValue placeholder="Selecione uma aula para vincular esta prova" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="unlinked">Nenhuma (Prova solta)</SelectItem>
+                                            {courseWithContent?.modules?.map((module) => (
+                                                <div key={module._id}>
+                                                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground bg-muted/50">
+                                                        {module.title}
+                                                    </div>
+                                                    {module.lessons?.map((lesson) => (
+                                                        <SelectItem key={lesson._id} value={lesson._id}>
+                                                            {lesson.title} {lesson.type === "exam" ? "(Tipo Prova)" : ""}
+                                                        </SelectItem>
+                                                    ))}
+                                                </div>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <p className="text-xs text-muted-foreground">
+                                        Vincule esta prova a uma aula do tipo "Prova" para que ela apareça na sequência do curso.
+                                    </p>
                                 </div>
                                 <div className="grid grid-cols-4 gap-3 col-span-2">
                                     <div>

@@ -79,6 +79,7 @@ export default function EditCoursePage(props: { params: Promise<{ courseId: stri
     const [newLesson, setNewLesson] = useState({
         title: "",
         description: "",
+        type: "video" as "video" | "text" | "pdf" | "exam" | "assignment",
         videoUrl: "",
         duration: 0,
         isFree: false,
@@ -165,14 +166,14 @@ export default function EditCoursePage(props: { params: Promise<{ courseId: stri
                 courseId,
                 title: newLesson.title,
                 description: newLesson.description || undefined,
-                type: "video",
-                videoUrl: newLesson.videoUrl || undefined,
-                videoProvider: "youtube",
+                type: newLesson.type,
+                videoUrl: newLesson.type === "video" ? (newLesson.videoUrl || undefined) : undefined,
+                videoProvider: newLesson.type === "video" ? "youtube" : undefined,
                 duration: newLesson.duration * 60, // Convert to seconds
                 isFree: newLesson.isFree,
             });
             toast.success("Aula criada!");
-            setNewLesson({ title: "", description: "", videoUrl: "", duration: 0, isFree: false });
+            setNewLesson({ title: "", description: "", type: "video", videoUrl: "", duration: 0, isFree: false });
             setLessonDialogOpen(false);
         } catch (error) {
             toast.error("Erro ao criar aula");
@@ -409,13 +410,33 @@ export default function EditCoursePage(props: { params: Promise<{ courseId: stri
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label>URL do Vídeo (YouTube)</Label>
-                            <Input
-                                placeholder="https://youtube.com/watch?v=..."
-                                value={newLesson.videoUrl}
-                                onChange={(e) => setNewLesson(prev => ({ ...prev, videoUrl: e.target.value }))}
-                            />
+                            <Label>Tipo de Aula</Label>
+                            <Select
+                                value={newLesson.type}
+                                onValueChange={(value: any) => setNewLesson(prev => ({ ...prev, type: value }))}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="video">Vídeo (YouTube)</SelectItem>
+                                    <SelectItem value="exam">Prova / Quiz</SelectItem>
+                                    <SelectItem value="text">Texto</SelectItem>
+                                    <SelectItem value="pdf">PDF</SelectItem>
+                                    <SelectItem value="assignment">Trabalho</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
+                        {newLesson.type === "video" && (
+                            <div className="space-y-2">
+                                <Label>URL do Vídeo (YouTube)</Label>
+                                <Input
+                                    placeholder="https://youtube.com/watch?v=..."
+                                    value={newLesson.videoUrl}
+                                    onChange={(e) => setNewLesson(prev => ({ ...prev, videoUrl: e.target.value }))}
+                                />
+                            </div>
+                        )}
                         <div className="grid gap-4 grid-cols-2">
                             <div className="space-y-2">
                                 <Label>Duração (minutos)</Label>

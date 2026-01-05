@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { useQuery, useMutation } from "convex/react";
@@ -47,6 +47,7 @@ const roleColors: Record<string, string> = {
 
 export default function UserProfilePage() {
     const params = useParams();
+    const router = useRouter();
     const searchParams = useSearchParams();
     const { user: clerkUser } = useUser();
     const userId = params.userId as Id<"users">;
@@ -106,6 +107,7 @@ export default function UserProfilePage() {
                 participantIds: [currentUser._id, userId],
             });
             // Abrir painel de mensagens ou redirecionar
+            router.push(`/student/community?conversationId=${conversationId}`);
             toast.success("Conversa iniciada!");
         } catch (error) {
             toast.error("Erro ao iniciar conversa");

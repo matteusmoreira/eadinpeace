@@ -149,51 +149,7 @@ export default function StudentProgressPage() {
                 </motion.div>
             )}
 
-            {/* Courses in Progress */}
-            <motion.div variants={item}>
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Cursos em Andamento</CardTitle>
-                        <CardDescription>Continue de onde parou</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                        {inProgressCourses.length === 0 ? (
-                            <div className="text-center py-8">
-                                <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                                <p className="text-muted-foreground mb-4">Nenhum curso em andamento</p>
-                                <Link href="/student/courses">
-                                    <Button>Explorar Cursos</Button>
-                                </Link>
-                            </div>
-                        ) : (
-                            inProgressCourses.map((enrollment) => (
-                                <div key={enrollment._id} className="space-y-2">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex-1">
-                                            <p className="font-medium">{enrollment.course?.title}</p>
-                                            <p className="text-sm text-muted-foreground">
-                                                {enrollment.completedLessons.length} aulas concluídas
-                                            </p>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <Badge variant={enrollment.progress >= 70 ? "default" : "secondary"}>
-                                                {enrollment.progress}%
-                                            </Badge>
-                                            <Link href={`/student/courses/${enrollment.courseId}`}>
-                                                <Button size="sm" variant="outline" className="gap-1">
-                                                    <Play className="h-3 w-3" />
-                                                    Continuar
-                                                </Button>
-                                            </Link>
-                                        </div>
-                                    </div>
-                                    <Progress value={enrollment.progress} className="h-2" />
-                                </div>
-                            ))
-                        )}
-                    </CardContent>
-                </Card>
-            </motion.div>
+
 
             {/* Completed Courses */}
             {completedCourses.length > 0 && (

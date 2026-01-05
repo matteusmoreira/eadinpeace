@@ -254,10 +254,6 @@ export default function ProfessorStudentsPage() {
                                                         Ver progresso
                                                     </Link>
                                                 </DropdownMenuItem>
-                                                <DropdownMenuItem className="gap-2">
-                                                    <Mail className="h-4 w-4" />
-                                                    Enviar mensagem
-                                                </DropdownMenuItem>
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     </div>
@@ -342,10 +338,7 @@ export default function ProfessorStudentsPage() {
                                                             Ver progresso
                                                         </Link>
                                                     </DropdownMenuItem>
-                                                    <DropdownMenuItem className="gap-2">
-                                                        <Mail className="h-4 w-4" />
-                                                        Enviar mensagem
-                                                    </DropdownMenuItem>
+
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
                                         </div>

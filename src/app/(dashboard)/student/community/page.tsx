@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { useUser } from "@clerk/nextjs";
@@ -76,12 +77,17 @@ const roleColors: Record<string, string> = {
 
 export default function CommunityPage() {
     const { user } = useUser();
+    const searchParams = useSearchParams();
+    const conversationIdParam = searchParams.get("conversationId");
+
     const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
     const [shareDialogPost, setShareDialogPost] = useState<Id<"socialPosts"> | null>(null);
     const [shareComment, setShareComment] = useState("");
     const [shareVisibility, setShareVisibility] = useState<"public" | "followers" | "private">("public");
     const [isSharing, setIsSharing] = useState(false);
-    const [selectedConversation, setSelectedConversation] = useState<Id<"conversations"> | null>(null);
+    const [selectedConversation, setSelectedConversation] = useState<Id<"conversations"> | null>(
+        conversationIdParam ? (conversationIdParam as Id<"conversations">) : null
+    );
 
     // Queries
     const convexUser = useQuery(
@@ -432,7 +438,6 @@ export default function CommunityPage() {
                                             <CardContent className="pt-4">
                                                 <CommentSection
                                                     postId={post._id}
-                                                    comments={getComments || []}
                                                     currentUserId={convexUser._id}
                                                     onAddComment={(content, parentId) =>
                                                         handleAddComment(post._id, content, parentId)

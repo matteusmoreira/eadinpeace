@@ -264,21 +264,21 @@ export default function CreateQuizPage() {
     ];
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950">
             {/* Header */}
-            <div className="bg-white border-b sticky top-0 z-10">
+            <div className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 sticky top-0 z-10">
                 <div className="max-w-7xl mx-auto px-6 py-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
                             <Link
                                 href="/professor/quizzes"
-                                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                             >
-                                <ArrowLeft className="w-5 h-5" />
+                                <ArrowLeft className="w-5 h-5 dark:text-gray-300" />
                             </Link>
                             <div>
-                                <h1 className="text-xl font-bold text-gray-900">Criar Nova Prova</h1>
-                                <p className="text-sm text-gray-600">
+                                <h1 className="text-xl font-bold text-gray-900 dark:text-white">Criar Nova Prova</h1>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">
                                     {questions.length} questões •{" "}
                                     {questions.reduce((acc, q) => acc + q.points, 0)} pontos
                                 </p>
@@ -287,7 +287,7 @@ export default function CreateQuizPage() {
                         <div className="flex items-center gap-3">
                             <button
                                 onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
-                                className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                                className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
                             >
                                 <Settings2 className="w-4 h-4" />
                                 Configurações
@@ -309,8 +309,8 @@ export default function CreateQuizPage() {
                 <div className="grid grid-cols-12 gap-6">
                     {/* Sidebar - Lista de Questões */}
                     <div className="col-span-3">
-                        <div className="bg-white rounded-xl shadow-sm p-4 sticky top-24">
-                            <h3 className="font-medium text-gray-900 mb-4">Questões</h3>
+                        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sticky top-24">
+                            <h3 className="font-medium text-gray-900 dark:text-white mb-4">Questões</h3>
 
                             {/* Lista de questões */}
                             <div className="space-y-2 mb-4 max-h-[400px] overflow-y-auto">
@@ -320,30 +320,30 @@ export default function CreateQuizPage() {
                                         onClick={() => setSelectedQuestionIndex(index)}
                                         className={`
                       flex items-center gap-2 p-3 rounded-lg cursor-pointer transition-colors
-                      ${selectedQuestionIndex === index ? "bg-indigo-100 border-indigo-500" : "hover:bg-gray-50"}
-                      border
+                      ${selectedQuestionIndex === index ? "bg-indigo-100 dark:bg-indigo-900/40 border-indigo-500" : "hover:bg-gray-50 dark:hover:bg-gray-700"}
+                      border dark:border-gray-700
                     `}
                                     >
-                                        <GripVertical className="w-4 h-4 text-gray-400" />
-                                        <span className="text-sm font-medium text-gray-600">{index + 1}.</span>
-                                        <span className="flex-1 text-sm text-gray-900 truncate">
+                                        <GripVertical className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                                        <span className="text-sm font-medium text-gray-600 dark:text-gray-400">{index + 1}.</span>
+                                        <span className="flex-1 text-sm text-gray-900 dark:text-white truncate">
                                             {q.question || `Nova ${getQuestionTypeLabel(q.type)}`}
                                         </span>
-                                        <span className="text-xs text-gray-500">{q.points}pts</span>
+                                        <span className="text-xs text-gray-500 dark:text-gray-400">{q.points}pts</span>
                                     </div>
                                 ))}
                             </div>
 
                             {/* Adicionar Questão */}
-                            <div className="border-t pt-4">
-                                <p className="text-sm font-medium text-gray-700 mb-2">Adicionar Questão</p>
+                            <div className="border-t dark:border-gray-700 pt-4">
+                                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Adicionar Questão</p>
                                 <div className="grid grid-cols-3 gap-2">
                                     {questionTypes.map(({ type, icon }) => (
                                         <button
                                             key={type}
                                             onClick={() => addQuestion(type)}
                                             title={getQuestionTypeLabel(type)}
-                                            className="p-2 text-center bg-gray-100 hover:bg-indigo-100 hover:text-indigo-700 rounded-lg transition-colors text-lg"
+                                            className="p-2 text-center bg-gray-100 dark:bg-gray-700 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 hover:text-indigo-700 dark:hover:text-indigo-300 rounded-lg transition-colors text-lg"
                                         >
                                             {icon}
                                         </button>
@@ -365,24 +365,24 @@ export default function CreateQuizPage() {
                     {/* Main - Editor */}
                     <div className="col-span-9 space-y-6">
                         {/* Informações do Quiz */}
-                        <div className="bg-white rounded-xl shadow-sm p-6">
-                            <h3 className="font-medium text-gray-900 mb-4 flex items-center gap-2">
+                        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+                            <h3 className="font-medium text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                                 <BookOpen className="w-5 h-5" />
                                 Informações da Prova
                             </h3>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="col-span-2">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Título *</label>
                                     <input
                                         type="text"
                                         value={quizData.title}
                                         onChange={(e) => setQuizData({ ...quizData, title: e.target.value })}
                                         placeholder="Ex: Avaliação do Módulo 1"
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
                                     />
                                 </div>
                                 <div className="col-span-2">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                         Descrição (opcional)
                                     </label>
                                     <textarea
@@ -390,15 +390,15 @@ export default function CreateQuizPage() {
                                         onChange={(e) => setQuizData({ ...quizData, description: e.target.value })}
                                         rows={2}
                                         placeholder="Descreva o conteúdo da prova..."
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+                                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Curso *</label>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Curso *</label>
                                     <select
                                         value={quizData.courseId}
                                         onChange={(e) => setQuizData({ ...quizData, courseId: e.target.value })}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                                     >
                                         <option value="">Selecione um curso</option>
                                         {courses?.map((course) => (
@@ -410,7 +410,7 @@ export default function CreateQuizPage() {
                                 </div>
                                 <div className="grid grid-cols-3 gap-3">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                             Duração (min)
                                         </label>
                                         <input
@@ -420,11 +420,11 @@ export default function CreateQuizPage() {
                                             onChange={(e) =>
                                                 setQuizData({ ...quizData, duration: Number(e.target.value) })
                                             }
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                             Aprovação (%)
                                         </label>
                                         <input
@@ -435,11 +435,11 @@ export default function CreateQuizPage() {
                                             onChange={(e) =>
                                                 setQuizData({ ...quizData, passingScore: Number(e.target.value) })
                                             }
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                             Tentativas
                                         </label>
                                         <input
@@ -449,7 +449,7 @@ export default function CreateQuizPage() {
                                             onChange={(e) =>
                                                 setQuizData({ ...quizData, maxAttempts: Number(e.target.value) })
                                             }
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                                         />
                                     </div>
                                 </div>
@@ -458,9 +458,9 @@ export default function CreateQuizPage() {
                             {/* Configurações Avançadas */}
                             {showAdvancedSettings && (
                                 <div className="mt-6 pt-6 border-t">
-                                    <h4 className="font-medium text-gray-900 mb-4">Configurações Avançadas</h4>
+                                    <h4 className="font-medium text-gray-900 dark:text-white mb-4">Configurações Avançadas</h4>
                                     <div className="grid grid-cols-2 gap-4">
-                                        <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer">
+                                        <label className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg cursor-pointer">
                                             <input
                                                 type="checkbox"
                                                 checked={quizData.randomizeQuestions}
@@ -470,11 +470,11 @@ export default function CreateQuizPage() {
                                                 className="w-4 h-4 text-indigo-600 rounded"
                                             />
                                             <div>
-                                                <p className="text-sm font-medium text-gray-900">Embaralhar Questões</p>
-                                                <p className="text-xs text-gray-600">Ordem aleatória para cada aluno</p>
+                                                <p className="text-sm font-medium text-gray-900 dark:text-white">Embaralhar Questões</p>
+                                                <p className="text-xs text-gray-600 dark:text-gray-400">Ordem aleatória para cada aluno</p>
                                             </div>
                                         </label>
-                                        <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer">
+                                        <label className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg cursor-pointer">
                                             <input
                                                 type="checkbox"
                                                 checked={quizData.randomizeOptions}
@@ -484,11 +484,25 @@ export default function CreateQuizPage() {
                                                 className="w-4 h-4 text-indigo-600 rounded"
                                             />
                                             <div>
-                                                <p className="text-sm font-medium text-gray-900">Embaralhar Opções</p>
-                                                <p className="text-xs text-gray-600">Alternativas em ordem aleatória</p>
+                                                <p className="text-sm font-medium text-gray-900 dark:text-white">Embaralhar Opções</p>
+                                                <p className="text-xs text-gray-600 dark:text-gray-400">Alternativas em ordem aleatória</p>
                                             </div>
                                         </label>
-                                        <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer">
+                                        <label className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={quizData.randomizeOptions}
+                                                onChange={(e) =>
+                                                    setQuizData({ ...quizData, randomizeOptions: e.target.checked })
+                                                }
+                                                className="w-4 h-4 text-indigo-600 rounded"
+                                            />
+                                            <div>
+                                                <p className="text-sm font-medium text-gray-900 dark:text-white">Embaralhar Opções</p>
+                                                <p className="text-xs text-gray-600 dark:text-gray-400">Alternativas em ordem aleatória</p>
+                                            </div>
+                                        </label>
+                                        <label className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg cursor-pointer">
                                             <input
                                                 type="checkbox"
                                                 checked={quizData.allowStudentFeedback}
@@ -498,12 +512,12 @@ export default function CreateQuizPage() {
                                                 className="w-4 h-4 text-indigo-600 rounded"
                                             />
                                             <div>
-                                                <p className="text-sm font-medium text-gray-900">Feedback de Alunos</p>
-                                                <p className="text-xs text-gray-600">Permitir avaliação da prova</p>
+                                                <p className="text-sm font-medium text-gray-900 dark:text-white">Feedback de Alunos</p>
+                                                <p className="text-xs text-gray-600 dark:text-gray-400">Permitir avaliação da prova</p>
                                             </div>
                                         </label>
-                                        <div className="p-3 bg-gray-50 rounded-lg">
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                                 Peso da Nota
                                             </label>
                                             <input
@@ -514,7 +528,7 @@ export default function CreateQuizPage() {
                                                 onChange={(e) =>
                                                     setQuizData({ ...quizData, weight: Number(e.target.value) })
                                                 }
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-600 text-gray-900 dark:text-white"
                                             />
                                         </div>
                                     </div>
@@ -637,15 +651,15 @@ function QuestionBankModal({
                                         key={q._id}
                                         onClick={() => toggleSelect(q._id)}
                                         className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${isSelected
-                                                ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30"
-                                                : "border-gray-200 dark:border-gray-700 hover:border-indigo-200"
+                                            ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30"
+                                            : "border-gray-200 dark:border-gray-700 hover:border-indigo-200"
                                             }`}
                                     >
                                         <div className="flex items-start gap-3">
                                             <div
                                                 className={`w-6 h-6 rounded-full flex items-center justify-center border-2 mt-1 ${isSelected
-                                                        ? "bg-indigo-600 border-indigo-600 text-white"
-                                                        : "border-gray-300 dark:border-gray-600"
+                                                    ? "bg-indigo-600 border-indigo-600 text-white"
+                                                    : "border-gray-300 dark:border-gray-600"
                                                     }`}
                                             >
                                                 {isSelected && <span>✓</span>}

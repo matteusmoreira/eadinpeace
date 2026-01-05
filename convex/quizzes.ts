@@ -614,6 +614,7 @@ export const update = mutation({
         passingScore: v.optional(v.number()),
         timeLimit: v.optional(v.number()),
         maxAttempts: v.optional(v.number()),
+        lessonId: v.optional(v.id("lessons")),
     },
     handler: async (ctx, args) => {
         const { quizId, ...updates } = args;
