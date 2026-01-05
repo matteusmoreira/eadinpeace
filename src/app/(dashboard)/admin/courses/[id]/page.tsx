@@ -203,8 +203,11 @@ export default function AdminCourseEditPage() {
                 slug: settingsFormData.slug,
                 description: settingsFormData.description,
                 category: settingsFormData.category,
-                instructorId: settingsFormData.instructorId as Id<"users">,
-                certificateTemplateId: settingsFormData.certificateTemplateId === "none" ? undefined : settingsFormData.certificateTemplateId as Id<"certificateTemplates">,
+                instructorId: settingsFormData.instructorId ? (settingsFormData.instructorId as Id<"users">) : undefined,
+                certificateTemplateId:
+                    settingsFormData.certificateTemplateId === "none"
+                        ? undefined
+                        : (settingsFormData.certificateTemplateId as Id<"certificateTemplates">),
             });
             toast.success("Configurações do curso atualizadas!");
         } catch (error: any) {

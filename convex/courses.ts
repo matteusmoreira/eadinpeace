@@ -656,8 +656,14 @@ export const update = mutation({
         try {
             await requireCourseAccess(ctx, args.courseId);
             const { courseId, ...updates } = args;
+            const filteredUpdates: Record<string, any> = {};
+            for (const [key, value] of Object.entries(updates)) {
+                if (value !== undefined) {
+                    filteredUpdates[key] = value;
+                }
+            }
             await ctx.db.patch(courseId, {
-                ...updates,
+                ...filteredUpdates,
                 updatedAt: Date.now(),
             });
         } catch (error) {
