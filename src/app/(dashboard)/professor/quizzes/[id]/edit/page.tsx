@@ -254,21 +254,25 @@ export default function EditQuizPage() {
                         points: q.points,
                     });
                 } else if (q._id) {
-                    // Atualizar questão existente - incluir todos os campos de resposta
+                    // Atualizar questão existente - filtrar valores vazios para não sobrescrever dados válidos
+                    const filteredOptions = q.options.filter(o => o.trim());
+                    const filteredCorrectAnswers = (q.correctAnswers || []).filter(a => a.trim());
+                    const filteredMatchPairs = (q.matchPairs || []).filter(p => p.prompt.trim() && p.answer.trim());
+                    const filteredCorrectOrder = (q.correctOrder || []).filter(o => o.trim());
+                    const filteredBlankAnswers = (q.blankAnswers || []).filter(a => a.trim());
+
                     await updateQuestion({
                         questionId: q._id,
                         question: q.question,
-                        // Opções: filtrar vazias apenas se não for sortable/match (onde options podem ter outro significado, mas geralmente options são strings)
-                        // Para single/multiple choice, options vazias não devem ser salvas.
-                        options: q.options,
-                        correctAnswer: q.correctAnswer,
-                        correctAnswers: q.correctAnswers,
-                        matchPairs: q.matchPairs,
-                        correctOrder: q.correctOrder,
-                        blankAnswers: q.blankAnswers,
-                        mediaUrl: q.mediaUrl,
-                        mediaType: q.mediaType,
-                        explanation: q.explanation,
+                        options: filteredOptions.length > 0 ? filteredOptions : undefined,
+                        correctAnswer: q.correctAnswer?.trim() || undefined,
+                        correctAnswers: filteredCorrectAnswers.length > 0 ? filteredCorrectAnswers : undefined,
+                        matchPairs: filteredMatchPairs.length > 0 ? filteredMatchPairs : undefined,
+                        correctOrder: filteredCorrectOrder.length > 0 ? filteredCorrectOrder : undefined,
+                        blankAnswers: filteredBlankAnswers.length > 0 ? filteredBlankAnswers : undefined,
+                        mediaUrl: q.mediaUrl?.trim() || undefined,
+                        mediaType: q.mediaType || undefined,
+                        explanation: q.explanation?.trim() || undefined,
                         points: q.points,
                     });
                 }

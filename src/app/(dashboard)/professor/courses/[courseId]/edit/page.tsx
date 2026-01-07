@@ -51,7 +51,11 @@ import {
     Link as LinkIcon,
     Loader2,
     Check,
+    ClipboardCheck,
+    FileQuestion,
+    BookOpen,
 } from "lucide-react";
+import { toast } from "sonner";
 import { useState, useEffect, use } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -99,6 +103,22 @@ interface LocalLesson {
     isFree: boolean;
 }
 
+const lessonTypeIcons: Record<string, React.ElementType> = {
+    video: Video,
+    text: FileText,
+    pdf: FileText,
+    exam: ClipboardCheck,
+    assignment: FileQuestion,
+};
+
+const lessonTypeLabels: Record<string, string> = {
+    video: "Vídeo",
+    text: "Texto",
+    pdf: "PDF",
+    exam: "Prova",
+    assignment: "Tarefa",
+};
+
 export default function EditCoursePage(props: { params: Promise<{ courseId: string }> }) {
     const params = use(props.params);
     const courseId = params.courseId as Id<"courses">;
@@ -136,7 +156,7 @@ export default function EditCoursePage(props: { params: Promise<{ courseId: stri
     const [lessonDialogOpen, setLessonDialogOpen] = useState(false);
     const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
     const [editingModule, setEditingModule] = useState<any>(null);
-    const [editingLesson, setEditingLesson] = useState<any>(null);
+    const [editingLesson, setEditingLesson] = useState<LocalLesson | null>(null);
 
     // Form states
     const [moduleForm, setModuleForm] = useState({ title: "", description: "" });
@@ -146,6 +166,15 @@ export default function EditCoursePage(props: { params: Promise<{ courseId: stri
         duration: "",
         isFree: false,
     });
+
+    // Query para buscar o quiz associado a uma aula do tipo exam
+    const quizByLesson = useQuery(api.quizzes.getByLesson,
+        editingLesson?._id && editingLesson?.type === "exam"
+            ? { lessonId: editingLesson._id }
+            : "skip"
+    );
+
+
 
     // Sync course data from Convex to local state
     useEffect(() => {
@@ -255,7 +284,14 @@ export default function EditCoursePage(props: { params: Promise<{ courseId: stri
         setLessonDialogOpen(true);
     };
 
-    const openEditLesson = (moduleId: string, lesson: any) => {
+    const openEditLesson = (moduleId: string, lesson: LocalLesson) => {
+        // Se for uma prova, redirecionar para a página de edição do quiz
+        if (lesson.type === "exam") {
+            // Setar o editingLesson para buscar o quiz associado
+            setEditingLesson(lesson);
+            return;
+        }
+
         setSelectedModuleId(moduleId);
         setEditingLesson(lesson);
         setLessonForm({
@@ -266,6 +302,20 @@ export default function EditCoursePage(props: { params: Promise<{ courseId: stri
         });
         setLessonDialogOpen(true);
     };
+
+    // Efeito para redirecionar quando o quiz for encontrado
+    useEffect(() => {
+        if (editingLesson?.type === "exam" && quizByLesson !== undefined) {
+            if (quizByLesson) {
+                // Quiz encontrado, redirecionar para edição
+                router.push(`/professor/quizzes/${quizByLesson._id}/edit`);
+            } else {
+                // Quiz não encontrado, informar usuário
+                toast.error("Nenhuma prova vinculada a esta aula. Crie uma nova prova em Provas e Quizzes.");
+            }
+            setEditingLesson(null);
+        }
+    }, [quizByLesson, editingLesson, router]);
 
     const saveLesson = async () => {
         if (!course || !selectedModuleId) return;
@@ -538,22 +588,30 @@ export default function EditCoursePage(props: { params: Promise<{ courseId: stri
                                                 >
                                                     <div className="flex items-center gap-3">
                                                         <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
-                                                        <div className="h-8 w-8 rounded bg-primary/10 flex items-center justify-center">
-                                                            <Video className="h-4 w-4 text-primary" />
+                                                        <div className={`h-8 w-8 rounded flex items-center justify-center ${lesson.type === "exam" ? "bg-orange-500/10" : "bg-primary/10"}`}>
+                                                            {(() => {
+                                                                const LessonIcon = lessonTypeIcons[lesson.type] || Video;
+                                                                return <LessonIcon className={`h-4 w-4 ${lesson.type === "exam" ? "text-orange-500" : "text-primary"}`} />;
+                                                            })()}
                                                         </div>
                                                         <div>
                                                             <div className="flex items-center gap-2">
                                                                 <span className="font-medium">{lesson.title}</span>
+                                                                <Badge variant="outline" className="text-xs">
+                                                                    {lessonTypeLabels[lesson.type] || lesson.type}
+                                                                </Badge>
                                                                 {lesson.isFree && (
-                                                                    <Badge variant="outline" className="text-xs">
+                                                                    <Badge variant="outline" className="text-xs bg-green-500/10 text-green-600">
                                                                         Grátis
                                                                     </Badge>
                                                                 )}
                                                             </div>
-                                                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                                                <Clock className="h-3 w-3" />
-                                                                {formatDuration(lesson.duration)}
-                                                            </div>
+                                                            {lesson.type !== "exam" && (
+                                                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                                    <Clock className="h-3 w-3" />
+                                                                    {formatDuration(lesson.duration)}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -195,6 +195,12 @@ export function PostCard({
     const [isLiked, setIsLiked] = useState(post.isLikedByUser);
     const [likesCount, setLikesCount] = useState(post.likesCount);
     const [isLiking, setIsLiking] = useState(false);
+
+    // Sincronizar estado local com dados do servidor quando props mudam
+    useEffect(() => {
+        setIsLiked(post.isLikedByUser);
+        setLikesCount(post.likesCount);
+    }, [post.isLikedByUser, post.likesCount]);
 
     const isOwnPost = post.authorId === currentUserId;
 

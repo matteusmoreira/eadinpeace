@@ -299,7 +299,22 @@ export const getPendingGrading = query({
                 .withIndex("by_course", (q) => q.eq("courseId", args.courseId!))
                 .collect();
         } else if (args.instructorId) {
-            // 1. Buscar cursos onde o professor é o instrutor principal
+            // Buscar o usuário para obter a organização
+            const instructor = await ctx.db.get(args.instructorId);
+
+            if (instructor?.organizationId) {
+                // Buscar TODOS os cursos da organização (para admins e coordenadores)
+                const allCourses = await ctx.db
+                    .query("courses")
+                    .withIndex("by_organization", (q) => q.eq("organizationId", instructor.organizationId!))
+                    .collect();
+
+                for (const course of allCourses) {
+                    courseIds.add(course._id);
+                }
+            }
+
+            // Fallback: Também incluir cursos onde o professor é o instrutor principal
             const ownCourses = await ctx.db
                 .query("courses")
                 .withIndex("by_instructor", (q) => q.eq("instructorId", args.instructorId!))
@@ -309,7 +324,7 @@ export const getPendingGrading = query({
                 courseIds.add(course._id);
             }
 
-            // 2. Buscar turmas onde o professor é instrutor (classInstructors)
+            // Buscar turmas onde o professor é instrutor (classInstructors)
             const classInstructorRecords = await ctx.db
                 .query("classInstructors")
                 .withIndex("by_user", (q) => q.eq("userId", args.instructorId!))
@@ -326,7 +341,7 @@ export const getPendingGrading = query({
                 }
             }
 
-            // 3. Buscar quizzes de todos os cursos encontrados
+            // Buscar quizzes de todos os cursos encontrados
             for (const courseId of courseIds) {
                 const courseQuizzes = await ctx.db
                     .query("quizzes")
