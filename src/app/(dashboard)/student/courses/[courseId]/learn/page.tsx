@@ -35,8 +35,13 @@ import { Id } from "@convex/_generated/dataModel";
 import { useUser } from "@clerk/nextjs";
 import { toast } from "sonner";
 import { BunnyPlayer } from "@/components/bunny-player";
+import { ProtectedYouTubePlayer } from "@/components/ProtectedYouTubePlayer";
 import { useContentProtection } from "@/hooks/useContentProtection";
 import { LessonCompletedCelebration } from "@/components/lesson-completed-celebration";
+import { AutoplayCountdown } from "@/components/AutoplayCountdown";
+import { LessonComments } from "@/components/lesson-comments";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 
 // Cast ReactPlayer to any to avoid type errors
@@ -209,6 +214,9 @@ export default function CoursePlayerPage() {
     const [isMarkingComplete, setIsMarkingComplete] = useState(false);
     const [showCelebration, setShowCelebration] = useState(false);
     const [completedLessonTitle, setCompletedLessonTitle] = useState("");
+    const [showAutoplay, setShowAutoplay] = useState(false);
+    const [autoplayEnabled, setAutoplayEnabled] = useState(true);
+    const [showComments, setShowComments] = useState(false);
     const playerRef = useRef<any>(null);
 
     // Aplicar proteção de conteúdo na página
@@ -403,7 +411,7 @@ export default function CoursePlayerPage() {
                 {/* Video Player */}
                 <div className="flex-1 relative bg-black">
                     {currentLesson?.videoUrl ? (
-                        // Check if it's a Bunny Stream video
+                        // Check video provider type
                         (currentLesson as any).videoProvider === "bunny" ? (
                             <div className="absolute inset-0">
                                 <BunnyPlayer
@@ -414,7 +422,22 @@ export default function CoursePlayerPage() {
                                     className="w-full h-full border-0"
                                 />
                             </div>
+                        ) : (currentLesson as any).videoProvider === "youtube" || currentLesson.videoUrl?.includes("youtube") || currentLesson.videoUrl?.includes("youtu.be") ? (
+                            // YouTube com proteção de conteúdo
+                            <div className="absolute inset-0">
+                                <ProtectedYouTubePlayer
+                                    videoUrl={currentLesson.videoUrl}
+                                    title={currentLesson.title}
+                                    className="w-full h-full"
+                                    protectionEnabled={true}
+                                    youtubeParams={{
+                                        modestbranding: true,
+                                        rel: false,
+                                    }}
+                                />
+                            </div>
                         ) : (
+                            // Outros providers (Vimeo, upload direto, etc.)
                             <ReactPlayerAny
                                 ref={playerRef}
                                 url={currentLesson.videoUrl}
@@ -425,14 +448,6 @@ export default function CoursePlayerPage() {
                                 onPause={() => setIsPlaying(false)}
                                 onProgress={handleProgress}
                                 controls
-                                config={{
-                                    youtube: {
-                                        playerVars: {
-                                            modestbranding: 1,
-                                            rel: 0,
-                                        },
-                                    },
-                                }}
                             />
                         )
                     ) : (
@@ -503,12 +518,29 @@ export default function CoursePlayerPage() {
             {/* Modal de celebração quando aula é concluída */}
             <LessonCompletedCelebration
                 isOpen={showCelebration}
-                onClose={() => setShowCelebration(false)}
+                onClose={() => {
+                    setShowCelebration(false);
+                    // Iniciar autoplay se houver próxima aula e autoplay habilitado
+                    if (nextLesson && autoplayEnabled) {
+                        setShowAutoplay(true);
+                    }
+                }}
                 lessonTitle={completedLessonTitle}
                 nextLessonTitle={nextLesson?.title}
                 onNextLesson={handleGoToNextLesson}
                 courseProgress={progress}
             />
+
+            {/* Modal de Autoplay para próximo conteúdo */}
+            {nextLesson && (
+                <AutoplayCountdown
+                    isOpen={showAutoplay}
+                    nextLessonTitle={nextLesson.title}
+                    countdownDuration={5}
+                    onCountdownComplete={handleGoToNextLesson}
+                    onCancel={() => setShowAutoplay(false)}
+                />
+            )}
         </div>
     );
 }

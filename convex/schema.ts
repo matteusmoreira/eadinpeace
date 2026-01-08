@@ -68,6 +68,15 @@ export default defineSchema({
         isFeatured: v.boolean(),
         price: v.optional(v.number()),
         certificateTemplateId: v.optional(v.id("certificateTemplates")),
+        // Configuração de comentários
+        commentsEnabled: v.optional(v.boolean()), // default: true - habilita/desabilita comentários nas lições
+        // Gotejamento de Conteúdo (Content Dripping)
+        dripType: v.optional(v.union(
+            v.literal("free"),           // Livre - todo conteúdo disponível
+            v.literal("sequential"),     // Sequencial - depende de conclusão anterior
+            v.literal("date"),           // Por data específica
+            v.literal("days_after")      // X dias após inscrição
+        )),
         createdAt: v.number(),
         updatedAt: v.number(),
     })
@@ -98,6 +107,9 @@ export default defineSchema({
         description: v.optional(v.string()),
         order: v.number(),
         isPublished: v.boolean(),
+        // Gotejamento de Conteúdo - configuração por módulo
+        releaseDate: v.optional(v.number()), // Para modo "date" - data de liberação
+        daysAfterEnrollment: v.optional(v.number()), // Para modo "days_after" - X dias após matrícula
         createdAt: v.number(),
         updatedAt: v.number(),
     })
@@ -135,6 +147,11 @@ export default defineSchema({
         order: v.number(),
         isPublished: v.boolean(),
         isFree: v.boolean(), // Free preview
+        // Configuração de comentários na lição (null = herda do curso)
+        commentsEnabled: v.optional(v.boolean()),
+        // Gotejamento de Conteúdo - configuração por lição
+        releaseDate: v.optional(v.number()), // Para modo "date" - data de liberação
+        daysAfterEnrollment: v.optional(v.number()), // Para modo "days_after" - X dias após matrícula
         createdAt: v.number(),
         updatedAt: v.number(),
     })
@@ -620,6 +637,8 @@ export default defineSchema({
             v.literal("followers_only"), // Apenas seguidores
             v.literal("professors_only") // Apenas professores
         )),
+        // Proteção de Vídeo
+        videoProtectionEnabled: v.optional(v.boolean()), // default: true - proteção contra download de vídeos
         createdAt: v.number(),
         updatedAt: v.number(),
     })
