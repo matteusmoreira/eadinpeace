@@ -65,12 +65,6 @@ export default function StudentProgressPage() {
 
     const stats = [
         {
-            label: "Cursos em Andamento",
-            value: inProgressCourses.length.toString(),
-            icon: BookOpen,
-            color: "text-primary bg-primary/10"
-        },
-        {
             label: "Cursos Concluídos",
             value: completedCourses.length.toString(),
             icon: Trophy,
@@ -106,7 +100,7 @@ export default function StudentProgressPage() {
             </motion.div>
 
             {/* Stats Cards */}
-            <motion.div variants={item} className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <motion.div variants={item} className="grid gap-4 md:grid-cols-3">
                 {stats.map((stat, index) => (
                     <Card key={index} className="hover:shadow-lg transition-all">
                         <CardContent className="pt-6">

@@ -4,7 +4,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { FollowButton } from "./FollowButton";
-import { Loader2, Users } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader2, Users, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Id } from "@convex/_generated/dataModel";
 import Link from "next/link";
@@ -21,6 +22,7 @@ interface SuggestedUsersProps {
     users: User[];
     currentUserId: Id<"users">;
     onFollow: (userId: Id<"users">) => Promise<void>;
+    onMessage?: (userId: Id<"users">) => Promise<void>;
     isLoading?: boolean;
 }
 
@@ -42,6 +44,7 @@ export function SuggestedUsers({
     users,
     currentUserId,
     onFollow,
+    onMessage,
     isLoading = false,
 }: SuggestedUsersProps) {
     if (isLoading) {
@@ -114,12 +117,25 @@ export function SuggestedUsers({
                                 {roleLabels[user.role]}
                             </Badge>
                         </div>
-                        <FollowButton
-                            userId={user._id}
-                            isFollowing={false}
-                            onToggle={() => onFollow(user._id)}
-                            size="sm"
-                        />
+                        <div className="flex items-center gap-1">
+                            {onMessage && (
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => onMessage(user._id)}
+                                    title="Enviar mensagem"
+                                >
+                                    <MessageCircle className="h-4 w-4" />
+                                </Button>
+                            )}
+                            <FollowButton
+                                userId={user._id}
+                                isFollowing={false}
+                                onToggle={() => onFollow(user._id)}
+                                size="sm"
+                            />
+                        </div>
                     </div>
                 ))}
             </CardContent>

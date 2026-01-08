@@ -209,3 +209,62 @@ export const deleteSettings = mutation({
         return { success: false, error: "Configurações não encontradas" };
     },
 });
+
+// Get community settings (direct messages)
+export const getCommunitySettings = query({
+    args: {
+        organizationId: v.id("organizations"),
+    },
+    handler: async (ctx, args) => {
+        const settings = await ctx.db
+            .query("organizationSettings")
+            .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+            .first();
+
+        return {
+            directMessagesEnabled: settings?.directMessagesEnabled ?? true, // default: enabled
+            directMessagesAllowedFor: settings?.directMessagesAllowedFor ?? "all", // default: all
+        };
+    },
+});
+
+// Update community settings (direct messages)
+export const updateCommunitySettings = mutation({
+    args: {
+        organizationId: v.id("organizations"),
+        directMessagesEnabled: v.optional(v.boolean()),
+        directMessagesAllowedFor: v.optional(v.union(
+            v.literal("all"),
+            v.literal("followers_only"),
+            v.literal("professors_only")
+        )),
+    },
+    handler: async (ctx, args) => {
+        const { organizationId, ...communitySettings } = args;
+        const now = Date.now();
+
+        // Check if settings exist
+        const existing = await ctx.db
+            .query("organizationSettings")
+            .withIndex("by_organization", (q) => q.eq("organizationId", organizationId))
+            .first();
+
+        if (existing) {
+            await ctx.db.patch(existing._id, {
+                ...(communitySettings.directMessagesEnabled !== undefined && { directMessagesEnabled: communitySettings.directMessagesEnabled }),
+                ...(communitySettings.directMessagesAllowedFor !== undefined && { directMessagesAllowedFor: communitySettings.directMessagesAllowedFor }),
+                updatedAt: now,
+            });
+            return { success: true, updated: true };
+        } else {
+            await ctx.db.insert("organizationSettings", {
+                organizationId,
+                directMessagesEnabled: communitySettings.directMessagesEnabled ?? true,
+                directMessagesAllowedFor: communitySettings.directMessagesAllowedFor ?? "all",
+                createdAt: now,
+                updatedAt: now,
+            });
+            return { success: true, updated: false };
+        }
+    },
+});

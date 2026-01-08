@@ -613,6 +613,13 @@ export default defineSchema({
             v.literal("bunny"),
             v.literal("upload")
         )),
+        // Community Settings - Direct Messages
+        directMessagesEnabled: v.optional(v.boolean()), // default: true
+        directMessagesAllowedFor: v.optional(v.union(
+            v.literal("all"),          // Todos podem enviar
+            v.literal("followers_only"), // Apenas seguidores
+            v.literal("professors_only") // Apenas professores
+        )),
         createdAt: v.number(),
         updatedAt: v.number(),
     })

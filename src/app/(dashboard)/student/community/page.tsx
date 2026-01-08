@@ -141,6 +141,11 @@ export default function CommunityPage() {
         selectedConversation ? { conversationId: selectedConversation } : "skip"
     );
 
+    const communitySettings = useQuery(
+        api.organizationSettings.getCommunitySettings,
+        convexUser?.organizationId ? { organizationId: convexUser.organizationId } : "skip"
+    );
+
     // Mutations
     const createPost = useMutation(api.social.createPost);
     const toggleLike = useMutation(api.social.toggleLike);
@@ -158,6 +163,7 @@ export default function CommunityPage() {
     const deleteComment = useMutation(api.social.deleteComment);
     const sendMessage = useMutation(api.social.sendMessage);
     const markMessagesAsRead = useMutation(api.social.markMessagesAsRead);
+    const getOrCreateConversation = useMutation(api.social.getOrCreateConversation);
 
     // Handlers
     const handleCreatePost = async (data: {
@@ -282,6 +288,20 @@ export default function CommunityPage() {
             await markMessagesAsRead({ conversationId, userId: convexUser._id });
         } catch (error) {
             console.error("Erro ao marcar como lida:", error);
+        }
+    };
+
+    const handleMessageUser = async (userId: Id<"users">) => {
+        if (!convexUser?.organizationId) return;
+        try {
+            const conversationId = await getOrCreateConversation({
+                organizationId: convexUser.organizationId,
+                participantIds: [convexUser._id, userId],
+            });
+            setSelectedConversation(conversationId);
+            toast.success("Conversa iniciada!");
+        } catch (error) {
+            toast.error("Erro ao iniciar conversa");
         }
     };
 
@@ -460,6 +480,14 @@ export default function CommunityPage() {
                         users={suggestedUsers || []}
                         currentUserId={convexUser._id}
                         onFollow={handleFollow}
+                        onMessage={
+                            communitySettings?.directMessagesEnabled &&
+                                (communitySettings.directMessagesAllowedFor === "all" ||
+                                    (communitySettings.directMessagesAllowedFor === "professors_only" &&
+                                        (convexUser.role === "professor" || convexUser.role === "admin" || convexUser.role === "superadmin")))
+                                ? handleMessageUser
+                                : undefined
+                        }
                         isLoading={suggestedUsers === undefined}
                     />
 

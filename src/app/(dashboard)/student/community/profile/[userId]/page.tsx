@@ -84,6 +84,11 @@ export default function UserProfilePage() {
         { userId, limit: 50 }
     );
 
+    const communitySettings = useQuery(
+        api.organizationSettings.getCommunitySettings,
+        currentUser?.organizationId ? { organizationId: currentUser.organizationId } : "skip"
+    );
+
     // Mutations
     const toggleFollow = useMutation(api.social.toggleFollow);
     const toggleLike = useMutation(api.social.toggleLike);
@@ -211,14 +216,19 @@ export default function UserProfilePage() {
                                         isFollowing={profile.isFollowing}
                                         onToggle={handleFollow}
                                     />
-                                    <Button
-                                        variant="outline"
-                                        onClick={handleMessage}
-                                        className="gap-2"
-                                    >
-                                        <MessageCircle className="h-4 w-4" />
-                                        Mensagem
-                                    </Button>
+                                    {communitySettings?.directMessagesEnabled &&
+                                        (communitySettings.directMessagesAllowedFor === "all" ||
+                                            (communitySettings.directMessagesAllowedFor === "professors_only" &&
+                                                (currentUser?.role === "professor" || currentUser?.role === "admin" || currentUser?.role === "superadmin"))) && (
+                                            <Button
+                                                variant="outline"
+                                                onClick={handleMessage}
+                                                className="gap-2"
+                                            >
+                                                <MessageCircle className="h-4 w-4" />
+                                                Mensagem
+                                            </Button>
+                                        )}
                                 </div>
                             )}
                         </div>
