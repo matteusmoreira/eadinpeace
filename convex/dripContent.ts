@@ -47,8 +47,8 @@ export const checkContentAccess = query({
 
         // Se for verificação de módulo
         if (args.moduleId) {
-            const module = await ctx.db.get(args.moduleId);
-            if (!module) {
+            const moduleDoc = await ctx.db.get(args.moduleId);
+            if (!moduleDoc) {
                 return { hasAccess: false, reason: "Módulo não encontrado" };
             }
 
@@ -90,11 +90,11 @@ export const checkContentAccess = query({
             }
 
             // Modo por data
-            if (dripType === "date" && module.releaseDate) {
-                if (now < module.releaseDate) {
+            if (dripType === "date" && moduleDoc.releaseDate) {
+                if (now < moduleDoc.releaseDate) {
                     return {
                         hasAccess: false,
-                        unlockDate: module.releaseDate,
+                        unlockDate: moduleDoc.releaseDate,
                         reason: "Conteúdo será liberado em breve",
                     };
                 }
@@ -102,13 +102,13 @@ export const checkContentAccess = query({
             }
 
             // Modo dias após inscrição
-            if (dripType === "days_after" && module.daysAfterEnrollment) {
-                const unlockDate = enrollmentDate + (module.daysAfterEnrollment * 24 * 60 * 60 * 1000);
+            if (dripType === "days_after" && moduleDoc.daysAfterEnrollment) {
+                const unlockDate = enrollmentDate + (moduleDoc.daysAfterEnrollment * 24 * 60 * 60 * 1000);
                 if (now < unlockDate) {
                     return {
                         hasAccess: false,
                         unlockDate,
-                        reason: `Disponível ${module.daysAfterEnrollment} dias após a inscrição`,
+                        reason: `Disponível ${moduleDoc.daysAfterEnrollment} dias após a inscrição`,
                     };
                 }
                 return { hasAccess: true };
@@ -128,8 +128,8 @@ export const checkContentAccess = query({
             }
 
             // Verificar primeiro o acesso ao módulo (lógica inline para evitar chamada recursiva)
-            const module = await ctx.db.get(lesson.moduleId);
-            if (!module) {
+            const lessonModule = await ctx.db.get(lesson.moduleId);
+            if (!lessonModule) {
                 return { hasAccess: false, reason: "Módulo não encontrado" };
             }
 
@@ -160,19 +160,19 @@ export const checkContentAccess = query({
                         };
                     }
                 }
-            } else if (dripType === "date" && module.releaseDate && now < module.releaseDate) {
+            } else if (dripType === "date" && lessonModule.releaseDate && now < lessonModule.releaseDate) {
                 return {
                     hasAccess: false,
-                    unlockDate: module.releaseDate,
+                    unlockDate: lessonModule.releaseDate,
                     reason: "Módulo será liberado em breve",
                 };
-            } else if (dripType === "days_after" && module.daysAfterEnrollment) {
-                const moduleUnlockDate = enrollmentDate + (module.daysAfterEnrollment * 24 * 60 * 60 * 1000);
+            } else if (dripType === "days_after" && lessonModule.daysAfterEnrollment) {
+                const moduleUnlockDate = enrollmentDate + (lessonModule.daysAfterEnrollment * 24 * 60 * 60 * 1000);
                 if (now < moduleUnlockDate) {
                     return {
                         hasAccess: false,
                         unlockDate: moduleUnlockDate,
-                        reason: `Módulo disponível ${module.daysAfterEnrollment} dias após a inscrição`,
+                        reason: `Módulo disponível ${lessonModule.daysAfterEnrollment} dias após a inscrição`,
                     };
                 }
             }

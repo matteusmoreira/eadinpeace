@@ -40,7 +40,6 @@ import { useContentProtection } from "@/hooks/useContentProtection";
 import { LessonCompletedCelebration } from "@/components/lesson-completed-celebration";
 import { AutoplayCountdown } from "@/components/AutoplayCountdown";
 import { LessonComments } from "@/components/lesson-comments";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 
