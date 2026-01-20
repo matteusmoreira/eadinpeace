@@ -310,6 +310,13 @@ export default function AdminNewCoursePage() {
         setIsLoading(true);
 
         try {
+            // Validar e preparar certificateTemplateId - não enviar se for "none" ou vazio
+            const validCertificateId = formData.certificateTemplateId &&
+                formData.certificateTemplateId !== "none" &&
+                formData.certificateTemplateId.trim() !== ""
+                ? formData.certificateTemplateId as Id<"certificateTemplates">
+                : undefined;
+
             const courseId = await createCourse({
                 title: formData.title,
                 slug: formData.slug,
@@ -318,8 +325,8 @@ export default function AdminNewCoursePage() {
                 category: formData.category,
                 level: "beginner",
                 organizationId: effectiveOrgId,
-                instructorId: formData.instructorId as any,
-                certificateTemplateId: formData.certificateTemplateId as Id<"certificateTemplates"> || undefined,
+                instructorId: formData.instructorId as Id<"users">,
+                ...(validCertificateId ? { certificateTemplateId: validCertificateId } : {}),
             });
 
             // Upload thumbnail if exists
