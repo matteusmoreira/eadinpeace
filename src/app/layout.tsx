@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/providers/theme-provider";
 import { AppearanceProvider } from "@/components/providers/appearance-provider";
 import { ConvexClientProvider } from "@/components/providers/convex-provider";
 import { OrganizationProvider } from "@/components/providers/organization-provider";
+import { DarkModeMist } from "@/components/ui/dark-mode-mist";
 import { ptBR } from "@clerk/localizations";
 import { Toaster } from "sonner";
 
@@ -31,6 +32,7 @@ export default function RootLayout({
         <body className={`${inter.variable} font-sans antialiased`}>
           <ConvexClientProvider>
             <ThemeProvider defaultTheme="system" storageKey="ead-theme">
+              <DarkModeMist />
               <AppearanceProvider>
                 <OrganizationProvider>
                   {children}
