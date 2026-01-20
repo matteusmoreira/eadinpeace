@@ -47,6 +47,8 @@ import {
     Upload,
     Calendar,
     Settings,
+    X,
+    Image as ImageIcon,
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
@@ -89,9 +91,12 @@ export default function AdminCourseEditPage() {
     const router = useRouter();
     const courseId = params.id as Id<"courses">;
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const thumbnailInputRef = useRef<HTMLInputElement>(null);
 
     const [isLoading, setIsLoading] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
+    const [isUploadingThumbnail, setIsUploadingThumbnail] = useState(false);
+    const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
     const [moduleDialogOpen, setModuleDialogOpen] = useState(false);
     const [lessonDialogOpen, setLessonDialogOpen] = useState(false);
     const [editLessonDialogOpen, setEditLessonDialogOpen] = useState(false);
@@ -111,6 +116,7 @@ export default function AdminCourseEditPage() {
         textContent: "",
         // PDF/File fields
         fileUrl: "",
+        fileStorageId: "" as string,
         fileName: "",
         // Assignment/Exam fields
         dueDate: "",
@@ -191,6 +197,7 @@ export default function AdminCourseEditPage() {
     const updateLessonMutation = useMutation(api.courses.updateLesson);
     const deleteLessonMutation = useMutation(api.courses.deleteLesson);
     const generateUploadUrl = useMutation(api.files.generateUploadUrl);
+    const uploadThumbnail = useMutation(api.files.uploadCourseThumbnail);
     const createQuiz = useMutation(api.quizzes.create);
 
     const handleUpdateSettings = async (e: React.FormEvent) => {
@@ -257,6 +264,79 @@ export default function AdminCourseEditPage() {
         }
     };
 
+    // Função para upload de thumbnail
+    const handleThumbnailSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Validar tipo de arquivo
+        if (!file.type.startsWith("image/")) {
+            toast.error("Selecione um arquivo de imagem válido");
+            return;
+        }
+
+        // Validar tamanho (máximo 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error("A imagem deve ter no máximo 5MB");
+            return;
+        }
+
+        setIsUploadingThumbnail(true);
+
+        try {
+            // Mostrar preview
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                setThumbnailPreview(e.target?.result as string);
+            };
+            reader.readAsDataURL(file);
+
+            // Upload para o Convex
+            const uploadUrl = await generateUploadUrl();
+            const result = await fetch(uploadUrl, {
+                method: "POST",
+                headers: { "Content-Type": file.type },
+                body: file,
+            });
+
+            if (!result.ok) {
+                throw new Error("Erro no upload");
+            }
+
+            const { storageId } = await result.json();
+
+            // Salvar thumbnail no curso
+            await uploadThumbnail({
+                courseId,
+                storageId,
+            });
+
+            toast.success("Thumbnail atualizado!");
+        } catch (error) {
+            toast.error("Erro ao carregar imagem");
+            setThumbnailPreview(null);
+        } finally {
+            setIsUploadingThumbnail(false);
+        }
+    };
+
+    const handleRemoveThumbnail = async () => {
+        try {
+            // Remove apenas a URL do thumbnail no banco
+            await updateCourse({
+                courseId,
+                thumbnail: undefined,
+            });
+            setThumbnailPreview(null);
+            if (thumbnailInputRef.current) {
+                thumbnailInputRef.current.value = "";
+            }
+            toast.success("Thumbnail removido!");
+        } catch (error) {
+            toast.error("Erro ao remover thumbnail");
+        }
+    };
+
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -287,7 +367,10 @@ export default function AdminCourseEditPage() {
             const { storageId } = await result.json();
             setNewLesson(prev => ({
                 ...prev,
-                fileUrl: storageId,
+                fileUrl: process.env.NEXT_PUBLIC_CONVEX_URL
+                    ? `${process.env.NEXT_PUBLIC_CONVEX_URL}/api/storage/${storageId}`
+                    : storageId,
+                fileStorageId: storageId,
                 fileName: file.name,
             }));
             toast.success("Arquivo carregado!");
@@ -391,6 +474,7 @@ export default function AdminCourseEditPage() {
             videoProvider: lesson.videoProvider || "youtube",
             textContent: lesson.textContent || "",
             fileUrl: lesson.fileUrl || "",
+            fileStorageId: lesson.fileStorageId || "",
             fileName: lesson.fileName || "",
             dueDate: lesson.dueDate ? new Date(lesson.dueDate).toISOString().slice(0, 16) : "",
             maxScore: lesson.maxScore || 100,
@@ -482,6 +566,7 @@ export default function AdminCourseEditPage() {
             videoProvider: "youtube",
             textContent: "",
             fileUrl: "",
+            fileStorageId: "",
             fileName: "",
             dueDate: "",
             maxScore: 100,
@@ -811,6 +896,82 @@ export default function AdminCourseEditPage() {
                                             rows={4}
                                         />
                                     </div>
+
+                                    {/* Thumbnail Upload */}
+                                    <div className="space-y-2">
+                                        <Label>Banner / Thumbnail do Curso</Label>
+                                        <input
+                                            ref={thumbnailInputRef}
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={handleThumbnailSelect}
+                                            className="hidden"
+                                        />
+
+                                        {(thumbnailPreview || course?.thumbnail) ? (
+                                            <div className="relative w-full aspect-video rounded-lg overflow-hidden border max-w-md">
+                                                <img
+                                                    src={thumbnailPreview || course?.thumbnail || ""}
+                                                    alt="Thumbnail do curso"
+                                                    className="w-full h-full object-cover"
+                                                />
+                                                <div className="absolute top-2 right-2 flex gap-2">
+                                                    <Button
+                                                        type="button"
+                                                        variant="secondary"
+                                                        size="icon"
+                                                        className="h-8 w-8"
+                                                        onClick={() => thumbnailInputRef.current?.click()}
+                                                        disabled={isUploadingThumbnail}
+                                                    >
+                                                        {isUploadingThumbnail ? (
+                                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                                        ) : (
+                                                            <Upload className="h-4 w-4" />
+                                                        )}
+                                                    </Button>
+                                                    <Button
+                                                        type="button"
+                                                        variant="destructive"
+                                                        size="icon"
+                                                        className="h-8 w-8"
+                                                        onClick={handleRemoveThumbnail}
+                                                        disabled={isUploadingThumbnail}
+                                                    >
+                                                        <X className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div
+                                                onClick={() => thumbnailInputRef.current?.click()}
+                                                className={cn(
+                                                    "border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors max-w-md",
+                                                    "hover:border-primary hover:bg-primary/5",
+                                                    isUploadingThumbnail && "opacity-50 pointer-events-none"
+                                                )}
+                                            >
+                                                {isUploadingThumbnail ? (
+                                                    <div className="flex flex-col items-center gap-2">
+                                                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                                        <p className="text-sm text-muted-foreground">Carregando...</p>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex flex-col items-center gap-2">
+                                                        <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                                                        <p className="font-medium">Clique para fazer upload</p>
+                                                        <p className="text-sm text-muted-foreground">
+                                                            PNG, JPG ou WEBP até 5MB
+                                                        </p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                        <p className="text-xs text-muted-foreground">
+                                            Esta imagem será exibida como capa do curso no catálogo
+                                        </p>
+                                    </div>
+
                                     <div className="grid gap-4 md:grid-cols-2">
                                         <div className="space-y-2">
                                             <Label>Categoria *</Label>
