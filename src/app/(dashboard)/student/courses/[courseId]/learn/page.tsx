@@ -25,6 +25,7 @@ import {
     Share2,
     Loader2,
     Award,
+    FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -343,9 +344,9 @@ export default function CoursePlayerPage() {
     const isCourseComplete = progress === 100;
 
     return (
-        <div className="fixed inset-0 bg-background flex">
+        <div className="min-h-screen bg-background flex flex-col lg:flex-row">
             {/* Desktop Sidebar */}
-            <div className="hidden lg:block w-80 border-r">
+            <div className="hidden lg:block lg:w-80 border-r lg:sticky lg:top-0 lg:h-screen lg:overflow-hidden">
                 <CourseSidebar
                     course={course}
                     currentLessonId={currentLessonId}
@@ -369,7 +370,7 @@ export default function CoursePlayerPage() {
             </Sheet>
 
             {/* Main Content */}
-            <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex-1 flex flex-col min-h-screen lg:min-h-0">
                 {/* Top Bar */}
                 <div className="h-14 border-b flex items-center justify-between px-4 bg-card">
                     <div className="flex items-center gap-3">
@@ -407,53 +408,93 @@ export default function CoursePlayerPage() {
                     </div>
                 </div>
 
-                {/* Video Player */}
-                <div className="flex-1 relative bg-black">
-                    {currentLesson?.videoUrl ? (
-                        // Check video provider type
-                        (currentLesson as any).videoProvider === "bunny" ? (
-                            <div className="absolute inset-0">
-                                <BunnyPlayer
-                                    videoId={currentLesson.videoUrl}
-                                    title={currentLesson.title}
-                                    autoplay={isPlaying}
-                                    controls={true}
-                                    className="w-full h-full border-0"
-                                />
+                {/* Content Area - Video/Document/Text */}
+                <div className="flex-1 relative bg-black w-full aspect-video lg:aspect-auto lg:min-h-[400px] lg:max-h-[calc(100vh-8rem)]">
+                    {currentLesson ? (
+                        // Check lesson type
+                        (currentLesson as any).type === "pdf" || (currentLesson as any).fileUrl ? (
+                            // PDF/Document viewer
+                            <div className="absolute inset-0 bg-background">
+                                {(currentLesson as any).fileUrl ? (
+                                    <iframe
+                                        src={`${(currentLesson as any).fileUrl}#toolbar=0`}
+                                        className="w-full h-full border-0"
+                                        title={currentLesson.title}
+                                    />
+                                ) : (
+                                    <div className="flex items-center justify-center h-full text-foreground">
+                                        <div className="text-center">
+                                            <FileText className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                                            <p className="text-lg opacity-75">Documento não disponível</p>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                        ) : (currentLesson as any).videoProvider === "youtube" || currentLesson.videoUrl?.includes("youtube") || currentLesson.videoUrl?.includes("youtu.be") ? (
-                            // YouTube com proteção de conteúdo
-                            <div className="absolute inset-0">
-                                <ProtectedYouTubePlayer
-                                    videoUrl={currentLesson.videoUrl}
-                                    title={currentLesson.title}
-                                    className="w-full h-full"
-                                    protectionEnabled={true}
-                                    youtubeParams={{
-                                        modestbranding: true,
-                                        rel: false,
-                                    }}
-                                />
+                        ) : (currentLesson as any).type === "text" || (currentLesson as any).textContent ? (
+                            // Text content
+                            <div className="absolute inset-0 bg-background overflow-auto">
+                                <div className="max-w-4xl mx-auto p-8">
+                                    <div
+                                        className="prose prose-lg dark:prose-invert max-w-none"
+                                        dangerouslySetInnerHTML={{ __html: (currentLesson as any).textContent || "" }}
+                                    />
+                                </div>
                             </div>
+                        ) : currentLesson.videoUrl ? (
+                            // Video content
+                            <>
+                                {(currentLesson as any).videoProvider === "bunny" ? (
+                                    <div className="absolute inset-0">
+                                        <BunnyPlayer
+                                            videoId={currentLesson.videoUrl}
+                                            title={currentLesson.title}
+                                            autoplay={isPlaying}
+                                            controls={true}
+                                            className="w-full h-full border-0"
+                                        />
+                                    </div>
+                                ) : (currentLesson as any).videoProvider === "youtube" || currentLesson.videoUrl?.includes("youtube") || currentLesson.videoUrl?.includes("youtu.be") ? (
+                                    // YouTube com proteção de conteúdo
+                                    <div className="absolute inset-0">
+                                        <ProtectedYouTubePlayer
+                                            videoUrl={currentLesson.videoUrl}
+                                            title={currentLesson.title}
+                                            className="w-full h-full"
+                                            protectionEnabled={true}
+                                            youtubeParams={{
+                                                modestbranding: true,
+                                                rel: false,
+                                            }}
+                                        />
+                                    </div>
+                                ) : (
+                                    // Outros providers (Vimeo, upload direto, etc.)
+                                    <ReactPlayerAny
+                                        ref={playerRef}
+                                        url={currentLesson.videoUrl}
+                                        width="100%"
+                                        height="100%"
+                                        playing={isPlaying}
+                                        onPlay={() => setIsPlaying(true)}
+                                        onPause={() => setIsPlaying(false)}
+                                        onProgress={handleProgress}
+                                        controls
+                                    />
+                                )}
+                            </>
                         ) : (
-                            // Outros providers (Vimeo, upload direto, etc.)
-                            <ReactPlayerAny
-                                ref={playerRef}
-                                url={currentLesson.videoUrl}
-                                width="100%"
-                                height="100%"
-                                playing={isPlaying}
-                                onPlay={() => setIsPlaying(true)}
-                                onPause={() => setIsPlaying(false)}
-                                onProgress={handleProgress}
-                                controls
-                            />
+                            <div className="absolute inset-0 flex items-center justify-center text-white">
+                                <div className="text-center">
+                                    <Play className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                                    <p className="text-lg opacity-75">Conteúdo não disponível</p>
+                                </div>
+                            </div>
                         )
                     ) : (
                         <div className="absolute inset-0 flex items-center justify-center text-white">
                             <div className="text-center">
                                 <Play className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                                <p className="text-lg opacity-75">Vídeo não disponível</p>
+                                <p className="text-lg opacity-75">Selecione uma aula</p>
                             </div>
                         </div>
                     )}

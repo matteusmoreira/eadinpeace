@@ -25,6 +25,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { CardStack, CardStackItem } from "@/components/ui/card-stack";
 
 const levelLabels = {
     beginner: "Iniciante",
@@ -127,6 +128,44 @@ export default function PublicCoursesPage() {
                     </motion.div>
                 </div>
             </section>
+
+            {/* Featured Courses Carousel */}
+            {courses && courses.length > 0 && (
+                <section className="py-12 px-4">
+                    <div className="container mx-auto">
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.5, delay: 0.2 }}
+                            className="text-center mb-8"
+                        >
+                            <Badge className="mb-4 gradient-bg border-0">Cursos em Destaque</Badge>
+                            <h2 className="text-3xl md:text-4xl font-bold mb-2">
+                                Explore Nossos <span className="text-primary">Melhores Cursos</span>
+                            </h2>
+                            <p className="text-muted-foreground">
+                                Navegue pelos cursos mais populares e comece sua jornada de aprendizado
+                            </p>
+                        </motion.div>
+                        <CardStack
+                            items={courses.slice(0, 8).map((course): CardStackItem => ({
+                                id: course._id,
+                                title: course.title,
+                                description: course.description,
+                                imageSrc: course.thumbnail || undefined,
+                                href: `/courses/${course.slug}`,
+                            }))}
+                            initialIndex={0}
+                            autoAdvance
+                            intervalMs={3000}
+                            pauseOnHover
+                            showDots
+                            cardWidth={520}
+                            cardHeight={320}
+                        />
+                    </div>
+                </section>
+            )}
 
             {/* Courses Grid */}
             <section className="py-8 px-4 pb-20">
