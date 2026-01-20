@@ -385,9 +385,21 @@ export const getWithContentBySlug = query({
             // Get instructor info
             const instructor = await ctx.db.get(course.instructorId);
 
+            // Validate and get certificate template if exists
+            let certificateTemplate = null;
+            if (course.certificateTemplateId) {
+                try {
+                    certificateTemplate = await ctx.db.get(course.certificateTemplateId);
+                } catch (error) {
+                    console.error("getWithContentBySlug: Erro ao buscar certificateTemplate:", error);
+                    // Se o certificateTemplateId for inválido, apenas ignoramos
+                }
+            }
+
             return {
                 ...course,
                 instructor,
+                certificateTemplate,
                 modules: modulesWithLessons.sort((a, b) => a.order - b.order),
             };
         } catch (error) {
@@ -534,9 +546,21 @@ export const getWithContent = query({
             // Get instructor info
             const instructor = await ctx.db.get(course.instructorId);
 
+            // Validate and get certificate template if exists
+            let certificateTemplate = null;
+            if (course.certificateTemplateId) {
+                try {
+                    certificateTemplate = await ctx.db.get(course.certificateTemplateId);
+                } catch (error) {
+                    console.error("getWithContent: Erro ao buscar certificateTemplate:", error);
+                    // Se o certificateTemplateId for inválido, apenas ignoramos
+                }
+            }
+
             return {
                 ...course,
                 instructor,
+                certificateTemplate,
                 modules: modulesWithLessons.sort((a, b) => a.order - b.order),
             };
         } catch (error) {
