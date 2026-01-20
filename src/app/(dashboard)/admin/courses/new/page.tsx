@@ -89,7 +89,7 @@ export default function AdminNewCoursePage() {
         description: "",
         category: "",
         instructorId: "",
-        certificateTemplateId: "",
+        certificateTemplateId: "none",
     });
 
     // Get Convex user to get organizationId
