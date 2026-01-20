@@ -403,6 +403,12 @@ export const getCourseProgress = query({
         }
 
         try {
+            // Verificar se é admin ou professor para permitir acesso sem matrícula
+            const user = await ctx.db
+                .query("users")
+                .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+                .first();
+
             const enrollment = await ctx.db
                 .query("enrollments")
                 .withIndex("by_user_course", (q) =>
@@ -410,7 +416,23 @@ export const getCourseProgress = query({
                 )
                 .first();
 
-            if (!enrollment) return null;
+            // Se não houver matrícula, verificar se é admin/professor para permitir acesso
+            if (!enrollment) {
+                // Permitir acesso para admin, professor e superadmin sem matrícula
+                if (user && ["superadmin", "admin", "professor"].includes(user.role)) {
+                    // Retornar estrutura vazia de progresso para manter compatibilidade
+                    return {
+                        userId: args.userId,
+                        courseId: args.courseId,
+                        progress: 0,
+                        completedLessons: [],
+                        startedAt: Date.now(),
+                        lastAccessedAt: Date.now(),
+                        lessonsProgress: [],
+                    };
+                }
+                return null;
+            }
 
             const lessonsProgress = await ctx.db
                 .query("lessonProgress")

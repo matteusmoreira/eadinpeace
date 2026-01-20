@@ -54,8 +54,9 @@ export default function CoursePlayerPage() {
     const courseIdOrSlug = params.courseId as string;
     const { user } = useUser();
 
-    // Detect if it's an ID (no hyphens, alphanumeric) or a slug (contains hyphens)
-    const isSlug = courseIdOrSlug.includes("-");
+    // Detect if it's an ID (Convex ID format) or a slug (anything else)
+    const isConvexId = /^[a-z][a-z0-9]{15,}$/.test(courseIdOrSlug);
+    const isSlug = !isConvexId;
 
     const [currentLessonId, setCurrentLessonId] = useState<Id<"lessons"> | null>(null);
     const [sidebarOpen, setSidebarOpen] = useState(true);
