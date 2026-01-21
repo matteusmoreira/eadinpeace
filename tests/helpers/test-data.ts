@@ -146,7 +146,7 @@ export const TestData = {
         basic: () => ({
             name: `Categoria ${faker.lorem.word()}`,
             description: faker.lorem.sentence(),
-            color: faker.internet.color(),
+            color: faker.color.rgb(),
             icon: 'book',
             active: true,
         }),
