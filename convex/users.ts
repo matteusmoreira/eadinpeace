@@ -1006,27 +1006,17 @@ export const changeUserPassword = mutation({
             throw new Error("Este usuário ainda não completou o cadastro no Clerk");
         }
 
-        try {
-            // Chamar action do Clerk para atualizar senha
-            const { clerkClient } = await import("@clerk/nextjs/server");
+        // Agendar a action para atualizar senha no Clerk
+        await ctx.scheduler.runAfter(0, internal.clerkActions.updatePasswordInClerk, {
+            clerkUserId: targetUser.clerkId,
+            newPassword: args.newPassword,
+            targetUserId: args.userId,
+            changedByUserId: auth.user._id,
+        });
 
-            // Atualizar senha no Clerk diretamente
-            await (await clerkClient()).users.updateUser(targetUser.clerkId, {
-                password: args.newPassword,
-            });
-
-            // Registrar log de auditoria
-            await ctx.db.insert("passwordChangeLogs", {
-                changedByUserId: auth.user._id,
-                targetUserId: args.userId,
-                timestamp: Date.now(),
-                // ipAddress poderia ser passado como argumento se disponível
-            });
-
-            return { success: true };
-        } catch (error: any) {
-            console.error("[users:changeUserPassword] Erro:", error);
-            throw new Error(`Erro ao alterar senha: ${error.message || "Erro desconhecido"}`);
-        }
+        return { success: true };
     },
 });
+
+
+
