@@ -50,6 +50,7 @@ import {
     Filter,
     Building2,
     Loader2,
+    Key,
 } from "lucide-react";
 import { useState } from "react";
 import Link from "next/link";
@@ -57,6 +58,7 @@ import { cn } from "@/lib/utils";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { Id } from "@convex/_generated/dataModel";
+import { ChangePasswordDialog } from "@/components/superadmin/change-password-dialog";
 
 const container = {
     hidden: { opacity: 0 },
@@ -100,6 +102,8 @@ export default function UsersPage() {
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState<any>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [changePasswordDialogOpen, setChangePasswordDialogOpen] = useState(false);
+    const [userToChangePassword, setUserToChangePassword] = useState<any>(null);
 
     // Convex queries
     const users = useQuery(api.users.getAll);
@@ -135,6 +139,11 @@ export default function UsersPage() {
         } finally {
             setIsDeleting(false);
         }
+    };
+
+    const handleChangePassword = (user: any) => {
+        setUserToChangePassword(user);
+        setChangePasswordDialogOpen(true);
     };
 
     const formatDate = (timestamp: number) => {
@@ -322,6 +331,10 @@ export default function UsersPage() {
                                                                 <Mail className="h-4 w-4 mr-2" />
                                                                 Enviar Email
                                                             </DropdownMenuItem>
+                                                            <DropdownMenuItem onClick={() => handleChangePassword(user)}>
+                                                                <Key className="h-4 w-4 mr-2" />
+                                                                Alterar Senha
+                                                            </DropdownMenuItem>
                                                             <DropdownMenuSeparator />
                                                             <DropdownMenuItem
                                                                 className="text-destructive focus:text-destructive"
@@ -381,6 +394,16 @@ export default function UsersPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Change Password Dialog */}
+            {userToChangePassword && (
+                <ChangePasswordDialog
+                    open={changePasswordDialogOpen}
+                    onOpenChange={setChangePasswordDialogOpen}
+                    userId={userToChangePassword._id}
+                    userName={`${userToChangePassword.firstName} ${userToChangePassword.lastName}`}
+                />
+            )}
         </motion.div>
     );
 }

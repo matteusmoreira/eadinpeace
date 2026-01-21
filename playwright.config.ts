@@ -37,20 +37,85 @@ export default defineConfig({
     },
     /* Configurar projetos */
     projects: [
-        // Setup de autenticação - roda primeiro
+        // ============================================
+        // SETUP - Autenticação para cada tipo de usuário
+        // ============================================
         {
-            name: 'setup',
-            testMatch: /.*\.setup\.ts/,
+            name: 'setup-student',
+            testMatch: /.*auth-student\.setup\.ts/,
         },
-        // Testes autenticados - usam o estado salvo do setup
         {
-            name: 'authenticated',
+            name: 'setup-professor',
+            testMatch: /.*auth-professor\.setup\.ts/,
+        },
+        {
+            name: 'setup-admin',
+            testMatch: /.*auth-admin\.setup\.ts/,
+        },
+
+        // ============================================
+        // TESTES COMO ALUNO
+        // ============================================
+        {
+            name: 'student',
             use: {
                 ...devices['Desktop Chrome'],
-                storageState: '.auth/user.json',
+                storageState: '.auth/student.json',
             },
-            dependencies: ['setup'],
-            testIgnore: /.*\.setup\.ts/,
+            dependencies: ['setup-student'],
+            testMatch: [
+                '**/tests/student/**/*.spec.ts',
+                '**/tests/courses/course-viewing.spec.ts',
+                '**/tests/integration/full-student-journey.spec.ts',
+            ],
+        },
+
+        // ============================================
+        // TESTES COMO PROFESSOR
+        // ============================================
+        {
+            name: 'professor',
+            use: {
+                ...devices['Desktop Chrome'],
+                storageState: '.auth/professor.json',
+            },
+            dependencies: ['setup-professor'],
+            testMatch: [
+                '**/tests/courses/course-creation.spec.ts',
+                '**/tests/courses/course-editing.spec.ts',
+                '**/tests/quizzes/**/*.spec.ts',
+            ],
+        },
+
+        // ============================================
+        // TESTES COMO ADMIN
+        // ============================================
+        {
+            name: 'admin',
+            use: {
+                ...devices['Desktop Chrome'],
+                storageState: '.auth/admin.json',
+            },
+            dependencies: ['setup-admin'],
+            testMatch: [
+                '**/tests/admin/**/*.spec.ts',
+                '**/tests/security/**/*.spec.ts',
+            ],
+        },
+
+        // ============================================
+        // TESTES GERAIS (usa primeiro usuário disponível)
+        // ============================================
+        {
+            name: 'general',
+            use: {
+                ...devices['Desktop Chrome'],
+                storageState: '.auth/student.json',
+            },
+            dependencies: ['setup-student'],
+            testMatch: [
+                '**/tests/pages.spec.ts',
+            ],
         },
     ],
     /* Servidor de desenvolvimento */

@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query, internalMutation } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { requireAuth } from "./authHelpers";
 
 // Helper function to generate URL-friendly slug from name
@@ -972,5 +973,60 @@ export const addSlugToExistingUsers = mutation({
         }
 
         return { updated, message: `${updated} usuários atualizados com slug` };
+    },
+});
+
+// Change user password (superadmin only)
+export const changeUserPassword = mutation({
+    args: {
+        userId: v.id("users"),
+        newPassword: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const auth = await requireAuth(ctx);
+
+        // Apenas superadmins podem alterar senhas
+        if (auth.user.role !== "superadmin") {
+            throw new Error("Acesso negado: apenas superadmins podem alterar senhas");
+        }
+
+        // Validar senha (mínimo 8 caracteres)
+        if (args.newPassword.length < 8) {
+            throw new Error("A senha deve ter no mínimo 8 caracteres");
+        }
+
+        // Buscar usuário alvo
+        const targetUser = await ctx.db.get(args.userId);
+        if (!targetUser) {
+            throw new Error("Usuário não encontrado");
+        }
+
+        // Verificar se o clerkId é válido (não é pending)
+        if (targetUser.clerkId.startsWith("pending_")) {
+            throw new Error("Este usuário ainda não completou o cadastro no Clerk");
+        }
+
+        try {
+            // Chamar action do Clerk para atualizar senha
+            const { clerkClient } = await import("@clerk/nextjs/server");
+
+            // Atualizar senha no Clerk diretamente
+            await (await clerkClient()).users.updateUser(targetUser.clerkId, {
+                password: args.newPassword,
+            });
+
+            // Registrar log de auditoria
+            await ctx.db.insert("passwordChangeLogs", {
+                changedByUserId: auth.user._id,
+                targetUserId: args.userId,
+                timestamp: Date.now(),
+                // ipAddress poderia ser passado como argumento se disponível
+            });
+
+            return { success: true };
+        } catch (error: any) {
+            console.error("[users:changeUserPassword] Erro:", error);
+            throw new Error(`Erro ao alterar senha: ${error.message || "Erro desconhecido"}`);
+        }
     },
 });

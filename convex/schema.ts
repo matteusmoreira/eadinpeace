@@ -1120,4 +1120,19 @@ export default defineSchema({
     })
         .index("by_organization", ["organizationId"])
         .index("by_default", ["organizationId", "isDefault"]),
+
+    // ================================
+    // PASSWORD CHANGE LOGS (Auditoria)
+    // ================================
+
+    // Logs de alteração de senha por superadmins
+    passwordChangeLogs: defineTable({
+        changedByUserId: v.id("users"), // Superadmin que alterou
+        targetUserId: v.id("users"), // Usuário que teve a senha alterada
+        timestamp: v.number(),
+        ipAddress: v.optional(v.string()),
+    })
+        .index("by_changed_by", ["changedByUserId"])
+        .index("by_target", ["targetUserId"])
+        .index("by_timestamp", ["timestamp"]),
 });
