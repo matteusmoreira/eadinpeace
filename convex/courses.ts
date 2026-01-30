@@ -675,6 +675,14 @@ export const update = mutation({
         isFeatured: v.optional(v.boolean()),
         price: v.optional(v.number()),
         certificateTemplateId: v.optional(v.id("certificateTemplates")),
+        // Configurações de comentários e gotejamento
+        commentsEnabled: v.optional(v.boolean()),
+        dripType: v.optional(v.union(
+            v.literal("free"),
+            v.literal("sequential"),
+            v.literal("date"),
+            v.literal("days_after")
+        )),
     },
     handler: async (ctx, args) => {
         try {
@@ -838,6 +846,41 @@ export const createLesson = mutation({
     },
 });
 
+// Update module
+export const updateModule = mutation({
+    args: {
+        moduleId: v.id("modules"),
+        title: v.optional(v.string()),
+        description: v.optional(v.string()),
+        isPublished: v.optional(v.boolean()),
+        // Configurações de gotejamento
+        releaseDate: v.optional(v.number()), // Para gotejamento por data
+        daysAfterEnrollment: v.optional(v.number()), // Para gotejamento por dias
+    },
+    handler: async (ctx, args) => {
+        const moduleDoc = await ctx.db.get(args.moduleId);
+        if (!moduleDoc) {
+            throw new Error("Módulo não encontrado");
+        }
+        await requireCourseAccess(ctx, moduleDoc.courseId);
+
+        const { moduleId, ...updates } = args;
+        const filteredUpdates: Record<string, any> = {};
+        for (const [key, value] of Object.entries(updates)) {
+            if (value !== undefined) {
+                filteredUpdates[key] = value;
+            }
+        }
+
+        await ctx.db.patch(moduleId, {
+            ...filteredUpdates,
+            updatedAt: Date.now(),
+        });
+
+        return moduleId;
+    },
+});
+
 // Update lesson
 export const updateLesson = mutation({
     args: {
@@ -869,6 +912,10 @@ export const updateLesson = mutation({
         duration: v.optional(v.number()),
         isFree: v.optional(v.boolean()),
         isPublished: v.optional(v.boolean()),
+        // Configurações granulares
+        commentsEnabled: v.optional(v.boolean()), // null = herda do curso
+        releaseDate: v.optional(v.number()), // Para gotejamento por data
+        daysAfterEnrollment: v.optional(v.number()), // Para gotejamento por dias
     },
     handler: async (ctx, args) => {
         const lesson = await ctx.db.get(args.lessonId);

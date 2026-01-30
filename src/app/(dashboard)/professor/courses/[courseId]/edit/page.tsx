@@ -54,6 +54,9 @@ import {
     ClipboardCheck,
     FileQuestion,
     BookOpen,
+    MessageSquare,
+    Calendar,
+    Lock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useState, useEffect, use } from "react";
@@ -132,6 +135,7 @@ export default function EditCoursePage(props: { params: Promise<{ courseId: stri
     // Mutations
     const updateCourse = useMutation(api.courses.update);
     const createModule = useMutation(api.courses.createModule);
+    const updateModule = useMutation(api.courses.updateModule);
     const createLesson = useMutation(api.courses.createLesson);
     const updateLesson = useMutation(api.courses.updateLesson);
 
@@ -151,6 +155,10 @@ export default function EditCoursePage(props: { params: Promise<{ courseId: stri
     const [hasChanges, setHasChanges] = useState(false);
     const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
 
+    // Estados para configurações de comentários e gotejamento
+    const [commentsEnabled, setCommentsEnabled] = useState(true);
+    const [dripType, setDripType] = useState<"free" | "sequential" | "date" | "days_after">("free");
+
     // Dialog states
     const [moduleDialogOpen, setModuleDialogOpen] = useState(false);
     const [lessonDialogOpen, setLessonDialogOpen] = useState(false);
@@ -159,12 +167,20 @@ export default function EditCoursePage(props: { params: Promise<{ courseId: stri
     const [editingLesson, setEditingLesson] = useState<LocalLesson | null>(null);
 
     // Form states
-    const [moduleForm, setModuleForm] = useState({ title: "", description: "" });
+    const [moduleForm, setModuleForm] = useState({
+        title: "",
+        description: "",
+        releaseDate: "",
+        daysAfterEnrollment: "",
+    });
     const [lessonForm, setLessonForm] = useState({
         title: "",
         videoUrl: "",
         duration: "",
         isFree: false,
+        commentsEnabled: "inherit" as "inherit" | "true" | "false",
+        releaseDate: "",
+        daysAfterEnrollment: "",
     });
 
     // Query para buscar o quiz associado a uma aula do tipo exam
@@ -207,6 +223,10 @@ export default function EditCoursePage(props: { params: Promise<{ courseId: stri
                 isPublished: courseData.isPublished || false,
                 modules,
             });
+
+            // Sincronizar configurações de comentários e gotejamento
+            setCommentsEnabled(courseData.commentsEnabled !== false);
+            setDripType((courseData.dripType as "free" | "sequential" | "date" | "days_after") || "free");
         }
     }, [courseData, expandedModules]);
 
@@ -224,13 +244,23 @@ export default function EditCoursePage(props: { params: Promise<{ courseId: stri
 
     const openAddModule = () => {
         setEditingModule(null);
-        setModuleForm({ title: "", description: "" });
+        setModuleForm({
+            title: "",
+            description: "",
+            releaseDate: "",
+            daysAfterEnrollment: "",
+        });
         setModuleDialogOpen(true);
     };
 
     const openEditModule = (module: any) => {
         setEditingModule(module);
-        setModuleForm({ title: module.title, description: module.description || "" });
+        setModuleForm({
+            title: module.title,
+            description: module.description || "",
+            releaseDate: module.releaseDate ? new Date(module.releaseDate).toISOString().split('T')[0] : "",
+            daysAfterEnrollment: module.daysAfterEnrollment ? String(module.daysAfterEnrollment) : "",
+        });
         setModuleDialogOpen(true);
     };
 
@@ -238,18 +268,20 @@ export default function EditCoursePage(props: { params: Promise<{ courseId: stri
         if (!course) return;
 
         if (editingModule) {
-            // Edit existing module - for now just update local state
-            setCourse(prev => {
-                if (!prev) return prev;
-                return {
-                    ...prev,
-                    modules: prev.modules.map((m) =>
-                        m.id === editingModule.id
-                            ? { ...m, title: moduleForm.title, description: moduleForm.description }
-                            : m
-                    ),
-                };
-            });
+            // Edit existing module via API
+            try {
+                await updateModule({
+                    moduleId: editingModule._id as Id<"modules">,
+                    title: moduleForm.title,
+                    description: moduleForm.description,
+                    releaseDate: moduleForm.releaseDate ? new Date(moduleForm.releaseDate).getTime() : undefined,
+                    daysAfterEnrollment: moduleForm.daysAfterEnrollment ? parseInt(moduleForm.daysAfterEnrollment) : undefined,
+                });
+                toast.success("Módulo atualizado com sucesso!");
+            } catch (error) {
+                console.error("Error updating module:", error);
+                toast.error("Erro ao atualizar módulo");
+            }
         } else {
             // Add new module via API
             try {
@@ -258,8 +290,10 @@ export default function EditCoursePage(props: { params: Promise<{ courseId: stri
                     title: moduleForm.title,
                     description: moduleForm.description,
                 });
+                toast.success("Módulo criado com sucesso!");
             } catch (error) {
                 console.error("Error creating module:", error);
+                toast.error("Erro ao criar módulo");
             }
         }
         setModuleDialogOpen(false);
@@ -280,7 +314,15 @@ export default function EditCoursePage(props: { params: Promise<{ courseId: stri
     const openAddLesson = (moduleId: string) => {
         setSelectedModuleId(moduleId);
         setEditingLesson(null);
-        setLessonForm({ title: "", videoUrl: "", duration: "", isFree: false });
+        setLessonForm({
+            title: "",
+            videoUrl: "",
+            duration: "",
+            isFree: false,
+            commentsEnabled: "inherit",
+            releaseDate: "",
+            daysAfterEnrollment: "",
+        });
         setLessonDialogOpen(true);
     };
 
@@ -299,6 +341,9 @@ export default function EditCoursePage(props: { params: Promise<{ courseId: stri
             videoUrl: lesson.videoUrl || "",
             duration: String(Math.floor(lesson.duration / 60)),
             isFree: lesson.isFree,
+            commentsEnabled: (lesson as any).commentsEnabled === undefined ? "inherit" : (lesson as any).commentsEnabled ? "true" : "false",
+            releaseDate: (lesson as any).releaseDate ? new Date((lesson as any).releaseDate).toISOString().split('T')[0] : "",
+            daysAfterEnrollment: (lesson as any).daysAfterEnrollment ? String((lesson as any).daysAfterEnrollment) : "",
         });
         setLessonDialogOpen(true);
     };
@@ -332,9 +377,15 @@ export default function EditCoursePage(props: { params: Promise<{ courseId: stri
                     videoUrl: lessonForm.videoUrl,
                     duration: durationInSeconds,
                     isFree: lessonForm.isFree,
+                    // Configurações granulares
+                    commentsEnabled: lessonForm.commentsEnabled === "inherit" ? undefined : lessonForm.commentsEnabled === "true",
+                    releaseDate: lessonForm.releaseDate ? new Date(lessonForm.releaseDate).getTime() : undefined,
+                    daysAfterEnrollment: lessonForm.daysAfterEnrollment ? parseInt(lessonForm.daysAfterEnrollment) : undefined,
                 });
+                toast.success("Aula atualizada com sucesso!");
             } catch (error) {
                 console.error("Error updating lesson:", error);
+                toast.error("Erro ao atualizar aula");
             }
         } else {
             // Add new lesson via API
@@ -404,9 +455,14 @@ export default function EditCoursePage(props: { params: Promise<{ courseId: stri
                 level: course.level as "beginner" | "intermediate" | "advanced",
                 thumbnail: course.thumbnail,
                 isPublished: course.isPublished,
+                // Configurações de comentários e gotejamento
+                commentsEnabled,
+                dripType,
             });
+            toast.success("Curso salvo com sucesso!");
         } catch (error) {
             console.error("Error saving course:", error);
+            toast.error("Erro ao salvar curso");
         }
         setIsSaving(false);
         setHasChanges(false);
@@ -686,7 +742,8 @@ export default function EditCoursePage(props: { params: Promise<{ courseId: stri
                     )}
                 </TabsContent>
 
-                <TabsContent value="settings" className="mt-4">
+                <TabsContent value="settings" className="mt-4 space-y-4">
+                    {/* Informações Básicas */}
                     <Card>
                         <CardHeader>
                             <CardTitle>Informações do Curso</CardTitle>
@@ -702,6 +759,107 @@ export default function EditCoursePage(props: { params: Promise<{ courseId: stri
                             <div className="space-y-2">
                                 <Label>Descrição</Label>
                                 <Textarea value={course.description} className="min-h-[100px]" onChange={() => setHasChanges(true)} />
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Configurações de Comentários */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <MessageSquare className="h-5 w-5" />
+                                Comentários
+                            </CardTitle>
+                            <CardDescription>
+                                Permita que os alunos comentem nas aulas
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="flex items-center justify-between">
+                                <div className="space-y-1">
+                                    <Label>Habilitar Comentários</Label>
+                                    <p className="text-sm text-muted-foreground">
+                                        Os alunos podem fazer perguntas e interagir nas aulas
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={commentsEnabled}
+                                    onCheckedChange={(checked) => {
+                                        setCommentsEnabled(checked);
+                                        setHasChanges(true);
+                                    }}
+                                />
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Configurações de Gotejamento */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Lock className="h-5 w-5" />
+                                Gotejamento de Conteúdo
+                            </CardTitle>
+                            <CardDescription>
+                                Controle como o conteúdo é liberado para os alunos
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="space-y-2">
+                                <Label>Modo de Liberação</Label>
+                                <Select
+                                    value={dripType}
+                                    onValueChange={(value: "free" | "sequential" | "date" | "days_after") => {
+                                        setDripType(value);
+                                        setHasChanges(true);
+                                    }}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Selecione o modo" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="free">
+                                            <div className="flex items-center gap-2">
+                                                <span>🔓</span>
+                                                <span>Livre - Todo conteúdo disponível</span>
+                                            </div>
+                                        </SelectItem>
+                                        <SelectItem value="sequential">
+                                            <div className="flex items-center gap-2">
+                                                <span>📚</span>
+                                                <span>Sequencial - Depende da conclusão anterior</span>
+                                            </div>
+                                        </SelectItem>
+                                        <SelectItem value="date">
+                                            <div className="flex items-center gap-2">
+                                                <span>📅</span>
+                                                <span>Por Data - Liberação em datas específicas</span>
+                                            </div>
+                                        </SelectItem>
+                                        <SelectItem value="days_after">
+                                            <div className="flex items-center gap-2">
+                                                <span>⏱️</span>
+                                                <span>Dias após Inscrição</span>
+                                            </div>
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            {/* Descrição do modo selecionado */}
+                            <div className="p-3 rounded-lg bg-muted/50 text-sm">
+                                {dripType === "free" && (
+                                    <p>Todo o conteúdo do curso estará disponível imediatamente após a matrícula.</p>
+                                )}
+                                {dripType === "sequential" && (
+                                    <p>O aluno precisa concluir cada aula para desbloquear a próxima. Ideal para cursos com pré-requisitos.</p>
+                                )}
+                                {dripType === "date" && (
+                                    <p>Configure datas específicas de liberação para cada módulo ou aula nas configurações individuais.</p>
+                                )}
+                                {dripType === "days_after" && (
+                                    <p>Configure quantos dias após a matrícula cada módulo ou aula será liberado nas configurações individuais.</p>
+                                )}
                             </div>
                         </CardContent>
                     </Card>
@@ -758,6 +916,49 @@ export default function EditCoursePage(props: { params: Promise<{ courseId: stri
                                 }
                             />
                         </div>
+
+                        {/* Configurações granulares de gotejamento (só aparece na edição) */}
+                        {editingModule && (dripType === "date" || dripType === "days_after") && (
+                            <div className="border-t pt-4 space-y-4">
+                                <p className="text-sm font-medium text-muted-foreground">Configurações de Liberação</p>
+
+                                {/* Data de liberação (para modo date) */}
+                                {dripType === "date" && (
+                                    <div className="space-y-2">
+                                        <Label>Data de Liberação</Label>
+                                        <Input
+                                            type="date"
+                                            value={moduleForm.releaseDate}
+                                            onChange={(e) =>
+                                                setModuleForm((prev) => ({ ...prev, releaseDate: e.target.value }))
+                                            }
+                                        />
+                                        <p className="text-xs text-muted-foreground">
+                                            Todas as lições deste módulo serão liberadas nesta data (se não tiverem data própria)
+                                        </p>
+                                    </div>
+                                )}
+
+                                {/* Dias após matrícula (para modo days_after) */}
+                                {dripType === "days_after" && (
+                                    <div className="space-y-2">
+                                        <Label>Dias após Matrícula</Label>
+                                        <Input
+                                            type="number"
+                                            min="0"
+                                            placeholder="Ex: 7"
+                                            value={moduleForm.daysAfterEnrollment}
+                                            onChange={(e) =>
+                                                setModuleForm((prev) => ({ ...prev, daysAfterEnrollment: e.target.value }))
+                                            }
+                                        />
+                                        <p className="text-xs text-muted-foreground">
+                                            Todas as lições deste módulo serão liberadas X dias após a matrícula (se não tiverem valor próprio)
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setModuleDialogOpen(false)}>
@@ -829,6 +1030,63 @@ export default function EditCoursePage(props: { params: Promise<{ courseId: stri
                                 }
                             />
                         </div>
+
+                        {/* Configurações granulares (só aparece na edição) */}
+                        {editingLesson && (
+                            <div className="border-t pt-4 space-y-4">
+                                <p className="text-sm font-medium text-muted-foreground">Configurações Avançadas</p>
+
+                                {/* Comentários */}
+                                <div className="space-y-2">
+                                    <Label>Comentários</Label>
+                                    <Select
+                                        value={lessonForm.commentsEnabled}
+                                        onValueChange={(value: "inherit" | "true" | "false") =>
+                                            setLessonForm((prev) => ({ ...prev, commentsEnabled: value }))
+                                        }
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Herdar do curso" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="inherit">Herdar do curso</SelectItem>
+                                            <SelectItem value="true">Habilitado</SelectItem>
+                                            <SelectItem value="false">Desabilitado</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                {/* Data de liberação (para modo date) */}
+                                {dripType === "date" && (
+                                    <div className="space-y-2">
+                                        <Label>Data de Liberação</Label>
+                                        <Input
+                                            type="date"
+                                            value={lessonForm.releaseDate}
+                                            onChange={(e) =>
+                                                setLessonForm((prev) => ({ ...prev, releaseDate: e.target.value }))
+                                            }
+                                        />
+                                    </div>
+                                )}
+
+                                {/* Dias após matrícula (para modo days_after) */}
+                                {dripType === "days_after" && (
+                                    <div className="space-y-2">
+                                        <Label>Dias após Matrícula</Label>
+                                        <Input
+                                            type="number"
+                                            min="0"
+                                            placeholder="Ex: 7"
+                                            value={lessonForm.daysAfterEnrollment}
+                                            onChange={(e) =>
+                                                setLessonForm((prev) => ({ ...prev, daysAfterEnrollment: e.target.value }))
+                                            }
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setLessonDialogOpen(false)}>

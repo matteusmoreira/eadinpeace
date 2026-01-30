@@ -4,6 +4,13 @@ import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import ReactPlayer from "react-player";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -23,9 +30,11 @@ import {
     ThumbsUp,
     MessageSquare,
     Share2,
+    SkipForward,
     Loader2,
     Award,
     FileText,
+    Lock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -63,6 +72,10 @@ interface Lesson {
     isPublished: boolean;
     order: number;
     isCompleted?: boolean;
+    // Campos de acesso (gotejamento)
+    hasAccess?: boolean;
+    unlockDate?: number;
+    reason?: string;
 }
 
 interface Module {
@@ -71,6 +84,10 @@ interface Module {
     description?: string;
     order: number;
     lessons: Lesson[];
+    // Campos de acesso (gotejamento)
+    hasAccess?: boolean;
+    unlockDate?: number;
+    reason?: string;
 }
 
 interface CourseWithContent {
@@ -148,20 +165,27 @@ function CourseSidebar({
                                 {module.lessons?.map((lesson, lessonIndex) => {
                                     const isActive = lesson._id === currentLessonId;
                                     const isCompleted = completedLessons.includes(lesson._id);
+                                    const isLocked = lesson.hasAccess === false;
 
                                     return (
                                         <button
                                             key={lesson._id}
-                                            onClick={() => onSelectLesson(lesson._id)}
+                                            onClick={() => !isLocked && onSelectLesson(lesson._id)}
+                                            disabled={isLocked}
+                                            title={isLocked && lesson.reason ? lesson.reason : undefined}
                                             className={cn(
                                                 "w-full flex items-start gap-3 p-3 rounded-lg text-left transition-all",
                                                 isActive
                                                     ? "bg-primary/10 border border-primary/20"
-                                                    : "hover:bg-muted/50"
+                                                    : isLocked
+                                                        ? "opacity-60 cursor-not-allowed"
+                                                        : "hover:bg-muted/50"
                                             )}
                                         >
                                             <div className="mt-0.5">
-                                                {isCompleted ? (
+                                                {isLocked ? (
+                                                    <Lock className="h-4 w-4 text-muted-foreground" />
+                                                ) : isCompleted ? (
                                                     <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                                                 ) : isActive ? (
                                                     <Play className="h-4 w-4 text-primary fill-primary" />
@@ -215,9 +239,23 @@ export default function CoursePlayerPage() {
     const [showCelebration, setShowCelebration] = useState(false);
     const [completedLessonTitle, setCompletedLessonTitle] = useState("");
     const [showAutoplay, setShowAutoplay] = useState(false);
-    const [autoplayEnabled, setAutoplayEnabled] = useState(true);
+    const [autoplayEnabled, setAutoplayEnabled] = useState(() => {
+        // Inicializar do localStorage (client-side only)
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('autoplayEnabled');
+            return saved !== null ? JSON.parse(saved) : true;
+        }
+        return true;
+    });
     const [showComments, setShowComments] = useState(false);
     const playerRef = useRef<any>(null);
+
+    // Persistir preferência de autoplay no localStorage
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('autoplayEnabled', JSON.stringify(autoplayEnabled));
+        }
+    }, [autoplayEnabled]);
 
     // Aplicar proteção de conteúdo na página
     useContentProtection({
@@ -234,8 +272,11 @@ export default function CoursePlayerPage() {
         user?.id ? { clerkId: user.id } : "skip"
     );
 
-    // Get course with content
-    const course = useQuery(api.courses.getWithContent, { courseId });
+    // Get course with content and access info based on drip settings
+    const course = useQuery(
+        api.dripContent.getCourseContentWithAccess,
+        convexUser?._id ? { userId: convexUser._id, courseId } : "skip"
+    );
 
     // Get enrollment and progress
     const enrollment = useQuery(
@@ -396,6 +437,29 @@ export default function CoursePlayerPage() {
                                 </Button>
                             </Link>
                         )}
+
+                        {/* Toggle de Autoplay */}
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-muted/50">
+                                        <SkipForward className={cn(
+                                            "h-4 w-4 transition-colors",
+                                            autoplayEnabled ? "text-primary" : "text-muted-foreground"
+                                        )} />
+                                        <Switch
+                                            checked={autoplayEnabled}
+                                            onCheckedChange={setAutoplayEnabled}
+                                            className="data-[state=checked]:bg-primary"
+                                        />
+                                    </div>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>{autoplayEnabled ? "Autoplay ativado" : "Autoplay desativado"}</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+
                         <Button variant="ghost" size="icon">
                             <ThumbsUp className="h-4 w-4" />
                         </Button>
@@ -499,6 +563,19 @@ export default function CoursePlayerPage() {
                         </div>
                     )}
                 </div>
+
+                {/* Seção de Comentários - exibida condicionalmente */}
+                {course?.commentsEnabled !== false && currentLesson && convexUser && (
+                    <div className="border-t bg-card">
+                        <div className="max-w-4xl mx-auto p-4">
+                            <LessonComments
+                                lessonId={currentLesson._id}
+                                userId={convexUser._id}
+                                userRole={(convexUser as any).role || "student"}
+                            />
+                        </div>
+                    </div>
+                )}
 
                 {/* Bottom Navigation */}
                 <div className="h-16 border-t flex items-center justify-between px-4 bg-card">
