@@ -612,7 +612,7 @@ export const create = mutation({
         organizationId: v.id("organizations"),
         instructorId: v.id("users"),
         category: v.string(),
-        level: v.union(v.literal("beginner"), v.literal("intermediate"), v.literal("advanced")),
+        level: v.optional(v.union(v.literal("beginner"), v.literal("intermediate"), v.literal("advanced"))),
         price: v.optional(v.number()),
         certificateTemplateId: v.optional(v.id("certificateTemplates")),
     },

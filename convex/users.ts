@@ -89,6 +89,20 @@ export const getByClerkId = query({
     },
 });
 
+// Get user by email (for checking pre-registered users)
+export const getByEmail = query({
+    args: { email: v.string() },
+    handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) return null;
+
+        return await ctx.db
+            .query("users")
+            .withIndex("by_email", (q) => q.eq("email", args.email))
+            .first();
+    },
+});
+
 // Sync user data from Clerk (updates basic info only, preserves role and organization)
 export const syncFromClerk = mutation({
     args: {
@@ -290,14 +304,26 @@ export const upsertFromClerk = mutation({
             throw new Error("Acesso negado");
         }
 
-        const existingUser = await ctx.db
+        // First, try to find user by clerkId
+        let existingUser = await ctx.db
             .query("users")
             .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
             .first();
 
+        // If not found by clerkId, check if there's a pre-registered user by email
+        // (created by superadmin with pending status)
+        let preRegisteredUser = null;
+        if (!existingUser) {
+            preRegisteredUser = await ctx.db
+                .query("users")
+                .withIndex("by_email", (q) => q.eq("email", args.email))
+                .first();
+        }
+
         const now = Date.now();
 
         if (existingUser) {
+            // User already exists with this clerkId - just update basic info
             const updateData: Record<string, unknown> = {
                 email: args.email,
                 firstName: args.firstName,
@@ -309,7 +335,27 @@ export const upsertFromClerk = mutation({
 
             await ctx.db.patch(existingUser._id, updateData);
             return existingUser._id;
+        } else if (preRegisteredUser && preRegisteredUser.clerkId.startsWith("pending_")) {
+            // User was pre-registered by superadmin - update with Clerk data
+            // Keep the role and organizationId set by superadmin
+            const slug = preRegisteredUser.slug || await generateUniqueSlug(ctx, args.firstName, args.lastName);
+
+            await ctx.db.patch(preRegisteredUser._id, {
+                clerkId: args.clerkId,
+                email: args.email,
+                firstName: args.firstName,
+                lastName: args.lastName,
+                slug,
+                imageUrl: args.imageUrl,
+                isActive: true, // Activate the user
+                lastLoginAt: now,
+                updatedAt: now,
+                // Note: role and organizationId are preserved from superadmin's setup
+            });
+
+            return preRegisteredUser._id;
         } else {
+            // Check if this is the first user (bootstrap superadmin)
             const anyUser = await ctx.db.query("users").take(1);
             const allowRoleBootstrap = anyUser.length === 0;
             const role = allowRoleBootstrap ? (args.role || "student") : "student";
@@ -1017,6 +1063,5 @@ export const changeUserPassword = mutation({
         return { success: true };
     },
 });
-
 
 

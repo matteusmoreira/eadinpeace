@@ -31,7 +31,7 @@ import {
     Copy,
     Check,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -98,13 +98,19 @@ export default function NewUserPage() {
         role: "student" as "superadmin" | "admin" | "professor" | "student",
         organizationId: "",
         imageUrl: "",
+        imageStorageId: "",
         sendInvite: false, // Padrão agora é criar com senha
         isActive: true,
     });
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [isUploadingImage, setIsUploadingImage] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Convex
     const organizations = useQuery(api.organizations.getAll);
     const createUser = useMutation(api.users.create);
+    const generateUploadUrl = useMutation(api.files.generateUploadUrl);
+    const uploadUserAvatar = useMutation(api.files.uploadUserAvatar);
 
     // Gerar senha aleatória
     const generatePassword = () => {
@@ -114,6 +120,58 @@ export default function NewUserPage() {
             password += chars.charAt(Math.floor(Math.random() * chars.length));
         }
         setFormData((prev) => ({ ...prev, password }));
+    };
+
+    // Handler para seleção de arquivo
+    const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        // Validação
+        if (file.size > 2 * 1024 * 1024) {
+            toast.error("A imagem deve ter no máximo 2MB");
+            return;
+        }
+
+        if (!file.type.startsWith("image/")) {
+            toast.error("Por favor, selecione uma imagem válida");
+            return;
+        }
+
+        setSelectedFile(file);
+        // Criar preview
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            setFormData((prev) => ({ ...prev, imageUrl: e.target?.result as string }));
+        };
+        reader.readAsDataURL(file);
+    };
+
+    // Handler para upload da imagem
+    const handleImageUpload = async (): Promise<string | null> => {
+        if (!selectedFile) return null;
+
+        setIsUploadingImage(true);
+        try {
+            const uploadUrl = await generateUploadUrl();
+
+            const result = await fetch(uploadUrl, {
+                method: "POST",
+                headers: { "Content-Type": selectedFile.type },
+                body: selectedFile,
+            });
+
+            if (!result.ok) throw new Error("Falha no upload da imagem");
+
+            const { storageId } = await result.json();
+            return storageId;
+        } catch (error) {
+            console.error("Erro no upload:", error);
+            toast.error("Erro ao fazer upload da imagem");
+            return null;
+        } finally {
+            setIsUploadingImage(false);
+        }
     };
 
     // Copiar credenciais
@@ -154,7 +212,14 @@ export default function NewUserPage() {
                 clerkId = result.clerkId;
             }
 
-            await createUser({
+            // Fazer upload da imagem se houver arquivo selecionado
+            let imageStorageId: string | null = null;
+            if (selectedFile) {
+                imageStorageId = await handleImageUpload();
+            }
+
+            // Criar usuário no Convex
+            const newUserId = await createUser({
                 email: formData.email,
                 firstName: formData.firstName,
                 lastName: formData.lastName,
@@ -165,6 +230,14 @@ export default function NewUserPage() {
                 imageUrl: formData.imageUrl || undefined,
                 clerkId: clerkId, // Passar clerkId se criou no Clerk
             });
+
+            // Se upload foi feito, atualizar avatar do usuário
+            if (imageStorageId && newUserId) {
+                await uploadUserAvatar({
+                    userId: newUserId,
+                    storageId: imageStorageId as Id<"_storage">,
+                });
+            }
 
             if (!formData.sendInvite && formData.password) {
                 // Salvar credenciais para mostrar ao usuário
@@ -227,16 +300,58 @@ export default function NewUserPage() {
                                         {formData.firstName?.[0] || formData.lastName?.[0] || <User className="h-8 w-8" />}
                                     </AvatarFallback>
                                 </Avatar>
-                                <div className="space-y-2">
-                                    <Label htmlFor="imageUrl">URL da Foto (opcional)</Label>
-                                    <Input
-                                        id="imageUrl"
-                                        placeholder="https://..."
-                                        value={formData.imageUrl}
-                                        onChange={(e) =>
-                                            setFormData((prev) => ({ ...prev, imageUrl: e.target.value }))
-                                        }
-                                    />
+                                <div className="space-y-2 flex-1">
+                                    <Label>Foto de Perfil</Label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="file"
+                                            ref={fileInputRef}
+                                            onChange={handleFileSelect}
+                                            accept="image/*"
+                                            className="hidden"
+                                        />
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={() => fileInputRef.current?.click()}
+                                            disabled={isUploadingImage}
+                                            className="flex-1"
+                                        >
+                                            {isUploadingImage ? (
+                                                <>
+                                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                                    Enviando...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Upload className="h-4 w-4 mr-2" />
+                                                    {selectedFile ? "Trocar Imagem" : "Escolher Imagem"}
+                                                </>
+                                            )}
+                                        </Button>
+                                        {selectedFile && (
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => {
+                                                    setSelectedFile(null);
+                                                    setFormData((prev) => ({ ...prev, imageUrl: "" }));
+                                                    if (fileInputRef.current) fileInputRef.current.value = "";
+                                                }}
+                                            >
+                                                Remover
+                                            </Button>
+                                        )}
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                        Máximo 2MB. Formatos: JPG, PNG, GIF
+                                    </p>
+                                    {selectedFile && (
+                                        <p className="text-xs text-emerald-600">
+                                            ✓ {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)}MB)
+                                        </p>
+                                    )}
                                 </div>
                             </div>
 

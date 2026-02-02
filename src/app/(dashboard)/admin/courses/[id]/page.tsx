@@ -89,7 +89,12 @@ export default function AdminCourseEditPage() {
     const { user } = useUser();
     const params = useParams();
     const router = useRouter();
-    const courseId = params.id as Id<"courses">;
+    const courseIdOrSlug = params.id as string;
+    
+    // Detect if it's an ID (Convex ID format) or a slug
+    const isConvexId = /^[a-z][a-z0-9]{15,}$/.test(courseIdOrSlug);
+    const isSlug = !isConvexId;
+    
     const fileInputRef = useRef<HTMLInputElement>(null);
     const thumbnailInputRef = useRef<HTMLInputElement>(null);
 
@@ -135,10 +140,20 @@ export default function AdminCourseEditPage() {
         category: "",
         instructorId: "",
         certificateTemplateId: "none",
+        dripType: "free" as "free" | "sequential" | "date" | "days_after",
     });
 
-    // Queries
-    const course = useQuery(api.courses.getWithContent, { courseId });
+    // Queries - support both ID and slug
+    const courseById = useQuery(
+        api.courses.getWithContent,
+        !isSlug ? { courseId: courseIdOrSlug as Id<"courses"> } : "skip"
+    );
+    const courseBySlug = useQuery(
+        api.courses.getWithContentBySlug,
+        isSlug ? { slug: courseIdOrSlug } : "skip"
+    );
+    const course = courseById ?? courseBySlug;
+    const courseId = course?._id;
 
     // Get Convex user to get organizationId
     const convexUser = useQuery(
@@ -186,6 +201,7 @@ export default function AdminCourseEditPage() {
                 category: course.category || "",
                 instructorId: course.instructorId ? String(course.instructorId) : "",
                 certificateTemplateId: course.certificateTemplateId ? String(course.certificateTemplateId) : "none",
+                dripType: course.dripType || "free",
             });
         }
     }, [course]);
@@ -215,6 +231,7 @@ export default function AdminCourseEditPage() {
                     settingsFormData.certificateTemplateId === "none"
                         ? undefined
                         : (settingsFormData.certificateTemplateId as Id<"certificateTemplates">),
+                dripType: settingsFormData.dripType,
             });
             toast.success("Configurações do curso atualizadas!");
         } catch (error: any) {
@@ -269,15 +286,20 @@ export default function AdminCourseEditPage() {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        // Validar tipo de arquivo
-        if (!file.type.startsWith("image/")) {
-            toast.error("Selecione um arquivo de imagem válido");
+        // Validar tipo de arquivo - apenas jpg, jpeg, png, webp
+        const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+        const validExtensions = ['.jpg', '.jpeg', '.png', '.webp'];
+        const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+
+        if (!validTypes.includes(file.type) && !validExtensions.includes(fileExtension)) {
+            toast.error("Formato inválido. Use apenas JPG, JPEG, PNG ou WEBP");
             return;
         }
 
-        // Validar tamanho (máximo 5MB)
-        if (file.size > 5 * 1024 * 1024) {
-            toast.error("A imagem deve ter no máximo 5MB");
+        // Validar tamanho (máximo 15MB)
+        const maxSize = 15 * 1024 * 1024; // 15MB
+        if (file.size > maxSize) {
+            toast.error("A imagem deve ter no máximo 15MB");
             return;
         }
 
@@ -424,7 +446,7 @@ export default function AdminCourseEditPage() {
                     ? new Date(newLesson.dueDate).getTime()
                     : undefined,
                 // Common
-                duration: newLesson.duration * 60, // Convert minutes to seconds
+                duration: newLesson.type === "video" ? 0 : newLesson.duration * 60, // Vídeos: 0, outros: minutos para segundos
                 isFree: newLesson.isFree,
             });
 
@@ -527,7 +549,7 @@ export default function AdminCourseEditPage() {
                     ? new Date(newLesson.dueDate).getTime()
                     : undefined,
                 // Common
-                duration: newLesson.duration * 60, // Convert minutes to seconds
+                duration: newLesson.type === "video" ? 0 : newLesson.duration * 60, // Vídeos: 0, outros: minutos para segundos
                 isFree: newLesson.isFree,
             });
             toast.success("Aula atualizada com sucesso!");
@@ -961,7 +983,7 @@ export default function AdminCourseEditPage() {
                                                         <ImageIcon className="h-8 w-8 text-muted-foreground" />
                                                         <p className="font-medium">Clique para fazer upload</p>
                                                         <p className="text-sm text-muted-foreground">
-                                                            PNG, JPG ou WEBP até 5MB
+                                                            JPG, JPEG, PNG ou WEBP até 15MB
                                                         </p>
                                                     </div>
                                                 )}
@@ -1024,6 +1046,64 @@ export default function AdminCourseEditPage() {
                                             </p>
                                         </div>
                                     </div>
+
+                                    {/* Content Drip Settings */}
+                                    <div className="space-y-4 border-t pt-6 mt-6">
+                                        <div className="flex items-center gap-2">
+                                            <Clock className="h-5 w-5 text-primary" />
+                                            <h3 className="font-medium">Gotejamento de Conteúdo (Drip)</h3>
+                                        </div>
+                                        <p className="text-sm text-muted-foreground">
+                                            Configure como o conteúdo do curso será liberado aos alunos.
+                                        </p>
+                                        
+                                        <div className="space-y-2">
+                                            <Label>Modo de Liberação</Label>
+                                            <Select
+                                                value={settingsFormData.dripType}
+                                                onValueChange={(value: any) => setSettingsFormData({ ...settingsFormData, dripType: value })}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Selecione..." />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="free">
+                                                        <div className="flex flex-col">
+                                                            <span>Livre - Todo conteúdo disponível</span>
+                                                            <span className="text-xs text-muted-foreground">Alunos acessam todo o conteúdo imediatamente</span>
+                                                        </div>
+                                                    </SelectItem>
+                                                    <SelectItem value="sequential">
+                                                        <div className="flex flex-col">
+                                                            <span>Sequencial - Liberação progressiva</span>
+                                                            <span className="text-xs text-muted-foreground">Cada módulo libera após concluir o anterior</span>
+                                                        </div>
+                                                    </SelectItem>
+                                                    <SelectItem value="date">
+                                                        <div className="flex flex-col">
+                                                            <span>Por Data - Liberação em datas específicas</span>
+                                                            <span className="text-xs text-muted-foreground">Defina datas específicas para cada módulo/aula</span>
+                                                        </div>
+                                                    </SelectItem>
+                                                    <SelectItem value="days_after">
+                                                        <div className="flex flex-col">
+                                                            <span>Dias após Inscrição - Liberação gradual</span>
+                                                            <span className="text-xs text-muted-foreground">Libera X dias após o aluno se matricular</span>
+                                                        </div>
+                                                    </SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        
+                                        {settingsFormData.dripType !== "free" && (
+                                            <div className="bg-muted/50 p-4 rounded-lg">
+                                                <p className="text-sm text-muted-foreground">
+                                                    <strong>Nota:</strong> Para configurar as datas específicas ou dias de liberação, acesse cada módulo ou aula individualmente após salvar esta configuração.
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+
                                     <div className="flex justify-end">
                                         <Button type="submit" disabled={isLoading} className="gap-2 gradient-bg border-0">
                                             {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -1108,38 +1188,23 @@ export default function AdminCourseEditPage() {
                                     <Video className="h-4 w-4 text-blue-500" />
                                     Configurações de Vídeo
                                 </h4>
-                                <div className="grid gap-4 md:grid-cols-2">
-                                    <div className="space-y-2">
-                                        <Label>Provedor de Vídeo</Label>
-                                        <Select
-                                            value={newLesson.videoProvider}
-                                            onValueChange={(value: any) =>
-                                                setNewLesson((prev) => ({ ...prev, videoProvider: value }))
-                                            }
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="youtube">YouTube</SelectItem>
-                                                <SelectItem value="bunny">Bunny CDN</SelectItem>
-                                                <SelectItem value="upload">Upload</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="duration">Duração (minutos) *</Label>
-                                        <Input
-                                            id="duration"
-                                            type="number"
-                                            min="1"
-                                            placeholder="15"
-                                            value={newLesson.duration || ""}
-                                            onChange={(e) =>
-                                                setNewLesson((prev) => ({ ...prev, duration: parseInt(e.target.value) || 0 }))
-                                            }
-                                        />
-                                    </div>
+                                <div className="space-y-2">
+                                    <Label>Provedor de Vídeo</Label>
+                                    <Select
+                                        value={newLesson.videoProvider}
+                                        onValueChange={(value: any) =>
+                                            setNewLesson((prev) => ({ ...prev, videoProvider: value }))
+                                        }
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="youtube">YouTube</SelectItem>
+                                            <SelectItem value="bunny">Bunny CDN</SelectItem>
+                                            <SelectItem value="upload">Upload</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                 </div>
 
                                 {/* YouTube or Upload URL Input */}
@@ -1499,38 +1564,23 @@ export default function AdminCourseEditPage() {
                                     <Video className="h-4 w-4 text-blue-500" />
                                     Configurações de Vídeo
                                 </h4>
-                                <div className="grid gap-4 md:grid-cols-2">
-                                    <div className="space-y-2">
-                                        <Label>Provedor de Vídeo</Label>
-                                        <Select
-                                            value={newLesson.videoProvider}
-                                            onValueChange={(value: any) =>
-                                                setNewLesson((prev) => ({ ...prev, videoProvider: value }))
-                                            }
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="youtube">YouTube</SelectItem>
-                                                <SelectItem value="bunny">Bunny CDN</SelectItem>
-                                                <SelectItem value="upload">Upload</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="editDuration">Duração (minutos) *</Label>
-                                        <Input
-                                            id="editDuration"
-                                            type="number"
-                                            min="1"
-                                            placeholder="15"
-                                            value={newLesson.duration || ""}
-                                            onChange={(e) =>
-                                                setNewLesson((prev) => ({ ...prev, duration: parseInt(e.target.value) || 0 }))
-                                            }
-                                        />
-                                    </div>
+                                <div className="space-y-2">
+                                    <Label>Provedor de Vídeo</Label>
+                                    <Select
+                                        value={newLesson.videoProvider}
+                                        onValueChange={(value: any) =>
+                                            setNewLesson((prev) => ({ ...prev, videoProvider: value }))
+                                        }
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="youtube">YouTube</SelectItem>
+                                            <SelectItem value="bunny">Bunny CDN</SelectItem>
+                                            <SelectItem value="upload">Upload</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                 </div>
 
                                 {/* YouTube or Upload URL Input */}

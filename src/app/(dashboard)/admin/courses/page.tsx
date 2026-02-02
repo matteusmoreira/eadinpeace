@@ -282,7 +282,7 @@ export default function AdminCoursesPage() {
                                                 </Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
-                                                <Link href={`/admin/courses/${course._id}`}>
+                                                <Link href={`/admin/courses/${course.slug}`}>
                                                     <DropdownMenuItem className="gap-2">
                                                         <Edit className="h-4 w-4" />
                                                         Editar
@@ -374,7 +374,7 @@ export default function AdminCoursesPage() {
                                                 </Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
-                                                <Link href={`/admin/courses/${course._id}`}>
+                                                <Link href={`/admin/courses/${course.slug}`}>
                                                     <DropdownMenuItem className="gap-2">
                                                         <Edit className="h-4 w-4" />
                                                         Editar

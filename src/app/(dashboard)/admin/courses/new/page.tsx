@@ -166,15 +166,20 @@ export default function AdminNewCoursePage() {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        // Validate file type
-        if (!file.type.startsWith("image/")) {
-            toast.error("Selecione um arquivo de imagem válido");
+        // Validate file type - apenas jpg, jpeg, png, webp
+        const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+        const validExtensions = ['.jpg', '.jpeg', '.png', '.webp'];
+        const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+
+        if (!validTypes.includes(file.type) && !validExtensions.includes(fileExtension)) {
+            toast.error("Formato inválido. Use apenas JPG, JPEG, PNG ou WEBP");
             return;
         }
 
-        // Validate file size (max 5MB)
-        if (file.size > 5 * 1024 * 1024) {
-            toast.error("A imagem deve ter no máximo 5MB");
+        // Validate file size (max 15MB)
+        const maxSize = 15 * 1024 * 1024; // 15MB
+        if (file.size > maxSize) {
+            toast.error("A imagem deve ter no máximo 15MB");
             return;
         }
 
@@ -323,7 +328,6 @@ export default function AdminNewCoursePage() {
                 description: formData.description,
                 thumbnail: undefined, // Will be updated after upload
                 category: formData.category,
-                level: "beginner",
                 organizationId: effectiveOrgId,
                 instructorId: formData.instructorId as Id<"users">,
                 ...(validCertificateId ? { certificateTemplateId: validCertificateId } : {}),
@@ -338,7 +342,7 @@ export default function AdminNewCoursePage() {
             }
 
             toast.success("Curso criado com sucesso!");
-            router.push(`/admin/courses/${courseId}`);
+            router.push(`/admin/courses/${formData.slug}`);
         } catch (error: any) {
             toast.error(error.message || "Erro ao criar curso");
         } finally {
@@ -472,7 +476,7 @@ export default function AdminNewCoursePage() {
                                                 <Upload className="h-8 w-8 text-muted-foreground" />
                                                 <p className="font-medium">Clique para fazer upload</p>
                                                 <p className="text-sm text-muted-foreground">
-                                                    PNG, JPG ou WEBP até 5MB
+                                                    JPG, JPEG, PNG ou WEBP até 15MB
                                                 </p>
                                             </div>
                                         )}

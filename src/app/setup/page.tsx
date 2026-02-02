@@ -6,51 +6,24 @@ import { api } from "@convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUser } from "@clerk/nextjs";
-import { Loader2, ShieldCheck, Crown, GraduationCap, UserCircle } from "lucide-react";
+import { Loader2, GraduationCap, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
-
-type RoleOption = "superadmin" | "admin" | "professor" | "student";
-
-const roleOptions: { value: RoleOption; label: string; description: string; icon: typeof Crown; color: string }[] = [
-    {
-        value: "superadmin",
-        label: "Superadmin",
-        description: "Acesso total ao sistema, gerencia todas as organizações",
-        icon: Crown,
-        color: "text-amber-500",
-    },
-    {
-        value: "admin",
-        label: "Administrador",
-        description: "Gerencia uma organização, cursos e usuários",
-        icon: ShieldCheck,
-        color: "text-blue-500",
-    },
-    {
-        value: "professor",
-        label: "Professor",
-        description: "Cria e gerencia cursos, avalia alunos",
-        icon: GraduationCap,
-        color: "text-emerald-500",
-    },
-    {
-        value: "student",
-        label: "Aluno",
-        description: "Acessa cursos e materiais de estudo",
-        icon: UserCircle,
-        color: "text-purple-500",
-    },
-];
+import { toast } from "sonner";
 
 export default function SetupPage() {
     const { user, isLoaded } = useUser();
     const router = useRouter();
-    const [selectedRole, setSelectedRole] = useState<RoleOption>("student");
-    const [result, setResult] = useState<string>("");
     const [isLoading, setIsLoading] = useState(false);
+    const [result, setResult] = useState<string>("");
+    const [isError, setIsError] = useState(false);
 
-    // Get current user from Convex
+    // Get current user from Convex by email (to check if pre-registered)
+    const preRegisteredUser = useQuery(
+        api.users.getByEmail,
+        user?.emailAddresses[0]?.emailAddress ? { email: user.emailAddresses[0].emailAddress } : "skip"
+    );
+
+    // Get current user from Convex by clerkId
     const convexUser = useQuery(
         api.users.getByClerkId,
         user?.id ? { clerkId: user.id } : "skip"
@@ -59,29 +32,71 @@ export default function SetupPage() {
     // Upsert user mutation
     const upsertUser = useMutation(api.users.upsertFromClerk);
 
-    // Redirect if user already exists
+    // Redirect if user already exists and is active
     useEffect(() => {
-        if (convexUser) {
+        if (convexUser && convexUser.isActive) {
             router.push("/dashboard");
         }
     }, [convexUser, router]);
 
-    const handleSetup = async () => {
+    // Auto-setup if user is pre-registered
+    useEffect(() => {
+        if (isLoaded && user && preRegisteredUser && !isLoading && !result) {
+            // User was pre-registered by superadmin, auto-complete setup
+            if (preRegisteredUser.clerkId.startsWith("pending_")) {
+                handleAutoSetup();
+            }
+        }
+    }, [isLoaded, user, preRegisteredUser, isLoading, result]);
+
+    const handleAutoSetup = async () => {
         if (!user) return;
         setIsLoading(true);
 
         try {
-            // Create the user in Convex with the selected role
+            // Create/update the user in Convex - this will preserve role and org from superadmin
             await upsertUser({
                 clerkId: user.id,
                 email: user.emailAddresses[0]?.emailAddress || "",
                 firstName: user.firstName || "",
                 lastName: user.lastName || "",
                 imageUrl: user.imageUrl,
-                role: selectedRole,
             });
 
-            setResult(`Sucesso! Sua conta foi criada como ${roleOptions.find(r => r.value === selectedRole)?.label}.`);
+            setResult("Conta ativada com sucesso! Redirecionando...");
+            setIsError(false);
+            toast.success("Bem-vindo! Sua conta foi ativada.");
+
+            // Redirect after a short delay
+            setTimeout(() => {
+                router.push("/dashboard");
+            }, 1500);
+        } catch (error: any) {
+            setResult(`Erro ao ativar conta: ${error.message}`);
+            setIsError(true);
+            toast.error(error.message || "Erro ao ativar conta");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleManualSetup = async () => {
+        if (!user) return;
+        setIsLoading(true);
+
+        try {
+            // This will only work if it's the first user (bootstrap)
+            await upsertUser({
+                clerkId: user.id,
+                email: user.emailAddresses[0]?.emailAddress || "",
+                firstName: user.firstName || "",
+                lastName: user.lastName || "",
+                imageUrl: user.imageUrl,
+            });
+
+            setResult("Conta criada com sucesso! Redirecionando...");
+            setIsError(false);
+            toast.success("Bem-vindo! Sua conta foi criada.");
 
             // Redirect after a short delay
             setTimeout(() => {
@@ -89,6 +104,8 @@ export default function SetupPage() {
             }, 1500);
         } catch (error: any) {
             setResult(`Erro: ${error.message}`);
+            setIsError(true);
+            toast.error(error.message || "Erro ao criar conta");
         } finally {
             setIsLoading(false);
         }
@@ -114,14 +131,18 @@ export default function SetupPage() {
         );
     }
 
-    // If user already exists in Convex, show loading while redirecting
-    if (convexUser !== null && convexUser !== undefined) {
+    // If user already exists in Convex and is active, show loading while redirecting
+    if (convexUser && convexUser.isActive) {
         return (
             <div className="min-h-screen flex items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin" />
             </div>
         );
     }
+
+    const userEmail = user.emailAddresses[0]?.emailAddress;
+    const isPreRegistered = preRegisteredUser && preRegisteredUser.clerkId.startsWith("pending_");
+    const isFirstUser = !preRegisteredUser; // If no users exist yet, this is the first user
 
     return (
         <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-background to-muted">
@@ -132,60 +153,84 @@ export default function SetupPage() {
                     </div>
                     <CardTitle className="text-2xl">Bem-vindo à Plataforma!</CardTitle>
                     <CardDescription>
-                        Configure sua conta para começar
+                        {isPreRegistered 
+                            ? "Ativando sua conta pré-cadastrada..."
+                            : isFirstUser 
+                                ? "Configure sua conta para começar"
+                                : "Verificando seu acesso..."
+                        }
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                     <div className="p-4 bg-muted rounded-lg">
-                        <p className="text-sm"><strong>Email:</strong> {user.emailAddresses[0]?.emailAddress}</p>
+                        <p className="text-sm"><strong>Email:</strong> {userEmail}</p>
                         <p className="text-sm"><strong>Nome:</strong> {user.firstName} {user.lastName}</p>
                     </div>
 
-                    <div className="space-y-3">
-                        <p className="text-sm font-medium">Selecione seu perfil:</p>
-                        <div className="grid gap-3">
-                            {roleOptions.map((role) => {
-                                const Icon = role.icon;
-                                return (
-                                    <button
-                                        key={role.value}
-                                        type="button"
-                                        onClick={() => setSelectedRole(role.value)}
-                                        className={cn(
-                                            "flex items-center gap-4 p-4 rounded-lg border-2 text-left transition-all",
-                                            selectedRole === role.value
-                                                ? "border-primary bg-primary/5"
-                                                : "border-muted hover:border-muted-foreground/50"
-                                        )}
-                                    >
-                                        <div className={cn("h-10 w-10 rounded-lg bg-muted flex items-center justify-center", role.color)}>
-                                            <Icon className="h-5 w-5" />
-                                        </div>
-                                        <div className="flex-1">
-                                            <div className="font-medium">{role.label}</div>
-                                            <div className="text-xs text-muted-foreground">{role.description}</div>
-                                        </div>
-                                        {selectedRole === role.value && (
-                                            <div className="h-4 w-4 rounded-full bg-primary" />
-                                        )}
-                                    </button>
-                                );
-                            })}
+                    {isPreRegistered ? (
+                        // User is pre-registered - show auto-setup in progress
+                        <div className="text-center space-y-4">
+                            <div className="flex items-center justify-center gap-2 text-primary">
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                                <span>Ativando sua conta...</span>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                                Seu perfil foi pré-configurado pelo administrador. 
+                                Aguarde enquanto ativamos sua conta.
+                            </p>
                         </div>
-                    </div>
-
-                    <Button onClick={handleSetup} disabled={isLoading} className="w-full gap-2">
-                        {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                        Criar Conta
-                    </Button>
+                    ) : isFirstUser ? (
+                        // First user - allow creating account (will be superadmin)
+                        <div className="space-y-4">
+                            <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+                                <p className="text-sm text-blue-800 dark:text-blue-200">
+                                    <strong>Primeiro acesso detectado!</strong><br />
+                                    Como você é o primeiro usuário, sua conta será criada automaticamente.
+                                </p>
+                            </div>
+                            <Button 
+                                onClick={handleManualSetup} 
+                                disabled={isLoading} 
+                                className="w-full gap-2"
+                            >
+                                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                                Criar Minha Conta
+                            </Button>
+                        </div>
+                    ) : (
+                        // Not pre-registered and not first user - show error
+                        <div className="space-y-4">
+                            <div className="p-4 bg-amber-50 dark:bg-amber-950 rounded-lg border border-amber-200 dark:border-amber-800 flex items-start gap-3">
+                                <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5" />
+                                <div>
+                                    <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                                        Conta não encontrada
+                                    </p>
+                                    <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                                        Este email não está cadastrado na plataforma. 
+                                        Entre em contato com o administrador para solicitar acesso.
+                                    </p>
+                                </div>
+                            </div>
+                            <Button 
+                                variant="outline" 
+                                onClick={() => router.push("/")} 
+                                className="w-full"
+                            >
+                                Voltar para o início
+                            </Button>
+                        </div>
+                    )}
 
                     {result && (
-                        <p className={cn(
-                            "text-center font-medium",
-                            result.startsWith("Sucesso") ? "text-green-500" : "text-red-500"
-                        )}>
-                            {result}
-                        </p>
+                        <div className={`flex items-center justify-center gap-2 ${isError ? 'text-red-500' : 'text-green-500'}`}>
+                            {isError ? (
+                                <AlertCircle className="h-5 w-5" />
+                            ) : (
+                                <CheckCircle2 className="h-5 w-5" />
+                            )}
+                            <p className="font-medium">{result}</p>
+                        </div>
                     )}
                 </CardContent>
             </Card>

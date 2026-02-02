@@ -80,3 +80,86 @@ export const logPasswordChange = internalMutation({
         });
     },
 });
+
+/**
+ * Internal action para deletar usuário no Clerk Backend API
+ * Esta action é chamada via scheduler do Convex para execução assíncrona
+ * 
+ * IMPORTANTE: Requer CLERK_SECRET_KEY configurada nas variáveis de ambiente do Convex
+ */
+export const deleteUserInClerk = internalAction({
+    args: {
+        clerkUserId: v.string(),
+        deletedByUserId: v.id("users"),
+        targetUserId: v.id("users"),
+    },
+    handler: async (ctx, args) => {
+        // Obter a secret key do ambiente
+        const clerkSecretKey = process.env.CLERK_SECRET_KEY;
+        if (!clerkSecretKey) {
+            console.error("[clerkActions:deleteUserInClerk] CLERK_SECRET_KEY não configurada");
+            throw new Error("CLERK_SECRET_KEY não está configurada nas variáveis de ambiente do Convex");
+        }
+
+        // Não tentar deletar usuários pendentes (que ainda não foram criados no Clerk)
+        if (args.clerkUserId.startsWith("pending_")) {
+            console.log("[clerkActions:deleteUserInClerk] Usuário pending, ignorando deleção no Clerk");
+            return { success: true, skipped: true };
+        }
+
+        try {
+            // Chamar Clerk Backend API para deletar usuário
+            const response = await fetch(
+                `https://api.clerk.com/v1/users/${args.clerkUserId}`,
+                {
+                    method: "DELETE",
+                    headers: {
+                        "Authorization": `Bearer ${clerkSecretKey}`,
+                        "Content-Type": "application/json",
+                    },
+                }
+            );
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                const errorMessage = errorData.errors?.[0]?.message ||
+                    errorData.message ||
+                    `HTTP ${response.status}: ${response.statusText}`;
+                console.error("[clerkActions:deleteUserInClerk] Erro da API:", errorMessage);
+                throw new Error(errorMessage);
+            }
+
+            // Registrar log de auditoria
+            await ctx.runMutation(internal.clerkActions.logUserDeletion, {
+                deletedByUserId: args.deletedByUserId,
+                targetUserId: args.targetUserId,
+                clerkUserId: args.clerkUserId,
+            });
+
+            console.log("[clerkActions:deleteUserInClerk] Usuário deletado com sucesso no Clerk:", args.clerkUserId);
+            return { success: true };
+        } catch (error: any) {
+            console.error("[clerkActions:deleteUserInClerk] Erro:", error);
+            throw new Error(`Erro ao deletar usuário no Clerk: ${error.message || "Erro desconhecido"}`);
+        }
+    },
+});
+
+/**
+ * Internal mutation para registrar log de deleção de usuário
+ */
+export const logUserDeletion = internalMutation({
+    args: {
+        deletedByUserId: v.id("users"),
+        targetUserId: v.id("users"),
+        clerkUserId: v.string(),
+    },
+    handler: async (ctx, args) => {
+        await ctx.db.insert("userDeletionLogs", {
+            deletedByUserId: args.deletedByUserId,
+            targetUserId: args.targetUserId,
+            clerkUserId: args.clerkUserId,
+            timestamp: Date.now(),
+        });
+    },
+});

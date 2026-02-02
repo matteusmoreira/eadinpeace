@@ -63,3 +63,21 @@ export const uploadLessonFile = mutation({
         return url;
     },
 });
+
+// Upload user avatar/profile picture
+export const uploadUserAvatar = mutation({
+    args: {
+        userId: v.id("users"),
+        storageId: v.id("_storage"),
+    },
+    handler: async (ctx, args) => {
+        const url = await ctx.storage.getUrl(args.storageId);
+
+        await ctx.db.patch(args.userId, {
+            imageUrl: url || undefined,
+            updatedAt: Date.now(),
+        });
+
+        return url;
+    },
+});

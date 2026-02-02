@@ -76,13 +76,18 @@ export function ChangePasswordDialog({
 
         setIsChanging(true);
         try {
-            await changePassword({
+            const result = await changePassword({
                 userId,
                 newPassword,
             });
 
+            // Verificar se houve erro na resposta
+            if (result && result.error) {
+                throw new Error(result.error);
+            }
+
             toast.success(`Senha alterada com sucesso para ${userName}!`, {
-                description: "O usuário pode fazer login com a nova senha.",
+                description: result?.message || "O usuário pode fazer login com a nova senha.",
             });
 
             // Limpar formulário e fechar
@@ -91,9 +96,18 @@ export function ChangePasswordDialog({
             onOpenChange(false);
         } catch (error: any) {
             console.error("Erro ao alterar senha:", error);
-            toast.error("Erro ao alterar senha", {
-                description: error.message || "Tente novamente mais tarde.",
-            });
+            
+            // Verificar se é erro de CLERK_SECRET_KEY não configurada
+            const errorMessage = error.message || "";
+            if (errorMessage.includes("CLERK_SECRET_KEY")) {
+                toast.error("Erro de configuração", {
+                    description: "A chave CLERK_SECRET_KEY não está configurada no servidor. Contate o administrador.",
+                });
+            } else {
+                toast.error("Erro ao alterar senha", {
+                    description: errorMessage || "Tente novamente mais tarde.",
+                });
+            }
         } finally {
             setIsChanging(false);
         }

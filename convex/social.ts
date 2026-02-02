@@ -120,6 +120,33 @@ export const getFeed = query({
     handler: async (ctx, args) => {
         const limit = args.limit ?? 20;
 
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
+        // Buscar usuário autenticado
+        const authUser = await ctx.db
+            .query("users")
+            .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+            .first();
+
+        if (!authUser) {
+            throw new Error("Usuário não encontrado");
+        }
+
+        // Verificar se o usuário pertence à organização (superadmins podem acessar qualquer uma)
+        if (authUser.role !== "superadmin" && authUser.organizationId !== args.organizationId) {
+            throw new Error("Acesso negado: você não pertence a esta organização");
+        }
+
+        // Verificar se o userId solicitado é o mesmo do usuário autenticado
+        // (apenas superadmins podem ver feed de outros usuários)
+        if (authUser.role !== "superadmin" && authUser._id !== args.userId) {
+            throw new Error("Acesso negado: você só pode acessar seu próprio feed");
+        }
+
         // Buscar quem o usuário segue
         const following = await ctx.db
             .query("userFollows")
@@ -136,8 +163,13 @@ export const getFeed = query({
 
         const allPosts = await postsQuery.collect();
 
-        // Filtrar por visibilidade
+        // Filtrar por visibilidade - admins e professores veem todos os posts da organização
         const visiblePosts = allPosts.filter((post) => {
+            // Admins e professores veem todos os posts da organização
+            if (authUser.role === "admin" || authUser.role === "professor" || authUser.role === "superadmin") {
+                return true;
+            }
+
             // Posts do próprio usuário sempre visíveis
             if (post.authorId === args.userId) return true;
 
@@ -766,6 +798,32 @@ export const getSuggestedUsers = query({
     handler: async (ctx, args) => {
         const limit = args.limit ?? 5;
 
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
+        // Buscar usuário autenticado
+        const authUser = await ctx.db
+            .query("users")
+            .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+            .first();
+
+        if (!authUser) {
+            throw new Error("Usuário não encontrado");
+        }
+
+        // Verificar se o usuário pertence à organização (superadmins podem acessar qualquer uma)
+        if (authUser.role !== "superadmin" && authUser.organizationId !== args.organizationId) {
+            throw new Error("Acesso negado: você não pertence a esta organização");
+        }
+
+        // Verificar se o userId solicitado é o mesmo do usuário autenticado
+        if (authUser._id !== args.userId) {
+            throw new Error("Acesso negado");
+        }
+
         // Buscar quem o usuário já segue
         const following = await ctx.db
             .query("userFollows")
@@ -887,6 +945,32 @@ export const getConversations = query({
         organizationId: v.id("organizations"),
     },
     handler: async (ctx, args) => {
+        // Verificar autenticação
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Não autenticado");
+        }
+
+        // Buscar usuário autenticado
+        const authUser = await ctx.db
+            .query("users")
+            .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+            .first();
+
+        if (!authUser) {
+            throw new Error("Usuário não encontrado");
+        }
+
+        // Verificar se o usuário pertence à organização (superadmins podem acessar qualquer uma)
+        if (authUser.role !== "superadmin" && authUser.organizationId !== args.organizationId) {
+            throw new Error("Acesso negado: você não pertence a esta organização");
+        }
+
+        // Verificar se o userId solicitado é o mesmo do usuário autenticado
+        if (authUser._id !== args.userId) {
+            throw new Error("Acesso negado");
+        }
+
         const conversations = await ctx.db
             .query("conversations")
             .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))

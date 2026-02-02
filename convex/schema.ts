@@ -61,7 +61,7 @@ export default defineSchema({
         organizationId: v.id("organizations"),
         instructorId: v.id("users"),
         category: v.string(),
-        level: v.union(v.literal("beginner"), v.literal("intermediate"), v.literal("advanced")),
+        level: v.optional(v.union(v.literal("beginner"), v.literal("intermediate"), v.literal("advanced"))),
         duration: v.number(), // in minutes
         isPublished: v.boolean(),
         isPublic: v.optional(v.boolean()), // Curso acessível sem login
@@ -1133,6 +1133,22 @@ export default defineSchema({
         ipAddress: v.optional(v.string()),
     })
         .index("by_changed_by", ["changedByUserId"])
+        .index("by_target", ["targetUserId"])
+        .index("by_timestamp", ["timestamp"]),
+
+    // ================================
+    // USER DELETION LOGS (Auditoria)
+    // ================================
+
+    // Logs de deleção de usuários por superadmins
+    userDeletionLogs: defineTable({
+        deletedByUserId: v.id("users"), // Superadmin que deletou
+        targetUserId: v.id("users"), // Usuário que foi deletado
+        clerkUserId: v.string(), // ID do usuário no Clerk
+        timestamp: v.number(),
+        ipAddress: v.optional(v.string()),
+    })
+        .index("by_deleted_by", ["deletedByUserId"])
         .index("by_target", ["targetUserId"])
         .index("by_timestamp", ["timestamp"]),
 });

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useUser } from "@clerk/nextjs";
+import { Id } from "@convex/_generated/dataModel";
 
 interface Level {
     label: string;
@@ -96,12 +97,12 @@ export default function RubricsPage() {
         try {
             if (editingId) {
                 await updateRubric({
-                    rubricId: editingId as any,
+                    rubricId: editingId as Id<"gradingRubrics">,
                     name: formData.name,
                     description: formData.description,
                     criteria: formData.criteria,
                 });
-                toast.success("Rubrica atualizada!");
+                toast.success("Rubrica atualizada com sucesso!");
             } else {
                 await createRubric({
                     organizationId: currentUser.organizationId,
@@ -110,12 +111,12 @@ export default function RubricsPage() {
                     criteria: formData.criteria,
                     isDefault: false,
                 });
-                toast.success("Rubrica criada!");
+                toast.success("Rubrica criada com sucesso!");
             }
             resetForm();
-        } catch (error) {
-            toast.error("Erro ao salvar rubrica");
-            console.error(error);
+        } catch (error: any) {
+            console.error("Erro ao salvar rubrica:", error);
+            toast.error(error?.message || "Erro ao salvar rubrica");
         }
     };
 
@@ -133,23 +134,27 @@ export default function RubricsPage() {
     const handleDelete = async (rubricId: string) => {
         if (!confirm("Tem certeza que deseja excluir esta rubrica?")) return;
         try {
-            await removeRubric({ rubricId: rubricId as any });
-            toast.success("Rubrica excluída!");
+            await removeRubric({ rubricId: rubricId as Id<"gradingRubrics"> });
+            toast.success("Rubrica excluída com sucesso!");
         } catch (error: any) {
-            if (error?.message?.includes("padrão")) {
+            console.error("Erro ao excluir rubrica:", error);
+            if (error?.message?.includes("padrão") || error?.message?.includes("default")) {
                 toast.error("Não é possível excluir a rubrica padrão. Defina outra rubrica como padrão antes.");
+            } else if (error?.message?.includes("não encontrada") || error?.message?.includes("not found")) {
+                toast.error("Rubrica não encontrada. Ela pode já ter sido excluída.");
             } else {
-                toast.error("Erro ao excluir rubrica");
+                toast.error(error?.message || "Erro ao excluir rubrica");
             }
         }
     };
 
     const handleSetDefault = async (rubricId: string) => {
         try {
-            await setDefault({ rubricId: rubricId as any });
+            await setDefault({ rubricId: rubricId as Id<"gradingRubrics"> });
             toast.success("Rubrica definida como padrão!");
-        } catch (error) {
-            toast.error("Erro ao definir como padrão");
+        } catch (error: any) {
+            console.error("Erro ao definir como padrão:", error);
+            toast.error(error?.message || "Erro ao definir como padrão");
         }
     };
 
