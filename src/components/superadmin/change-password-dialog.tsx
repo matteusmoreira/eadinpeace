@@ -81,10 +81,7 @@ export function ChangePasswordDialog({
                 newPassword,
             });
 
-            // Verificar se houve erro na resposta
-            if (result && result.error) {
-                throw new Error(result.error);
-            }
+
 
             toast.success(`Senha alterada com sucesso para ${userName}!`, {
                 description: result?.message || "O usuário pode fazer login com a nova senha.",
@@ -96,7 +93,7 @@ export function ChangePasswordDialog({
             onOpenChange(false);
         } catch (error: any) {
             console.error("Erro ao alterar senha:", error);
-            
+
             // Verificar se é erro de CLERK_SECRET_KEY não configurada
             const errorMessage = error.message || "";
             if (errorMessage.includes("CLERK_SECRET_KEY")) {
