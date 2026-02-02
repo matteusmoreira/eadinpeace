@@ -84,7 +84,7 @@ export function ChangePasswordDialog({
 
 
             toast.success(`Senha alterada com sucesso para ${userName}!`, {
-                description: result?.message || "O usuário pode fazer login com a nova senha.",
+                description: "O usuário pode fazer login com a nova senha.",
             });
 
             // Limpar formulário e fechar
