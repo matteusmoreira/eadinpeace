@@ -301,9 +301,9 @@ export default function OrganizationPublicPage() {
                                                 </div>
                                                 {/* Level badge */}
                                                 <Badge
-                                                    className={`absolute top-3 left-3 ${levelColors[course.level]} border-0 text-white`}
+                                                    className={`absolute top-3 left-3 ${course.level ? levelColors[course.level] : "bg-gray-500"} border-0 text-white`}
                                                 >
-                                                    {levelLabels[course.level]}
+                                                    {course.level ? levelLabels[course.level] : "Nível não definido"}
                                                 </Badge>
                                                 {/* Public/Private indicator */}
                                                 <div className="absolute top-3 right-3">

@@ -183,8 +183,8 @@ export default function PublicCourseDetailPage() {
                             {/* Badges */}
                             <div className="flex flex-wrap gap-2 mb-4">
                                 <Badge variant="outline">{course.category}</Badge>
-                                <Badge className={`${levelColors[course.level]} border-0 text-white`}>
-                                    {levelLabels[course.level]}
+                                <Badge className={`${course.level ? levelColors[course.level] : "bg-gray-500"} border-0 text-white`}>
+                                    {course.level ? levelLabels[course.level] : "Nível não definido"}
                                 </Badge>
                                 {course.price ? (
                                     <Badge variant="outline" className="text-primary">

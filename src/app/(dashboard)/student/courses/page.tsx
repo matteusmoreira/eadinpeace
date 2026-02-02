@@ -207,9 +207,9 @@ export default function StudentCoursesPage() {
 
                                 <CardHeader className="pb-2">
                                     <div className="flex items-center gap-2 mb-1">
-                                        <Badge variant="outline" className={cn("text-xs", levelColors[course.level])}>
-                                            {levelLabels[course.level]}
-                                        </Badge>
+                                    <Badge variant="outline" className={cn("text-xs", course.level ? levelColors[course.level] : "bg-gray-500/10 text-gray-600")}>
+                                        {course.level ? levelLabels[course.level] : 'Nível não definido'}
+                                    </Badge>
                                         <span className="text-xs text-muted-foreground">{course.category}</span>
                                     </div>
                                     <CardTitle className="text-lg line-clamp-2">{course.title}</CardTitle>

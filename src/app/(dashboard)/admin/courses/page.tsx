@@ -306,7 +306,7 @@ export default function AdminCoursesPage() {
                                     </div>
 
                                     <div className="flex flex-wrap gap-1">
-                                        <Badge variant="outline" className="text-xs">{levelLabels[course.level]}</Badge>
+                                        <Badge variant="outline" className="text-xs">{course.level ? levelLabels[course.level] : 'Nível não definido'}</Badge>
                                     </div>
 
                                     <div className="flex items-center gap-3 text-xs text-muted-foreground pt-1">
@@ -345,7 +345,7 @@ export default function AdminCoursesPage() {
                                                 <Badge variant={course.isPublished ? "default" : "secondary"}>
                                                     {course.isPublished ? "Publicado" : "Rascunho"}
                                                 </Badge>
-                                                <Badge variant="outline">{levelLabels[course.level]}</Badge>
+                                                <Badge variant="outline">{course.level ? levelLabels[course.level] : 'Nível não definido'}</Badge>
                                             </div>
                                             <p className="text-sm text-muted-foreground line-clamp-1">
                                                 {course.description}

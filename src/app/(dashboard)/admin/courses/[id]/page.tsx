@@ -90,11 +90,11 @@ export default function AdminCourseEditPage() {
     const params = useParams();
     const router = useRouter();
     const courseIdOrSlug = params.id as string;
-    
+
     // Detect if it's an ID (Convex ID format) or a slug
     const isConvexId = /^[a-z][a-z0-9]{15,}$/.test(courseIdOrSlug);
     const isSlug = !isConvexId;
-    
+
     const fileInputRef = useRef<HTMLInputElement>(null);
     const thumbnailInputRef = useRef<HTMLInputElement>(null);
 
@@ -218,10 +218,12 @@ export default function AdminCourseEditPage() {
 
     const handleUpdateSettings = async (e: React.FormEvent) => {
         e.preventDefault();
+        const currentCourseId = courseId;
+        if (!currentCourseId) return;
         setIsLoading(true);
         try {
             await updateCourse({
-                courseId,
+                courseId: currentCourseId,
                 title: settingsFormData.title,
                 slug: settingsFormData.slug,
                 description: settingsFormData.description,
@@ -242,11 +244,12 @@ export default function AdminCourseEditPage() {
     };
 
     const handlePublishToggle = async () => {
-        if (!course) return;
+        const currentCourseId = courseId;
+        if (!course || !currentCourseId) return;
         setIsLoading(true);
         try {
             await updateCourse({
-                courseId,
+                courseId: currentCourseId,
                 isPublished: !course.isPublished,
             });
             toast.success(course.isPublished ? "Curso despublicado" : "Curso publicado!");
@@ -262,11 +265,13 @@ export default function AdminCourseEditPage() {
             toast.error("Digite o título do módulo");
             return;
         }
+        const currentCourseId = courseId;
+        if (!currentCourseId) return;
 
         setIsLoading(true);
         try {
             await createModule({
-                courseId,
+                courseId: currentCourseId,
                 title: newModuleTitle,
                 description: newModuleDescription || undefined,
             });
@@ -303,6 +308,9 @@ export default function AdminCourseEditPage() {
             return;
         }
 
+        const currentCourseId = courseId;
+        if (!currentCourseId) return;
+
         setIsUploadingThumbnail(true);
 
         try {
@@ -329,7 +337,7 @@ export default function AdminCourseEditPage() {
 
             // Salvar thumbnail no curso
             await uploadThumbnail({
-                courseId,
+                courseId: currentCourseId,
                 storageId,
             });
 
@@ -343,10 +351,12 @@ export default function AdminCourseEditPage() {
     };
 
     const handleRemoveThumbnail = async () => {
+        const currentCourseId = courseId;
+        if (!currentCourseId) return;
         try {
             // Remove apenas a URL do thumbnail no banco
             await updateCourse({
-                courseId,
+                courseId: currentCourseId,
                 thumbnail: undefined,
             });
             setThumbnailPreview(null);
@@ -408,6 +418,11 @@ export default function AdminCourseEditPage() {
             toast.error("Preencha os campos obrigatórios");
             return;
         }
+        const currentCourseId = courseId;
+        if (!currentCourseId) {
+            toast.error("ID do curso não encontrado");
+            return;
+        }
 
         // Validate based on type
         if (newLesson.type === "video" && !newLesson.videoUrl) {
@@ -427,7 +442,7 @@ export default function AdminCourseEditPage() {
         try {
             const lessonId = await createLesson({
                 moduleId: selectedModuleId,
-                courseId,
+                courseId: currentCourseId,
                 title: newLesson.title,
                 description: newLesson.description || undefined,
                 type: newLesson.type,
@@ -454,7 +469,7 @@ export default function AdminCourseEditPage() {
             if (["assignment", "exam"].includes(newLesson.type)) {
                 try {
                     const quizId = await createQuiz({
-                        courseId,
+                        courseId: currentCourseId,
                         lessonId,
                         title: newLesson.title,
                         description: newLesson.instructions || `Questões para: ${newLesson.title}`,
@@ -657,11 +672,12 @@ export default function AdminCourseEditPage() {
                             id="public"
                             checked={course.isPublic || false}
                             onCheckedChange={async () => {
-                                if (!course) return;
+                                const currentCourseId = courseId;
+                                if (!course || !currentCourseId) return;
                                 setIsLoading(true);
                                 try {
                                     await updateCourse({
-                                        courseId,
+                                        courseId: currentCourseId,
                                         isPublic: !course.isPublic,
                                     });
                                     toast.success(course.isPublic ? "Curso agora é privado" : "Curso agora é público!");
@@ -1056,7 +1072,7 @@ export default function AdminCourseEditPage() {
                                         <p className="text-sm text-muted-foreground">
                                             Configure como o conteúdo do curso será liberado aos alunos.
                                         </p>
-                                        
+
                                         <div className="space-y-2">
                                             <Label>Modo de Liberação</Label>
                                             <Select
@@ -1094,7 +1110,7 @@ export default function AdminCourseEditPage() {
                                                 </SelectContent>
                                             </Select>
                                         </div>
-                                        
+
                                         {settingsFormData.dripType !== "free" && (
                                             <div className="bg-muted/50 p-4 rounded-lg">
                                                 <p className="text-sm text-muted-foreground">

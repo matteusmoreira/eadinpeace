@@ -261,8 +261,8 @@ export default function ProfessorCoursesPage() {
 
                             <CardContent className="space-y-3">
                                 <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                                    <Badge variant="outline" className={cn("text-xs", levelColors[course.level])}>
-                                        {levelLabels[course.level]}
+                                    <Badge variant="outline" className={cn("text-xs", course.level ? levelColors[course.level] : "bg-gray-500/10 text-gray-600")}>
+                                        {course.level ? levelLabels[course.level] : "Nível não definido"}
                                     </Badge>
                                     <span className="flex items-center gap-1">
                                         <Clock className="h-3.5 w-3.5" />

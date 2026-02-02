@@ -230,8 +230,8 @@ export default function PublicCoursesPage() {
                                                                 <Play className="h-8 w-8 text-primary fill-primary ml-1" />
                                                             </div>
                                                         </div>
-                                                        <Badge className={`absolute top-3 left-3 ${levelColors[course.level]} border-0 text-white`}>
-                                                            {levelLabels[course.level]}
+                                                        <Badge className={`absolute top-3 left-3 ${course.level ? levelColors[course.level] : "bg-gray-500"} border-0 text-white`}>
+                                                            {course.level ? levelLabels[course.level] : "Nível não definido"}
                                                         </Badge>
                                                     </div>
                                                     <CardHeader className="flex-1">
@@ -298,8 +298,8 @@ export default function PublicCoursesPage() {
                                                                     <BookOpen className="h-10 w-10 text-primary/30" />
                                                                 </div>
                                                             )}
-                                                            <Badge className={`absolute top-2 left-2 ${levelColors[course.level]} border-0 text-white text-xs`}>
-                                                                {levelLabels[course.level]}
+                                                            <Badge className={`absolute top-2 left-2 ${course.level ? levelColors[course.level] : "bg-gray-500"} border-0 text-white text-xs`}>
+                                                                {course.level ? levelLabels[course.level] : "Nível não definido"}
                                                             </Badge>
                                                         </div>
                                                         <div className="flex-1 p-4 flex flex-col justify-between">
