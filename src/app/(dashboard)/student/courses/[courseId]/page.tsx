@@ -57,11 +57,20 @@ export default function CoursePlayerPage() {
     // Detect if it's an ID (Convex ID format) or a slug (anything else)
     const isConvexId = /^[a-z][a-z0-9]{15,}$/.test(courseIdOrSlug);
     const isSlug = !isConvexId;
-
     const [currentLessonId, setCurrentLessonId] = useState<Id<"lessons"> | null>(null);
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [showCelebration, setShowCelebration] = useState(false);
     const [completedLessonTitle, setCompletedLessonTitle] = useState("");
+
+    // Check if courseIdOrSlug is a Convex ID or a slug
+    const isConvexId = (id: string) => {
+        // Convex IDs in this project seem to follow the pattern of alphanumeric characters
+        // Usually, they are strings like "kd7..." of a specific length.
+        // A simple check for length and characters is often safer than just checking if it doesn't contain '-'
+        return /^[a-z0-9]{16,}$/i.test(id) && !id.includes("-");
+    };
+
+    const isSlug = !isConvexId(courseIdOrSlug);
 
     // Get Convex user
     const convexUser = useQuery(

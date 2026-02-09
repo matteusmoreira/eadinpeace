@@ -18,14 +18,31 @@ export const updateUserPassword = action({
         }
 
         try {
-            // Importar Clerk SDK dinamicamente
-            const { clerkClient } = await import("@clerk/nextjs/server");
+            // Obter a secret key do ambiente
+            const clerkSecretKey = process.env.CLERK_SECRET_KEY;
+            if (!clerkSecretKey) {
+                throw new Error("CLERK_SECRET_KEY não configurada no dashboard do Convex");
+            }
 
-            // Atualizar senha no Clerk
-            const client = await clerkClient();
-            await client.users.updateUser(args.clerkUserId, {
-                password: args.newPassword,
-            });
+            // Atualizar senha no Clerk via API REST
+            const response = await fetch(
+                `https://api.clerk.com/v1/users/${args.clerkUserId}`,
+                {
+                    method: "PATCH",
+                    headers: {
+                        "Authorization": `Bearer ${clerkSecretKey}`,
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        password: args.newPassword,
+                    }),
+                }
+            );
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.errors?.[0]?.message || `Erro da API: ${response.statusText}`);
+            }
 
             return { success: true };
         } catch (error: any) {

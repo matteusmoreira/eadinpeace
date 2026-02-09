@@ -349,26 +349,29 @@ export const getWithContentBySlug = query({
                 return null;
             }
 
+            console.log(`[getWithContentBySlug] Buscando curso: ${args.slug}`);
             const course = await ctx.db
                 .query("courses")
                 .withIndex("by_slug", (q) => q.eq("slug", args.slug))
                 .first();
 
             if (!course) {
-                console.log("getWithContentBySlug: Curso não encontrado com slug:", args.slug);
+                console.log(`[getWithContentBySlug] Curso não encontrado: ${args.slug}`);
                 return null;
             }
 
             if (user.role !== "superadmin" && user.organizationId !== course.organizationId) {
-                console.log("getWithContentBySlug: Acesso negado - organizações diferentes");
+                console.log(`[getWithContentBySlug] Acesso negado para usuário ${user._id} no curso ${course._id}`);
                 return null;
             }
 
+            console.log(`[getWithContentBySlug] Buscando módulos para curso ${course._id}`);
             const modules = await ctx.db
                 .query("modules")
                 .withIndex("by_course", (q) => q.eq("courseId", course._id))
                 .collect();
 
+            console.log(`[getWithContentBySlug] Encontrados ${modules.length} módulos. Buscando lições...`);
             const modulesWithLessons = await Promise.all(
                 modules.map(async (courseModule) => {
                     const lessons = await ctx.db
@@ -377,7 +380,7 @@ export const getWithContentBySlug = query({
                         .collect();
                     return {
                         ...courseModule,
-                        lessons: lessons.sort((a, b) => a.order - b.order),
+                        lessons: lessons.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
                     };
                 })
             );
@@ -391,19 +394,22 @@ export const getWithContentBySlug = query({
                 try {
                     certificateTemplate = await ctx.db.get(course.certificateTemplateId);
                 } catch (error) {
-                    console.error("getWithContentBySlug: Erro ao buscar certificateTemplate:", error);
+                    console.error("[getWithContentBySlug] Erro ao buscar certificateTemplate:", error);
                     // Se o certificateTemplateId for inválido, apenas ignoramos
                 }
             }
 
+            console.log(`[getWithContentBySlug] Sucesso ao carregar curso ${course.title}`);
             return {
                 ...course,
                 instructor,
                 certificateTemplate,
-                modules: modulesWithLessons.sort((a, b) => a.order - b.order),
+                modules: modulesWithLessons.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
             };
         } catch (error) {
-            console.error("getWithContentBySlug: Erro ao buscar curso:", error);
+            console.error("[getWithContentBySlug] Erro fatal:", error);
+            // Re-throw if it's a critical system error that Convex should report, 
+            // but usually we return null to avoid UI crash if it's data related.
             return null;
         }
     },
@@ -517,19 +523,24 @@ export const getWithContent = query({
                 return null;
             }
 
+            console.log(`[getWithContent] Buscando curso ID: ${args.courseId}`);
             const course = await ctx.db.get(args.courseId);
             if (!course) {
+                console.log(`[getWithContent] Curso não encontrado: ${args.courseId}`);
                 return null;
             }
             if (user.role !== "superadmin" && user.organizationId !== course.organizationId) {
+                console.log(`[getWithContent] Acesso negado para usuário ${user._id} no curso ${course._id}`);
                 return null;
             }
 
+            console.log(`[getWithContent] Buscando módulos para curso ${course._id}`);
             const modules = await ctx.db
                 .query("modules")
                 .withIndex("by_course", (q) => q.eq("courseId", args.courseId))
                 .collect();
 
+            console.log(`[getWithContent] Encontrados ${modules.length} módulos. Buscando lições...`);
             const modulesWithLessons = await Promise.all(
                 modules.map(async (courseModule) => {
                     const lessons = await ctx.db
@@ -538,7 +549,7 @@ export const getWithContent = query({
                         .collect();
                     return {
                         ...courseModule,
-                        lessons: lessons.sort((a, b) => a.order - b.order),
+                        lessons: lessons.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
                     };
                 })
             );
@@ -552,19 +563,19 @@ export const getWithContent = query({
                 try {
                     certificateTemplate = await ctx.db.get(course.certificateTemplateId);
                 } catch (error) {
-                    console.error("getWithContent: Erro ao buscar certificateTemplate:", error);
-                    // Se o certificateTemplateId for inválido, apenas ignoramos
+                    console.error("[getWithContent] Erro ao buscar certificateTemplate:", error);
                 }
             }
 
+            console.log(`[getWithContent] Sucesso ao carregar curso ${course.title}`);
             return {
                 ...course,
                 instructor,
                 certificateTemplate,
-                modules: modulesWithLessons.sort((a, b) => a.order - b.order),
+                modules: modulesWithLessons.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
             };
         } catch (error) {
-            console.error("getWithContent: Erro ao buscar curso:", error);
+            console.error("[getWithContent] Erro fatal:", error);
             return null;
         }
     },
